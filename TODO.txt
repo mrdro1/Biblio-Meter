@@ -1,7 +1,21 @@
-1) scrape all free proxies in one list
-2) create function for use requests.get() with collected proxies
+WEEKEND:
+Saturday
+~1) scrape all free proxies in one list
+~2) create function for use requests.get() with collected proxies
 3) rewrite old function for scrape info from Research Gate with using only json api
+TEST
+Sunday
 4) write api-function getReferences
 5) test getReferences and send to project manager
 6) write api-function getCities
 7) test getCities and send to project manager
+
+WEEK 13.11-20.11
+rewrite code with manager's comment  
+TEST
+1) rewrite captcha handler
+2) rename magic number
+3) do code style insruction (module import, ...) and refactore
+
+
+

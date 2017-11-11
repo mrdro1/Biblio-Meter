@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import itertools
+from random import shuffle
+#
 import sys, traceback, logging
 import browser_cookie3 #
 import random
@@ -115,6 +118,8 @@ _HTTP_PARAMS = {
 }
 
 
+
+
 # Handlers dictionary. Keys = host, value = handler
 # handler signature:
 # (parameter, result_value) handler(error:Exception, request:Preparedrequest, url:str)
@@ -164,27 +169,57 @@ def handle_captcha(url):
             max_iter -= 1
         return res
 
+class ProxyManager:
+    def __init__(self):
+        self.file_name = settings.PROXY_FILE
+        self.gen_proxy = self.load_proxies()
+        self.set_next_proxy()  # set self.proxy
 
-def get_request(url, ignore_errors = False):
+    def load_proxies(self):
+        """  """
+        with open(self.file_name, 'r') as f:
+            proxies_list = f.readlines()
+            shuffle(proxies_list)
+            proxies_list = itertools.cycle(proxies_list)
+        return ({proxy.split(',')[0]: proxy.split(',')[1]} for proxy in proxies_list)
+
+    def set_next_proxy(self):
+        """   """
+        self.proxy = next(self.gen_proxy)
+        return 0
+
+    def get_cur_proxy(self):
+        """   """
+        return self.proxy
+
+def get_request(url, ignore_errors=False, proxy=None):
     """Send get request & return data"""
     while(True):
         resp = None
         try:
-            resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], cookies=_HTTP_PARAMS["cookies"])
+            if proxy:
+                url = url.replace(url.split(':')[0], list(proxy.keys)[0])
+            resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], cookies=_HTTP_PARAMS["cookies"], proxies=proxy)
             if not ignore_errors and resp.status_code != 200:
                 settings.print_message("HTTP Error #{0}. {1}.".format(resp.status_code, resp.reason))
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')): # maybe captcha
                     handle_captcha(url)
                     continue
                 raise ConnError(resp.status_code, resp.reason)
-            if ignore_errors or resp.status_code == 200: return resp.text # OK
+            if ignore_errors or resp.status_code == 200:
+                if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):
+                    handle_captcha(url)
+                    continue
+                return resp.text # OK
         except Exception as error:
             logger.warn(traceback.format_exc())
             host = urlparse(url).hostname
             if host != "" and host in _EXCEPTION_HANDLERS:
                 command, com_params = _EXCEPTION_HANDLERS[host](error, resp, url)
                 if command == 0: raise
-                elif command == 1: continue
+                elif command == 1:
+                    proxy = com_params
+                    continue
                 elif command == 2: break
                 elif command == 3: return com_params
             settings.print_message(error)
@@ -193,13 +228,10 @@ def get_request(url, ignore_errors = False):
     raise ConnError(resp.status_code, resp.reason)
 
 
-def get_soup(url):
+def get_soup(url, proxy=None):
     """Return the BeautifulSoup for a page"""
     try:
-        soup = BeautifulSoup(get_request(url), 'html.parser')
-        if _check_captcha(soup):
-            handle_captcha(url)
-            return get_soup(url)
+        soup = BeautifulSoup(get_request(url, proxy=proxy), 'html.parser')
         return soup
     except Exception as error:
         logger.warn(traceback.format_exc())
@@ -216,27 +248,27 @@ def get_text_data(url, ignore_errors = False, repeat_until_captcha = False):
     return None
 
 
-def get_json_data(url):
+def get_json_data(url, proxy=None):
     """Send get request to URL and get data in JSON format"""
     global _HTTP_PARAMS
     tmp_accept = _HTTP_PARAMS["header"]["Accept"]
     _HTTP_PARAMS["header"].update({"Accept" : "application/json"})
     data = None
     try:
-        data = get_request(url)
+        data = get_request(url, proxy=proxy)
     except Exception as error:
         logger.warn(traceback.format_exc())
     _HTTP_PARAMS["header"].update({"Accept" : tmp_accept})
     return data
 
 
-def download_file(url, output_filename):
+def download_file(url, output_filename, proxy=None):
     """Download file from url"""
     logger.warn("Download file (url='%s') and save (filename='%s')" % (url, output_filename))
     while(1):
         response = None
         try:
-            response = requests.get(url, stream=True, cookies=_HTTP_PARAMS["cookies"])
+            response = requests.get(url, stream=True, cookies=_HTTP_PARAMS["cookies"], proxies=proxy)
             if "html" in response.headers["content-type"].split("/")[1]:
                 raise TypeError("Loading html page")
             content_length = int(response.headers['content-length'])

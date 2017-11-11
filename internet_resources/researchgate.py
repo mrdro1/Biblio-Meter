@@ -27,13 +27,18 @@ _AUTHORSLISTDATA = r"publicliterature.PublicationAuthorList.loadMore.html?public
 _AUTHORDATA = r"publicprofile.ProfileHighlightsStats.html?accountId={0}"
 _RGIDRE = r"\/[0-9]+_"
 
+# init proxy
+_PROXY_OBJ = utils.ProxyManager()
+
 
 def error_handler(error, response, url):
     """Handle exception"""
     if response != None:
         if response.status_code == 429:
             answ = input("Skip researchgate stage for this paper? [y/n/a]:")
-            if answ == 'n': return 1, None
+            if answ == 'n':
+                _PROXY_OBJ.set_next_proxy()  # change current proxy in HTTP_PARAMS
+                return 1, _PROXY_OBJ.get_cur_proxy()
             elif answ == 'y': 
                 utils.RG_stage_is_skipped()
                 return 3, None
@@ -53,7 +58,7 @@ def get_query_soup(params):
     #
     url = _PUBSEARCH.format(requests.utils.quote(stopwords.delete_stopwords(params["title"], " and ")), 1)
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, url))    
-    soup = utils.get_soup(_FULLURL.format(_HOST, url))
+    soup = utils.get_soup(_FULLURL.format(_HOST, url), _PROXY_OBJ.get_cur_proxy())
     return soup
 
 
@@ -173,7 +178,7 @@ def _ident_and_fill_paper(soup, params):
             logger.debug("Title with logical conditions: '%s'." % stopwords.delete_stopwords(params["title"], " and "))
             #
             url = _PUBSEARCH.format(qtext, pagenum)
-            soup = utils.get_soup(_FULLURL.format(_HOST, url))
+            soup = utils.get_soup(_FULLURL.format(_HOST, url), _PROXY_OBJ.get_cur_proxy())
         else:
             logger.debug("This paper not found in researchgate.")
             return None
@@ -182,7 +187,7 @@ def _ident_and_fill_paper(soup, params):
 def get_paper_info_from_html(PaperURL):
     """Fill the data about paper"""
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, PaperURL))
-    soup = utils.get_soup(PaperURL)
+    soup = utils.get_soup(PaperURL, _PROXY_OBJ.get_cur_proxy())
     res = dict()
     logger.debug("Parse paper string and get information.")
     details_soup = soup.find('div', class_ = 'public-publication-details-top')
@@ -234,7 +239,7 @@ def get_paper_info_from_dataRIS(RIS_data, rg_paper_id):
 def get_info_from_RIS(rg_paper_id):
     """Get RIS file for paper with rg_paper_id"""
     logger.debug("Downloading RIS data about paper. RGID={0}.".format(rg_paper_id))
-    data = utils.get_json_data(_FULLURL.format(_HOST, _PUBRISDATA.format(rg_paper_id))).replace("\r", "")
+    data = utils.get_json_data(_FULLURL.format(_HOST, _PUBRISDATA.format(rg_paper_id)), _PROXY_OBJ.get_cur_proxy()).replace("\r", "")
     logger.debug("RIS file:\n%s" % data)
     logger.debug("Parse RIS data.")
     res = None
@@ -258,7 +263,7 @@ def get_referring_papers(rg_paper_id):
     ref_url = _PUBREFERENCESDATA.format(rg_paper_id)
     url = _FULLURL.format(_HOST, ref_url)
     try:
-        req_result = utils.get_json_data(url)
+        req_result = utils.get_json_data(url, _PROXY_OBJ.get_cur_proxy())
         logger.debug("Parse host answer from json.")
         dict_req_result = json.loads(req_result)
     except:
@@ -279,7 +284,7 @@ def get_authors(rg_paper_id):
     ref_url = _AUTHORSLISTDATA.format(rg_paper_id, 0, 100)
     url = _FULLURL.format(_HOST, ref_url)
     try:
-        req_result = utils.get_json_data(url)
+        req_result = utils.get_json_data(url, _PROXY_OBJ.get_cur_proxy())
         logger.debug("Parse host answer from json.")
         dict_req_result = json.loads(req_result)
     except:
@@ -300,7 +305,7 @@ def get_auth_info(rg_account_id):
     ref_url = _AUTHORDATA.format(rg_account_id)
     url = _FULLURL.format(_HOST, ref_url)
     try:
-        req_result = utils.get_json_data(url)
+        req_result = utils.get_json_data(url, _PROXY_OBJ.get_cur_proxy())
         logger.debug("Parse host answer from json.")
         dict_req_result = json.loads(req_result)
     except:
@@ -320,7 +325,7 @@ def get_pdf_url(rg_paper_id):
     logger.debug("Get page from researchgate for paper with RGID={0}.".format(rg_paper_id))
     ref_url = _PUBLICATIONPAGE.format(rg_paper_id)
     url = _FULLURL.format(_HOST, ref_url)
-    soup = utils.get_soup(url)
+    soup = utils.get_soup(url, _PROXY_OBJ.get_cur_proxy())
     logger.debug("Parse paper string and get information.")
     details_soup = soup.find('div', class_ = 'publication-resources-summary--action-container')
     load_button = [ i for i in details_soup.find_all("a") if "publication-header-full-text" in i.attrs['class'] ]

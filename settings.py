@@ -28,6 +28,7 @@ _DEFAULT_LOGBOOK = "logbook.log"
 _LOGBOOK_NAME = os.path.join(_main_dir, _DEFAULT_LOGBOOK)
 _CONTROL_FILE = ""
 _SUCCESSFUL_START_FLAG = False
+PROXY_FILE = "\\default\\proxies.txt"
 
 INFORMATION_MODE = 1
 TRANSACTION_MODE = 0

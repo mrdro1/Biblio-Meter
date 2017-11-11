@@ -1,0 +1,7 @@
+1) scrape all free proxies in one list
+2) create function for use requests.get() with collected proxies
+3) rewrite old function for scrape info from Research Gate with using only json api
+4) write api-function getReferences
+5) test getReferences and send to project manager
+6) write api-function getCities
+7) test getCities and send to project manager

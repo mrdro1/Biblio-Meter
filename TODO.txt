@@ -15,7 +15,7 @@ rewrite code with manager's comment
 TEST
 1) rewrite captcha handler
 2) rename magic number
-3) do code style insruction (module import, ...) and refactore
+3) do code style insruction (module import, #TODO for continue refactore...) and refactore
 
 
 

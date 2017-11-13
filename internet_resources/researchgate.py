@@ -38,6 +38,7 @@ def error_handler(error, response, url):
             answ = input("Skip researchgate stage for this paper? [y/n/a]:")
             if answ == 'n':
                 _PROXY_OBJ.set_next_proxy()  # change current proxy in HTTP_PARAMS
+                logger.debug("Cannot connect to proxy. Change proxy to '%s'." % _PROXY_OBJ.get_cur_proxy())
                 return 1, _PROXY_OBJ.get_cur_proxy()
             elif answ == 'y': 
                 utils.RG_stage_is_skipped()
@@ -45,6 +46,10 @@ def error_handler(error, response, url):
             elif answ == 'a': 
                 utils.skip_RG_stage_for_all()
                 return 3, None
+    if isinstance(error, requests.exceptions.ProxyError):
+        _PROXY_OBJ.set_next_proxy()  # change current proxy in HTTP_PARAMS
+        logger.debug("Cannot connect to proxy. Change proxy to '%s'." % _PROXY_OBJ.get_cur_proxy())
+        return 1, _PROXY_OBJ.get_cur_proxy()
     return 4, None
 utils.add_exception_handler_if_not_exists(urlparse(_HOST).hostname, error_handler)
 

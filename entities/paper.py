@@ -71,9 +71,9 @@ class Paper(object):
             if not "name" in author:
                 del self.authors[auth_index]
 
-
+    #
     def get_rg_soup(self):
-        return researchgate.get_query_soup(            
+        return researchgate.get_query_json(
                 {
                     "title":self.title, 
                     "authors_count":len(self.authors), 

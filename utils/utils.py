@@ -181,7 +181,7 @@ class ProxyManager:
             proxies_list = f.readlines()
             shuffle(proxies_list)
             proxies_list = itertools.cycle(proxies_list)
-        return ({proxy.split(',')[0]: proxy.split(',')[1]} for proxy in proxies_list)
+        return ({proxy.split(',')[0].strip(): proxy.split(',')[1].strip()} for proxy in proxies_list)
 
     def set_next_proxy(self):
         """   """
@@ -198,7 +198,7 @@ def get_request(url, ignore_errors=False, proxy=None):
         resp = None
         try:
             if proxy:
-                url = url.replace(url.split(':')[0], list(proxy.keys)[0])
+                url = url.replace(url.split(':')[0], list(proxy.keys())[0])
             resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], cookies=_HTTP_PARAMS["cookies"], proxies=proxy)
             if not ignore_errors and resp.status_code != 200:
                 settings.print_message("HTTP Error #{0}. {1}.".format(resp.status_code, resp.reason))
@@ -212,7 +212,7 @@ def get_request(url, ignore_errors=False, proxy=None):
                     continue
                 return resp.text # OK
         except Exception as error:
-            logger.warn(traceback.format_exc())
+            #logger.warn(traceback.format_exc())
             host = urlparse(url).hostname
             if host != "" and host in _EXCEPTION_HANDLERS:
                 command, com_params = _EXCEPTION_HANDLERS[host](error, resp, url)

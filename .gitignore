@@ -1,5 +1,4 @@
 *.pyproj
 *.pyc
-internet_resources/researchgate.py
 *.db3
 *.log

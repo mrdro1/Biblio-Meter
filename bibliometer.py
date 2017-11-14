@@ -57,7 +57,7 @@ def get_papers_by_key_words():
                         if rg_query_page_cache == None:
                             if not utils.RG_stage_is_skipped(): 
                                 settings.print_message(" Search papers from researchgate.")
-                                rg_query_page_cache = newpaper.get_rg_soup()
+                                rg_query_page_cache = newpaper.get_rg_first_search_page()
                             else:
                                 settings.print_message(" Skip researchgate stage.")
                                 logger.debug("Skip researchgate stage.")
@@ -211,84 +211,32 @@ def get_references():
     #    ref_papers_list = researchgate.get_referring_papers(rg_paper_id)
 
     #    pass
-    def handler():
-        return 3, None
-    utils.add_exception_handler("www.researchgate.net", handler)
-    urls = ["https://www.researchgate.net/search/publications?q=predict", "https://www.researchgate.net/search/publications?q=location%252Bprediction", "https://www.researchgate.net/search/publications?q=python", "https://www.researchgate.net/search/publications?q=network", "https://www.researchgate.net/search/publications?q=rules"]
-    #t = 1
-    #start_time = datetime.now()
-    #while(1):
-    #    url = urls[random.randint(0, len(urls) - 1)]
-    #    if utils.get_soup(url) == None: break
-    #    t += 1
-    #    print("{0}\t:\t{1}".format(t, url))
-    #end_time = datetime.now()
-    #time1 = end_time - start_time
-    #input("enter press pls")
 
-    sid_list = [
-            "nEG55b6uuZJR0rMOjBog1phSxPeojyIB4Nl9kBCnKlfkks6oZPyB0ZVeSbBTiNXbQuRyH70VWfjkNDfVTj9z8H1pq8QVRqTnlL0gFvUSFeyM0u0JINh7NpaaEGGYG3ut",
-            "5LDGnCcCiWFVjM0f1bXnbcFPNOXcSdYpdTAY6IF6oKsHRPY4UsCauuSdfDZiXIpuqrKBRyeq03AlGdsYgABW5OpA6x6CFq6h06dA4tlA78h8XQNkeF0eaHkI2fOjqOON",
-            "LpX2dyZPVBnAolXADB3mKg1gbESDDEGgL1iKmUwuhjeKqFa7kXIrvE9geuRlgE2GmbfqIwpBH0k1KkdWRyjtZoRQZasoeqNnMMYMvoXzsvL9kzqSJTw4IvvPJSxKO6dE",
-            "7lpgSm660Fg0kiMjPnpD851CpGQn38nyF6vuRJVF9NPnDvKV0K0UtU0w2B678rMSjCC8mAImlBDroqp8X4nIwEcaYPOOBrMKdl8BHuBnRgfISamRYnL8uPERyf1tlUrG",
-            "CFSrkUT22kJDT1LfpAHZYvmvP9bPPZO1t1M9kWixV6OgtMskOVzCIuiuKP3Qj30Aa08cf4H89bkq4BvMsUVIBH8Uiiy2qpMuroGTnFncwgE6qxRl1v220hsCO41qc3qo"
-    ]
-    did_list = [
-        "4kNQtLiVo4Qn9uqm5j0cPROr90KsYx6Nq3C3df9rvzppvN9dbmwc1WmaaM6rmcRl",
-        "R129m81YcydgK2Ifj0lSwYv6xsrDRs4mdjyKpTL9ClrNG47pZnQAgsB4n6XTcv6Q"
-        ]
-    ptc_list = [
-        "RG1.4136267607600785951.1509991027",
-        "RG1.7224772776429598819.1509993051"
-        ]
-    cookie = utils._get_cookies("www.researchgate.net")
-    #print(cookie)
-    #sid_k = [i for i in cookie if i.name.lower().startswith("sid")][0]
-    #sid_k.value = sid_list[4]
-    #sid_k = [i for i in cookie if i.name.lower().startswith("did")][0]
-    #sid_k.value = did_list[0]
-    #sid_k = [i for i in cookie if i.name.lower().startswith("ptc")][0]
-    #sid_k.value = ptc_list[0]
-    utils._HTTP_PARAMS["cookies"] = cookie
-    print(cookie)
-    f = 1
-    start_time = datetime.now()
-    while(1):
-        if utils.get_json_data(r"https://www.researchgate.net/publicbrowse.SearchItemsList.html?query[0]=Predict&query[1]=2&type=publications&page=2") == None: break
-        f += 1
-        print("{0}".format(f))
-    end_time = datetime.now()
-    time2 = end_time - start_time
-
-    input("enter press pls")
-    cookie = utils._get_cookies("www.researchgate.net")
-    print(cookie)
-    sid_k = [i for i in cookie if i.name.lower().startswith("sid")][0]
-    sid_k.value = sid_list[0]
-    sid_k = [i for i in cookie if i.name.lower().startswith("did")][0]
-    sid_k.value = did_list[1]
-    sid_k = [i for i in cookie if i.name.lower().startswith("ptc")][0]
-    sid_k.value = ptc_list[1]
-    utils._HTTP_PARAMS["cookies"] = cookie
-    print(cookie)
-    f = 1
-    start_time = datetime.now()
-    while(1):
-        if utils.get_json_data(r"https://www.researchgate.net/publicbrowse.SearchItemsList.html?query[0]=Predict&query[1]=2&type=publications&page=2") == None: break
-        f += 1
-        print("{0}".format(f))
-    end_time = datetime.now()
-    time2 = end_time - start_time
-
-    print(time1)
-    print(t)
-    print(time2)
-    print(f)
-    result = (True, )
-    return result
 
 def get_cities():
     pass
+
+
+def test():
+    urls = [
+    "https://www.researchgate.net/publicbrowse.SearchItemsList.html?query[0]=rand%20and%20fang&type=publications&page=1",
+    "https://www.researchgate.net/publicliterature.PublicPublicationReferenceList.html?publicationUid=303947415&initialDisplayLimit=1000&loadMoreCount=1000",
+    "https://www.researchgate.net/publicliterature.PublicationAuthorList.loadMore.html?publicationUid=303947415&offset=0&count=20"    
+        ]
+    import collections
+    import pickle
+    i = 0
+    stat = collections.defaultdict(lambda:1)
+    while(1):
+        for url in urls:
+            i += 1
+            stat[[i for i in researchgate._PROXY_OBJ.get_cur_proxy().values()][0]] += 1
+            settings.print_message("%i %s" % (i, researchgate._PROXY_OBJ.get_cur_proxy()))
+            utils.get_json_data(url, researchgate._PROXY_OBJ.get_cur_proxy())
+        if i > 2000:
+            break
+    pickle.dump(dict(stat), open("dict.pkl", "wb"))
+
 
 def dispatch(command):
     result = None
@@ -321,6 +269,9 @@ def dispatch(command):
                 break
             if case("getCities"): 
                 result = get_cities()
+                break
+            if case("test"): 
+                result = test()
                 break
             if case(): # default
                 logger.warn("Unknown command: %s" % command)

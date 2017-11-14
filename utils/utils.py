@@ -181,7 +181,7 @@ class ProxyManager:
             proxies_list = f.readlines()
             shuffle(proxies_list)
             proxies_list = itertools.cycle(proxies_list)
-        return ({proxy.split(',')[0].strip(): proxy.split(',')[1].strip()} for proxy in proxies_list)
+        return ({proxy.split(',')[0].strip(): proxy.split(',')[1].strip()} for proxy in proxies_list if proxy.split(',')[0].strip() == "https")
 
     def set_next_proxy(self):
         """   """
@@ -201,7 +201,6 @@ def get_request(url, ignore_errors=False, proxy=None):
                 url = url.replace(url.split(':')[0], list(proxy.keys())[0])
             resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], cookies=_HTTP_PARAMS["cookies"], proxies=proxy)
             if not ignore_errors and resp.status_code != 200:
-                settings.print_message("HTTP Error #{0}. {1}.".format(resp.status_code, resp.reason))
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')): # maybe captcha
                     handle_captcha(url)
                     continue
@@ -223,8 +222,7 @@ def get_request(url, ignore_errors=False, proxy=None):
                 elif command == 2: break
                 elif command == 3: return com_params
             settings.print_message(error)
-            if input("Try load again? [y/n]: ") == 'y': continue
-            raise
+            continue
     raise ConnError(resp.status_code, resp.reason)
 
 
@@ -253,13 +251,15 @@ def get_json_data(url, proxy=None):
     global _HTTP_PARAMS
     tmp_accept = _HTTP_PARAMS["header"]["Accept"]
     _HTTP_PARAMS["header"].update({"Accept" : "application/json"})
-    data = None
+    json_data = None
     try:
-        data = get_request(url, proxy=proxy)
+        resp = get_request(url, proxy=proxy)
+        logger.debug("Parse host answer from json.")
+        json_data = json.loads(resp)
     except Exception as error:
         logger.warn(traceback.format_exc())
     _HTTP_PARAMS["header"].update({"Accept" : tmp_accept})
-    return data
+    return json_data
 
 
 def download_file(url, output_filename, proxy=None):
@@ -283,8 +283,7 @@ def download_file(url, output_filename, proxy=None):
                 elif command == 2: break
                 elif command == 3: return com_params
                 else:
-                    if input("Try load again? [y/n]: ") == 'y': continue
-                    return False
+                    continue
             else: return False
 
     downloaded_size = 0

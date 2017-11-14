@@ -72,7 +72,7 @@ class Paper(object):
                 del self.authors[auth_index]
 
     #
-    def get_rg_soup(self):
+    def get_rg_first_search_page(self):
         return researchgate.get_query_json(
                 {
                     "title":self.title, 

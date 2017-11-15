@@ -249,7 +249,7 @@ def get_about_count_results(soup):
             count_papers = title.text.split(' ')[0].replace(',', '')
     else:
         count_papers = 1
-    return count_papers
+    return int(count_papers)
 
 def search_pubs_query_with_control_params(params):
     """Advanced search by scholar query and return a generator of Publication objects"""

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import collections
 import itertools
 from random import shuffle
 #
@@ -10,11 +11,12 @@ from bs4 import BeautifulSoup
 import webbrowser
 import time
 import re
-import progressbar as pb
+#import progressbar as pb
 import json
 from urllib.parse import urlparse
 #
 import settings
+import utils
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -40,7 +42,42 @@ class switch(object):
 
 
 class ConnError(Exception): pass
+
+
 class TypeError(Exception): pass
+
+
+class ProxyManager:
+    """ Class for manage with proxies for each host name: load, get current, set next from inf list """
+
+    def __init__(self):
+        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', 'sci-hub.cc']
+        self.file_name = settings.PROXY_FILE
+        self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
+        # initialize current proxies for each host name
+        self.proxy = dict()
+        [self.set_next_proxy(host_name) for host_name in self.list_host_names]  # set self.proxy
+
+    def load_proxies(self):
+        """ load proxies from txt file to generator"""
+        with open(self.file_name, 'r') as f:
+            proxies_list = f.readlines()
+            shuffle(proxies_list)
+            proxies_list = itertools.cycle(proxies_list)
+        return ({"https": proxy.strip()} for proxy in proxies_list)
+
+    def set_next_proxy(self, host_name):
+        """ change current proxy for specific host name """
+        self.proxy[host_name] = next(self.dict_gens_proxy[host_name])
+        return 0
+
+    def get_cur_proxy(self, host_name):
+        """ get current proxy for specific host name """
+        return self.proxy[host_name]
+
+
+# init proxy
+_PROXY_OBJ = ProxyManager()
 
 
 def soup2file(soup, file_name):
@@ -169,50 +206,29 @@ def handle_captcha(url):
             max_iter -= 1
         return res
 
-class ProxyManager:
-    def __init__(self):
-        self.file_name = settings.PROXY_FILE
-        self.gen_proxy = self.load_proxies()
-        self.set_next_proxy()  # set self.proxy
 
-    def load_proxies(self):
-        """  """
-        with open(self.file_name, 'r') as f:
-            proxies_list = f.readlines()
-            shuffle(proxies_list)
-            proxies_list = itertools.cycle(proxies_list)
-        return ({proxy.split(',')[0].strip(): proxy.split(',')[1].strip()} for proxy in proxies_list if proxy.split(',')[0].strip() == "https")
-
-    def set_next_proxy(self):
-        """   """
-        self.proxy = next(self.gen_proxy)
-        return 0
-
-    def get_cur_proxy(self):
-        """   """
-        return self.proxy
-
-def get_request(url, ignore_errors=False, proxy=None):
-    """Send get request & return data"""
+def get_request(url):
+    """Send get request [, catch errors, try again]* & return data"""
+    host = urlparse(url).hostname
+    count_try_for_captcha = 0
     while(True):
         resp = None
         try:
-            if proxy:
-                url = url.replace(url.split(':')[0], list(proxy.keys())[0])
+            proxy = _PROXY_OBJ.get_cur_proxy(host)
             resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], cookies=_HTTP_PARAMS["cookies"], proxies=proxy)
-            if not ignore_errors and resp.status_code != 200:
-                if _check_captcha(BeautifulSoup(resp.text, 'html.parser')): # maybe captcha
+            if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
+                count_try_for_captcha += 1
+                if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
+                    _PROXY_OBJ.set_next_proxy(host)
+                else:
                     handle_captcha(url)
-                    continue
+                continue
+            if resp.status_code != 200:
                 raise ConnError(resp.status_code, resp.reason)
-            if ignore_errors or resp.status_code == 200:
-                if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):
-                    handle_captcha(url)
-                    continue
+            if resp.status_code == 200:
                 return resp.text # OK
         except Exception as error:
-            #logger.warn(traceback.format_exc())
-            host = urlparse(url).hostname
+            logger.warn(traceback.format_exc())
             if host != "" and host in _EXCEPTION_HANDLERS:
                 command, com_params = _EXCEPTION_HANDLERS[host](error, resp, url)
                 if command == 0: raise
@@ -225,6 +241,18 @@ def get_request(url, ignore_errors=False, proxy=None):
             continue
     raise ConnError(resp.status_code, resp.reason)
 
+def _get_name_max_try_to_host(url):
+    """   """
+    dict_host_to_name = \
+        {
+            'www.researchgate.net': 'researchgate',
+            'scholar.google.com': 'google',
+            'sci-hub.cc': 'sci-hub'
+        }
+    host = urlparse(url).hostname
+    name = dict_host_to_name[host]
+    name_field_in_ctl_dict = name + '_captcha_retry_by_proxy_count'
+    return name_field_in_ctl_dict
 
 def get_soup(url, proxy=None):
     """Return the BeautifulSoup for a page"""
@@ -246,14 +274,14 @@ def get_text_data(url, ignore_errors = False, repeat_until_captcha = False):
     return None
 
 
-def get_json_data(url, proxy=None):
+def get_json_data(url):
     """Send get request to URL and get data in JSON format"""
     global _HTTP_PARAMS
     tmp_accept = _HTTP_PARAMS["header"]["Accept"]
     _HTTP_PARAMS["header"].update({"Accept" : "application/json"})
     json_data = None
     try:
-        resp = get_request(url, proxy=proxy)
+        resp = get_request(url)
         logger.debug("Parse host answer from json.")
         json_data = json.loads(resp)
     except Exception as error:
@@ -290,8 +318,8 @@ def download_file(url, output_filename, proxy=None):
     chunk_size = 65536
  
     with open(output_filename, 'bw') as outfile:
-        widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]                     
-        progress = pb.ProgressBar(maxval=content_length,                    
+        widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]
+        progress = pb.ProgressBar(maxval=content_length,
                                   widgets=widgets).start()
         for chunk in response.iter_content(chunk_size):
             outfile.write(chunk)

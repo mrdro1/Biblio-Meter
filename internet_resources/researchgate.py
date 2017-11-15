@@ -27,9 +27,6 @@ _AUTHORSLISTDATA = r"publicliterature.PublicationAuthorList.loadMore.html?public
 _AUTHORDATA = r"publicprofile.ProfileHighlightsStats.html?accountId={0}"
 _RGIDRE = r"\/[0-9]+_"
 
-# init proxy
-_PROXY_OBJ = utils.ProxyManager()
-
 
 def error_handler(error, response, url):
     """Handle exception"""
@@ -37,13 +34,8 @@ def error_handler(error, response, url):
     if response != None:
         logger.debug(response.status_code)
         if response.status_code in [404, 406, 302, 429] or isinstance(error, requests.exceptions.ProxyError):
-            settings.print_message("HTTP Error #{0}. {1}. Change proxy and trying load again.".format(response.status_code, response.reason))
-            _PROXY_OBJ.set_next_proxy()  # change current proxy in HTTP_PARAMS
-            logger.debug("Proxy can't return data. Change proxy to '%s'." % _PROXY_OBJ.get_cur_proxy())
-            return 1, _PROXY_OBJ.get_cur_proxy()
-    _PROXY_OBJ.set_next_proxy()  # change current proxy in HTTP_PARAMS
-    logger.debug("Cannot connect to proxy. Change proxy to '%s'." % _PROXY_OBJ.get_cur_proxy())
-    return 1, _PROXY_OBJ.get_cur_proxy()
+            return 1
+    return 1
     #return 4, None
 utils.add_exception_handler_if_not_exists(urlparse(_HOST).hostname, error_handler)
 
@@ -57,7 +49,7 @@ def get_query_json(params):
     #
     url = _PUBSEARCH.format(requests.utils.quote(stopwords.delete_stopwords(params["title"], " and ")), 1)
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, url))
-    json_query_result = utils.get_json_data(_FULLURL.format(_HOST, url), _PROXY_OBJ.get_cur_proxy())
+    json_query_result = utils.get_json_data(_FULLURL.format(_HOST, url))
     return json_query_result
 
 

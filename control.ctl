@@ -1,7 +1,7 @@
 {"command":"getPapersByKeyWords",
 "query":"fuzzy rule prediction", 
 "max_google_papers":"15",
-"google_clusters_handling":"False",
+"google_clusters_handling":"True",
 "max_researchgate_papers":"15"
 }
 

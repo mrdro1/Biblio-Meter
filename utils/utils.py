@@ -254,10 +254,10 @@ def _get_name_max_try_to_host(url):
     name_field_in_ctl_dict = name + '_captcha_retry_by_proxy_count'
     return name_field_in_ctl_dict
 
-def get_soup(url, proxy=None):
+def get_soup(url):
     """Return the BeautifulSoup for a page"""
     try:
-        soup = BeautifulSoup(get_request(url, proxy=proxy), 'html.parser')
+        soup = BeautifulSoup(get_request(url), 'html.parser')
         return soup
     except Exception as error:
         logger.warn(traceback.format_exc())

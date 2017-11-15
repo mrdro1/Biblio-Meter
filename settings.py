@@ -61,6 +61,7 @@ CONTROL_KEYS = [
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
 CONTROL_DEFAULT_VALUES["google_captcha_retry_by_proxy_count"] = 4
 CONTROL_DEFAULT_VALUES["sci_hub_captcha_retry_by_proxy_count"] = 4
+CONTROL_DEFAULT_VALUES["researchgate_captcha_retry_by_proxy_count"] = 4
 '''temp_dict = {
     "query": '',
     "date_from": '',
@@ -185,7 +186,7 @@ try:
         raise Exception()
     # check all params, if null then set default
     PARAMS = {key: PARAMS.setdefault(key, CONTROL_DEFAULT_VALUES[key]) for key in CONTROL_KEYS}
-    print(PARAMS)
+    #print(PARAMS)
 except:
     print_message("Invalid file control. Check the syntax.")
     logger.error("Invalid file control. Check the syntax.")

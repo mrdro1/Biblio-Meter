@@ -237,7 +237,7 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, about_count_p
 
 def get_about_count_results(soup):
     """Shows the approximate number of pages as a result"""
-    return soup.find_all("div", class_="gs_ab_mdw")[1].text.split(" (")[0]
+    return ""#soup.find_all("div", class_="gs_ab_mdw")[1].text.split(" (")[0]
 
 
 def search_pubs_query_with_control_params(params):

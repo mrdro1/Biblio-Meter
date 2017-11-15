@@ -210,11 +210,10 @@ def get_info_from_EndNote(file_url, return_source = False):
     return EndNote_info
 
 
-def _search_scholar_soup(soup, handling_cluster, max_papers_count, about_count_papers):
+def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers):
     """Generator that returns pub information dictionaries from the search page"""
     page_num = 1
     counter = 0
-    total_papers = 1 if about_count_papers == "" else int(about_count_papers.split()[1].replace(",", ""))
     while True:
         paper_blocks = soup.find_all('div', 'gs_r')
         page_total = len(paper_blocks)
@@ -237,12 +236,20 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, about_count_p
 
 def get_about_count_results(soup):
     """Shows the approximate number of pages as a result"""
-    res = ""
-    try:
-        res = soup.find_all("div", class_="gs_ab_mdw")[1].text.split(" (")[0]
-    except Exception as error:
-        logger.error(traceback.format_exc())
-    return res
+    title = soup.find('div', {'id': 'gs_ab_md'}).find('div', {'class': 'gs_ab_mdw'})
+    if title:
+        count_papers = title.text
+        if count_papers:
+            count_papers = count_papers.split(' ')[1].replace(',', '')
+        else:
+            count_papers = 1
+        try:
+            int(count_papers)
+        except:
+            count_papers = title.text.split(' ')[0].replace(',', '')
+    else:
+        count_papers = 1
+    return count_papers
 
 def search_pubs_query_with_control_params(params):
     """Advanced search by scholar query and return a generator of Publication objects"""

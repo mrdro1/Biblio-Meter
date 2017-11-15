@@ -32,8 +32,8 @@ def get_papers_by_key_words():
     if number_of_papers_compared <= 0: utils.skip_RG_stage_for_all()
     new_papers = 0
     new_auth = 0
-    max_papers_count = int(settings.PARAMS["max_google_papers"]) if "max_google_papers" in settings.PARAMS else -1
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else 5
+    max_papers_count = int(settings.PARAMS["max_google_papers"]) if "max_google_papers" in settings.PARAMS else 1000000
+    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else 1000000
     papers_counter = 0
     if max_papers_count > 0:
         for paper_info in paper_generator:

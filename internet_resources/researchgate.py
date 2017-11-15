@@ -38,7 +38,7 @@ def error_handler(error, response, url):
     return 1
     #return 4, None
 utils.add_exception_handler_if_not_exists(urlparse(_HOST).hostname, error_handler)
-
+utils.add_exception_handler_if_not_exists(urlparse('https://scholar.google.com').hostname, error_handler)
 
 def get_query_json(params):
     """Return resulting json"""
@@ -155,7 +155,7 @@ def _ident_and_fill_paper(json_query_result, params):
             #   DEBUG messages
             url = _PUBSEARCH.format(qtext, pagenum)
             logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, url))
-            json_query_result = utils.get_json_data(_FULLURL.format(_HOST, url), _PROXY_OBJ.get_cur_proxy())
+            json_query_result = utils.get_json_data(_FULLURL.format(_HOST, url))
         else:
             logger.debug("This paper not found in researchgate.")
             return None
@@ -164,7 +164,7 @@ def _ident_and_fill_paper(json_query_result, params):
 def get_paper_info_from_html(PaperURL):
     """Fill the data about paper"""
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, PaperURL))
-    soup = utils.get_soup(PaperURL, _PROXY_OBJ.get_cur_proxy())
+    soup = utils.get_soup(PaperURL)
     res = dict()
     logger.debug("Parse paper string and get information.")
     details_soup = soup.find('div', class_ = 'public-publication-details-top')
@@ -193,7 +193,7 @@ def get_paper_info_from_html(PaperURL):
 def get_info_from_RIS(rg_paper_id):
     """Get RIS file for paper with rg_paper_id"""
     logger.debug("Downloading RIS data about paper. RGID={0}.".format(rg_paper_id))
-    data = utils.get_text_data(_FULLURL.format(_HOST, _PUBRISDATA.format(rg_paper_id)), _PROXY_OBJ.get_cur_proxy()).replace("\r", "")
+    data = utils.get_text_data(_FULLURL.format(_HOST, _PUBRISDATA.format(rg_paper_id))).replace("\r", "")
     logger.debug("RIS file:\n%s" % data)
     logger.debug("Parse RIS data.")
     res = None
@@ -217,7 +217,7 @@ def get_referring_papers(rg_paper_id):
     ref_url = _PUBREFERENCESDATA.format(rg_paper_id)
     url = _FULLURL.format(_HOST, ref_url)
     try:
-        dict_req_result = utils.get_json_data(url, _PROXY_OBJ.get_cur_proxy())
+        dict_req_result = utils.get_json_data(url)
     except:
         logger.warn(traceback.format_exc())
         return None
@@ -236,7 +236,7 @@ def get_authors(rg_paper_id):
     ref_url = _AUTHORSLISTDATA.format(rg_paper_id, 0, 100)
     url = _FULLURL.format(_HOST, ref_url)
     try:
-        dict_req_result = utils.get_json_data(url, _PROXY_OBJ.get_cur_proxy())
+        dict_req_result = utils.get_json_data(url)
     except:
         logger.warn(traceback.format_exc())
         return None
@@ -255,7 +255,7 @@ def get_auth_info(rg_account_id):
     ref_url = _AUTHORDATA.format(rg_account_id)
     url = _FULLURL.format(_HOST, ref_url)
     try:
-        dict_req_result = utils.get_json_data(url, _PROXY_OBJ.get_cur_proxy())
+        dict_req_result = utils.get_json_data(url)
     except:
         logger.warn(traceback.format_exc())
         return None
@@ -273,7 +273,7 @@ def get_pdf_url(rg_paper_id):
     logger.debug("Get page from researchgate for paper with RGID={0}.".format(rg_paper_id))
     ref_url = _PUBLICATIONPAGE.format(rg_paper_id)
     url = _FULLURL.format(_HOST, ref_url)
-    soup = utils.get_soup(url, _PROXY_OBJ.get_cur_proxy())
+    soup = utils.get_soup(url)
     logger.debug("Parse paper string and get information.")
     details_soup = soup.find('div', class_ = 'publication-resources-summary--action-container')
     load_button = [ i for i in details_soup.find_all("a") if "publication-header-full-text" in i.attrs['class'] ]

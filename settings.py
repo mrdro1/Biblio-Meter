@@ -54,6 +54,7 @@ CONTROL_KEYS = [
     "patents", 
     "citations",
     "max_google_papers",
+    "google_clusters_handling",
     "google_captcha_retry_by_proxy_count",
     "researchgate_captcha_retry_by_proxy_count",
     "sci_hub_captcha_retry_by_proxy_count"

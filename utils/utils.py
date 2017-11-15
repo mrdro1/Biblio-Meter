@@ -60,6 +60,7 @@ class ProxyManager:
 
     def load_proxies(self):
         """ load proxies from txt file to generator"""
+        logger.debug("Load proxies list from '{0}'".format(self.file_name))
         with open(self.file_name, 'r') as f:
             proxies_list = f.readlines()
             shuffle(proxies_list)
@@ -68,12 +69,24 @@ class ProxyManager:
 
     def set_next_proxy(self, host_name):
         """ change current proxy for specific host name """
+        host_name = self.update_host_name_for_scholar(host_name)
         self.proxy[host_name] = next(self.dict_gens_proxy[host_name])
+        logger.debug("Change proxy to {0}".format(self.proxy[host_name]))
+        settings.print_message("Change proxy to {0}".format(self.proxy[host_name]))
         return 0
 
     def get_cur_proxy(self, host_name):
         """ get current proxy for specific host name """
+        logger.debug("Get current proxy.")
+        host_name = self.update_host_name_for_scholar(host_name)
+        logger.debug("Proxy: {0}".format(self.proxy[host_name]))
         return self.proxy[host_name]
+
+    def update_host_name_for_scholar(self, host_name):
+        """  """
+        if host_name.startswith('scholar'):
+            host_name = 'scholar.google.com'
+        return host_name
 
 
 # init proxy
@@ -232,14 +245,15 @@ def get_request(url, stream=False):
                     return resp.text  # OK
         except Exception as error:
             logger.warn(traceback.format_exc())
-            if host != "" and host in _EXCEPTION_HANDLERS:
+            '''if host != "" and host in _EXCEPTION_HANDLERS:
                 command, com_params = _EXCEPTION_HANDLERS[host](error, resp, url)
                 if command == 0: raise
                 elif command == 1:
                     proxy = com_params
                     continue
                 elif command == 2: break
-                elif command == 3: return com_params
+                elif command == 3: return com_params'''
+            _PROXY_OBJ.set_next_proxy(host)
             settings.print_message(error)
             continue
     raise ConnError(resp.status_code, resp.reason)
@@ -293,13 +307,13 @@ def get_json_data(url):
     return json_data
 
 
-def download_file(url, output_filename, proxy=None):
+def download_file(url, output_filename):
     """Download file from url"""
     logger.warn("Download file (url='%s') and save (filename='%s')" % (url, output_filename))
     while(1):
         response = None
         try:
-            response = requests.get(url, stream=True, cookies=_HTTP_PARAMS["cookies"], proxies=proxy)
+            response = get_request(url, stream=True)
             if "html" in response.headers["content-type"].split("/")[1]:
                 raise TypeError("Loading html page")
             content_length = int(response.headers['content-length'])

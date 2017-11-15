@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import argparse
+import collections
 import os, logging, re, traceback, sys
 import json
 from datetime import datetime
@@ -40,6 +41,7 @@ LOG_LEVEL = logging.DEBUG
 RESULT = "SUCCESS"
 
 CONTROL_KEYS = [
+    "command",
     "query",
     "date_from", 
     "date_to", 
@@ -52,7 +54,31 @@ CONTROL_KEYS = [
     "patents", 
     "citations",
     "max_google_papers",
+    "google_captcha_retry_by_proxy_count",
+    "researchgate_captcha_retry_by_proxy_count",
+    "sci_hub_captcha_retry_by_proxy_count"
     ]
+CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
+CONTROL_DEFAULT_VALUES["google_captcha_retry_by_proxy_count"] = 4
+CONTROL_DEFAULT_VALUES["sci_hub_captcha_retry_by_proxy_count"] = 4
+'''temp_dict = {
+    "query": '',
+    "date_from": '',
+    "date_to",
+    "authored",
+    "published",
+    "exact_phrase",
+    "one_of_words",
+    "not_contained_words",
+    "words_in_body",
+    "patents",
+    "citations",
+    "max_google_papers",
+    "google_captcha_retry_by_proxy_count": 4,
+    "researchgate_captcha_retry_by_proxy_count": 4,
+    "sci_hub_captcha_retry_by_proxy_count": 4
+}'''
+
 
 def CloseObjects():
     if _SUCCESSFUL_START_FLAG:
@@ -157,9 +183,13 @@ try:
         PARAMS = json.load(data_file)
     if not "command" in PARAMS:
         raise Exception()
+    # check all params, if null then set default
+    PARAMS = {key: PARAMS.setdefault(key, CONTROL_DEFAULT_VALUES[key]) for key in CONTROL_KEYS}
+    print(PARAMS)
 except:
     print_message("Invalid file control. Check the syntax.")
     logger.error("Invalid file control. Check the syntax.")
+    logger.error(traceback.print_exc())
     CloseObjects()
     exit()
 else:

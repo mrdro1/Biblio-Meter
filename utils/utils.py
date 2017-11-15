@@ -207,7 +207,7 @@ def handle_captcha(url):
         return res
 
 
-def get_request(url):
+def get_request(url, stream=False):
     """Send get request [, catch errors, try again]* & return data"""
     host = urlparse(url).hostname
     count_try_for_captcha = 0
@@ -215,7 +215,7 @@ def get_request(url):
         resp = None
         try:
             proxy = _PROXY_OBJ.get_cur_proxy(host)
-            resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], cookies=_HTTP_PARAMS["cookies"], proxies=proxy)
+            resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], cookies=_HTTP_PARAMS["cookies"], proxies=proxy, stream=stream)
             if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
                 count_try_for_captcha += 1
                 if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
@@ -226,7 +226,10 @@ def get_request(url):
             if resp.status_code != 200:
                 raise ConnError(resp.status_code, resp.reason)
             if resp.status_code == 200:
-                return resp.text # OK
+                if stream:
+                    return resp
+                else:
+                    return resp.text  # OK
         except Exception as error:
             logger.warn(traceback.format_exc())
             if host != "" and host in _EXCEPTION_HANDLERS:

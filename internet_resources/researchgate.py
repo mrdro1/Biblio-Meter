@@ -225,7 +225,7 @@ def get_referring_papers(rg_paper_id):
     logger.debug("Status=%s." % success)
     if success:
         logger.debug("Data is correct and parse is successfuly.")
-        return dict_req_result['result']['state']['publicliteratureReferences']['itemEntities']
+        return dict_req_result['result']['state']['rigel']['store']['publication:id:PB:{0}'.format(rg_paper_id)]['outgoingCitations']['__pagination__'][0]['list']
     logger.debug("Data is not correct.")
     return None
 

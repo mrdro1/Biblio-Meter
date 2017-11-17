@@ -254,7 +254,10 @@ def get_request(url, stream=False):
                 elif command == 2: break
                 elif command == 3: return com_params'''
             _PROXY_OBJ.set_next_proxy(host)
-            settings.print_message(error)
+            if isinstance(error, requests.exceptions.ProxyError):
+                settings.print_message("Connection error (see log for get more informartion)")
+            else:
+                settings.print_message(error)
             continue
     raise ConnError(resp.status_code, resp.reason)
 

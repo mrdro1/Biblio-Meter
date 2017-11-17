@@ -29,7 +29,8 @@ _DEFAULT_LOGBOOK = "logbook.log"
 _LOGBOOK_NAME = os.path.join(_main_dir, _DEFAULT_LOGBOOK)
 _CONTROL_FILE = ""
 _SUCCESSFUL_START_FLAG = False
-PROXY_FILE = os.path.join(_main_dir, 'default\\proxies.txt')
+_DEFAULT_PROXY_FILE = os.path.join(_main_dir, 'default\\proxies.txt')
+PROXY_FILE = _DEFAULT_PROXY_FILE
 
 INFORMATION_MODE = 1
 TRANSACTION_MODE = 0
@@ -129,6 +130,7 @@ _parser = argparse.ArgumentParser()
 _parser.add_argument("-d", "--db", "--database", action="store", dest="DB_FILE_NAME", help="Database file", type=str)
 _parser.add_argument("-l", "--log", "--logfile", action="store", dest="LOG_FILE_NAME", help="Logbook file", type=str)
 _parser.add_argument("-c", "--control", "--controlfile", action="store", dest="CONTROL_FILE_NAME", help="Control file", type=str)
+_parser.add_argument("-p", "--proxies", "--proxiesfile", action="store", dest="PROXIES_FILE", help="File with proxies", type=str)
 _group = _parser.add_mutually_exclusive_group()
 _group.add_argument("-t", action="store_false", dest="TransactionMode", help="Transaction mode")
 _group.add_argument("-i", action="store_true", dest="InformationMode", help="Information mode")
@@ -141,6 +143,7 @@ try:
     _LOGBOOK_NAME = _DEFAULT_LOGBOOK if _command_args.LOG_FILE_NAME == None else _command_args.LOG_FILE_NAME
     _CONTROL_FILE = "" if _command_args.CONTROL_FILE_NAME == None else _command_args.CONTROL_FILE_NAME
     MODE = INFORMATION_MODE if _command_args.InformationMode else TRANSACTION_MODE
+    PROXY_FILE = _DEFAULT_PROXY_FILE if _command_args.PROXIES_FILE == None else _command_args.PROXIES_FILE
 except:
     exit()
 
@@ -199,6 +202,7 @@ else:
 print_message("Parameters:")
 for key in PARAMS.keys():
     print_message("  {0} = '{1}'".format(key, PARAMS[key]))
+print_message("  File with proxies = '{0}'".format(PROXY_FILE))
 _SUCCESSFUL_START_FLAG = True
 
 # Register current session

@@ -217,24 +217,25 @@ def get_cities():
 
 
 def test():
-    urls = [
-    "https://www.researchgate.net/publicbrowse.SearchItemsList.html?query[0]=rand%20and%20fang&type=publications&page=1",
-    "https://www.researchgate.net/publicliterature.PublicPublicationReferenceList.html?publicationUid=303947415&initialDisplayLimit=1000&loadMoreCount=1000",
-    "https://www.researchgate.net/publicliterature.PublicationAuthorList.loadMore.html?publicationUid=303947415&offset=0&count=20"    
-        ]
-    import collections
-    import pickle
-    i = 0
-    stat = collections.defaultdict(lambda:1)
-    while(1):
-        for url in urls:
-            i += 1
-            stat[[i for i in researchgate._PROXY_OBJ.get_cur_proxy().values()][0]] += 1
-            settings.print_message("%i %s" % (i, researchgate._PROXY_OBJ.get_cur_proxy()))
-            utils.get_json_data(url, researchgate._PROXY_OBJ.get_cur_proxy())
-        if i > 2000:
-            break
-    pickle.dump(dict(stat), open("dict.pkl", "wb"))
+    pass
+    #urls = [
+    #"https://www.researchgate.net/publicbrowse.SearchItemsList.html?query[0]=rand%20and%20fang&type=publications&page=1",
+    #"https://www.researchgate.net/publicliterature.PublicPublicationReferenceList.html?publicationUid=303947415&initialDisplayLimit=1000&loadMoreCount=1000",
+    #"https://www.researchgate.net/publicliterature.PublicationAuthorList.loadMore.html?publicationUid=303947415&offset=0&count=20"    
+    #    ]
+    #import collections
+    #import pickle
+    #i = 0
+    #stat = collections.defaultdict(lambda:1)
+    #while(1):
+    #    for url in urls:
+    #        i += 1
+    #        stat[[i for i in researchgate._PROXY_OBJ.get_cur_proxy().values()][0]] += 1
+    #        settings.print_message("%i %s" % (i, researchgate._PROXY_OBJ.get_cur_proxy()))
+    #        utils.get_json_data(url, researchgate._PROXY_OBJ.get_cur_proxy())
+    #    if i > 2000:
+    #        break
+    #pickle.dump(dict(stat), open("dict.pkl", "wb"))
 
 
 def dispatch(command):
@@ -283,11 +284,14 @@ def dispatch(command):
         logger.debug("Run began on {0}".format(start_time))
         logger.debug("Run ended on {0}".format(end_time))
         logger.debug("Elapsed time was: {0}".format(end_time - start_time))
+    except KeyboardInterrupt:
+        print_message("Caught KeyboardInterrupt, terminating processing")
+        settings.RESULT = "WARNING: User was terminated processing"
     except:
         logger.error(traceback.format_exc())
         settings.print_message("An error has occurred. For more details, see the log.")
         settings.RESULT = "ERROR: {0}".format(traceback.format_exc())
-        dbutils.rollback()
+    dbutils.rollback()
 
 def main():  
     dispatch(settings.PARAMS["command"])

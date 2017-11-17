@@ -3,7 +3,10 @@ import sys, traceback
 import requests
 import os
 from datetime import datetime
-from multiprocessing.pool import ThreadPool as Pool
+import time
+import multiprocessing
+from threading import Lock
+import signal
 #
 import argparse
 
@@ -14,6 +17,8 @@ TEST_URLS = [
     ]
 
 DEFAULT_ATEEMPTS_COUNT = 2
+LOCK = multiprocessing.Lock()
+RESULTS = list()
 
 def print_message(message):
     print("[{0}] {1}".format(datetime.now(), message))
@@ -34,8 +39,9 @@ if OUTPUT_FILE == None:
     input_directory = os.path.dirname(INPUT_FILE)
     full_file_name = os.path.basename(INPUT_FILE) 
     file_name, file_ext = os.path.splitext(full_file_name) 
-    OUTPUT_FILE = os.path.join(input_directory, "%s_good%s" % (file_name, file_ext))
+    OUTPUT_FILE = os.path.join(input_directory, "{0}_good{1}".format(file_name, file_ext))
 ATTEMPTS_COUNT = DEFAULT_ATEEMPTS_COUNT if command_args.ATTEMPTS_COUNT == None else command_args.ATTEMPTS_COUNT
+total = 0
 
 def get_request(url, proxy):
     """Send get request & return data"""
@@ -47,37 +53,65 @@ def get_request(url, proxy):
         return False
     return True
 
-print_message("Parameters:")
-print_message("  Input file: '%s'" % INPUT_FILE)
-print_message("  Output file: '%s'" % OUTPUT_FILE)
-print_message("  Number of attempts: %i" % ATTEMPTS_COUNT)
-with open(INPUT_FILE, "r") as Fi:
+
+def init_worker():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+def check(proxy):
+    global total
+    try:
+        for url in TEST_URLS:
+            for i in range(ATTEMPTS_COUNT):
+                if get_request(url, {"https":proxy}) == False:
+                    print_message("Skip proxy {0}, is bad (didn't pass the {1} test on the url '{2}')".format(proxy, i + 1, url))
+                    return
+        LOCK.acquire()
+        total += 1
+        print_message("Add proxy {0} in good proxies (total good {1})".format(proxy, total))
+        with open(OUTPUT_FILE, "a") as file:
+            file.write("{0}\n".format(proxy))
+        LOCK.release()
+        return True
+    except Exception as error:
+        print_message(traceback.format_exc())      
+        return False
+
+def results_collectors(result):
+    RESULTS.append(result)
+
+def main():
+    threads = 8
+    pool = multiprocessing.Pool(threads, init_worker)
+    lock = multiprocessing.Lock()
+    print_message("Parameters:")
+    print_message("  Input file: '{0}'".format(INPUT_FILE))
+    print_message("  Output file: '{0}'".format(OUTPUT_FILE))
+    print_message("  Number of attempts: {0}".format(ATTEMPTS_COUNT))
     with open(OUTPUT_FILE, "w") as Fo:
+        pass
+    with open(INPUT_FILE, "r") as Fi:
         start_time = datetime.now()
-        try:
-            pool_size = 6
-            pool = Pool(pool_size)
+        print_message("Start checking")
+        proxies = list(Fi.readlines())
+        for proxy in proxies:
+            pool.apply_async(check, args=(proxy.strip(), ), callback=results_collectors)
+    try:
+        while True:
+            time.sleep(2)
+            if len(RESULTS) == len(proxies):
+                break
+    except KeyboardInterrupt:
+        print_message("Caught KeyboardInterrupt, terminating processing")
+        pool.terminate()
+        pool.join()
+    else:
+        pool.close()
+        pool.join()
 
+    end_time = datetime.now()
+    print_message("Run began on {0}".format(start_time))
+    print_message("Run ended on {0}".format(end_time))
+    print_message("Elapsed time was: {0}".format(end_time - start_time))
 
-            def check(proxy):
-                for url in TEST_URLS:
-                    for i in range(ATTEMPTS_COUNT):
-                        #print_message("#%i proxy check on %s" % (i, url))
-                        if get_request(url, {"https":proxy}) == False:
-                            print_message("Skip proxy %s, is bad (didn't pass the %i test on the url '%s')" % (proxy, i + 1, url))
-                            return
-                Fo.write("%s\n" % proxy)
-                print_message("Add proxy %s in good proxies" % proxy)
-                    
-
-            print_message("Start checking")
-            for proxy in Fi.readlines():
-                pool.apply_async(check, (proxy.strip(),))
-            pool.close()
-            pool.join()
-        except Exception as error:
-            print_message(traceback.format_exc())      
-        end_time = datetime.now()
-        print_message("Run began on {0}".format(start_time))
-        print_message("Run ended on {0}".format(end_time))
-        print_message("Elapsed time was: {0}".format(end_time - start_time))  
+if __name__ == "__main__":
+    main()

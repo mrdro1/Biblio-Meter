@@ -127,8 +127,8 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     # Full info about paper include general and addition information
     # MAYBE no one addition information, because this paper in cluster
     # and for each paper from cluster contains additional info
-    settings.print_message("  Google scholar:")
-    settings.print_message("   Get general information.")
+    settings.print_message("Google scholar:", 2)
+    settings.print_message("Get general information.", 3)
     full_info = dict()
     general_information = dict()
     databox = paper_soup.find('div', class_='gs_ri')
@@ -160,22 +160,22 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     
     # Save general info
     full_info["general_information"] = general_information
-    settings.print_message("   Title: '%s'" % general_information['title'])
+    settings.print_message("Title: '%s'" % general_information['title'], 3)
     # Get addition information (maybe paper in cluster then analysis cluster and get additional info for each unique paper in cluster)
     footer_links = databox.find('div', class_='gs_fl').find_all('a')
-    settings.print_message("   Get additional information.")
+    settings.print_message("Get additional information.", 3)
     # CLUSTER HANDLER
     if handling_cluster:
         for link in footer_links:
             if 'versions' in link.text or 'версии статьи' in link.text:
                 count_sim_papers = int(re.findall(r'\d+', link.text.strip())[0])
                 logger.debug("In cluster %i papers." % count_sim_papers)
-                settings.print_message("   In cluster %i similar papers." % count_sim_papers)
-                settings.print_message("   Cluster handling...")
+                settings.print_message("In cluster %i similar papers." % count_sim_papers, 3)
+                settings.print_message("Cluster handling...", 3)
                 general_information["cluster"] = int(re.findall(r'\d+', link['href'].strip())[0])
                 different_information = _cluster_handler(general_information["cluster"], count_sim_papers)
                 full_info["different_information"] = different_information
-                settings.print_message("   Versions in cluster: %i." % len(different_information))
+                settings.print_message("Versions in cluster: %i." % len(different_information), 3)
                 return full_info
 
     # Paper not in cluster => get addition info for it

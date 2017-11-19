@@ -12,6 +12,14 @@ sys.path.insert(0, os.path.join(_main_dir, 'internet_resources\\'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, close_connection
 
+# Programm version
+__VERSION__ = "0.5.2"
+__RELEASE_VERSION__ = "0.2.5"
+
+# Header
+_header = "BiblioMeter {0}(v{1}, {2})".format(__RELEASE_VERSION__, __VERSION__, datetime.now().strftime("%B %d %Y, %H:%M:%S"))
+
+
 # Default browser
 CHROME = 0
 FIREFOX = 1
@@ -22,15 +30,11 @@ OS_ENCODING = "utf-8"
 OUTPUT_ENCODING = "utf-16"
 
 # system settings
- #.decode(OS_ENCODING)
-_DEFAULT_DB_FILE = "default.db"
-_DB_FILE = os.path.join(_main_dir, _DEFAULT_DB_FILE)
-_DEFAULT_LOGBOOK = "logbook.log"
-_LOGBOOK_NAME = os.path.join(_main_dir, _DEFAULT_LOGBOOK)
-_CONTROL_FILE = ""
+_DB_FILE = None
+_LOGBOOK_NAME = None
+_CONTROL_FILE = None
+PROXY_FILE = None
 _SUCCESSFUL_START_FLAG = False
-_DEFAULT_PROXY_FILE = os.path.join(_main_dir, 'default\\proxies.txt')
-PROXY_FILE = _DEFAULT_PROXY_FILE
 
 INFORMATION_MODE = 1
 TRANSACTION_MODE = 0
@@ -55,32 +59,23 @@ CONTROL_KEYS = [
     "patents", 
     "citations",
     "max_google_papers",
+    "max_researchgate_papers",
     "google_clusters_handling",
+    "papers",
     "google_captcha_retry_by_proxy_count",
     "researchgate_captcha_retry_by_proxy_count",
-    "sci_hub_captcha_retry_by_proxy_count"
+    "sci_hub_captcha_retry_by_proxy_count",
+    "max_tree_level"
     ]
+
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
-CONTROL_DEFAULT_VALUES["google_captcha_retry_by_proxy_count"] = 4
-CONTROL_DEFAULT_VALUES["sci_hub_captcha_retry_by_proxy_count"] = 4
-CONTROL_DEFAULT_VALUES["researchgate_captcha_retry_by_proxy_count"] = 4
-'''temp_dict = {
-    "query": '',
-    "date_from": '',
-    "date_to",
-    "authored",
-    "published",
-    "exact_phrase",
-    "one_of_words",
-    "not_contained_words",
-    "words_in_body",
-    "patents",
-    "citations",
-    "max_google_papers",
-    "google_captcha_retry_by_proxy_count": 4,
-    "researchgate_captcha_retry_by_proxy_count": 4,
-    "sci_hub_captcha_retry_by_proxy_count": 4
-}'''
+CONTROL_DEFAULT_VALUES = \
+    {
+        "google_captcha_retry_by_proxy_count" : 4,
+        "researchgate_captcha_retry_by_proxy_count" : 4,
+        "sci_hub_captcha_retry_by_proxy_count" : 0,
+        "commit_iterations" : 1000000
+    }
 
 
 def CloseObjects():
@@ -96,11 +91,11 @@ def CloseObjects():
 # logging
 
 # CONSOLE LOG
-cfromat = "[{0}] {1}"
-def print_message(message):
-    print(cfromat.format(datetime.now(), message))
+cfromat = "[{0}] {1}{2}"
+def print_message(message, level=0):
+    level_indent = " " * level
+    print(cfromat.format(datetime.now(), level_indent, message))
 #
-print_message("Initializing.")
 
 # Logging handlers
 class InMemoryHandler(logging.Handler):
@@ -122,30 +117,29 @@ main_logger.setLevel(LOG_LEVEL)
 
 logger = logging.getLogger(__name__)
 
-logger.info("Logger initialized")
+print_message(_header)
+logger.info(_header)
 
 # Command line parser
 logger.info("Initializing argument parser, version: %s" % argparse.__version__)
 _parser = argparse.ArgumentParser()
-_parser.add_argument("-d", "--db", "--database", action="store", dest="DB_FILE_NAME", help="Database file", type=str)
-_parser.add_argument("-l", "--log", "--logfile", action="store", dest="LOG_FILE_NAME", help="Logbook file", type=str)
-_parser.add_argument("-c", "--control", "--controlfile", action="store", dest="CONTROL_FILE_NAME", help="Control file", type=str)
-_parser.add_argument("-p", "--proxies", "--proxiesfile", action="store", dest="PROXIES_FILE", help="File with proxies", type=str)
+requiredNamed = _parser.add_argument_group('Required arguments')
+requiredNamed.add_argument("-d", "--database", action="store", dest="DB_FILE_NAME", help="Database file", type=str, required=True)
+requiredNamed.add_argument("-l", "--log", action="store", dest="LOG_FILE_NAME", help="Logbook file", type=str, required=True)
+requiredNamed.add_argument("-c", "--control", action="store", dest="CONTROL_FILE_NAME", help="Control file", type=str, required=True)
+requiredNamed.add_argument("-p", "--proxies", action="store", dest="PROXIES_FILE", help="File with proxies", type=str, required=True)
 _group = _parser.add_mutually_exclusive_group()
 _group.add_argument("-t", action="store_false", dest="TransactionMode", help="Transaction mode")
 _group.add_argument("-i", action="store_true", dest="InformationMode", help="Information mode")
 
 logger.debug("Parse arguments.")
 
-try:
-    _command_args = _parser.parse_args()
-    _DB_FILE = _DEFAULT_DB_FILE if _command_args.DB_FILE_NAME == None else _command_args.DB_FILE_NAME
-    _LOGBOOK_NAME = _DEFAULT_LOGBOOK if _command_args.LOG_FILE_NAME == None else _command_args.LOG_FILE_NAME
-    _CONTROL_FILE = "" if _command_args.CONTROL_FILE_NAME == None else _command_args.CONTROL_FILE_NAME
-    MODE = INFORMATION_MODE if _command_args.InformationMode else TRANSACTION_MODE
-    PROXY_FILE = _DEFAULT_PROXY_FILE if _command_args.PROXIES_FILE == None else _command_args.PROXIES_FILE
-except:
-    exit()
+_command_args = _parser.parse_args()
+_DB_FILE = _command_args.DB_FILE_NAME
+_LOGBOOK_NAME = _command_args.LOG_FILE_NAME
+_CONTROL_FILE = _command_args.CONTROL_FILE_NAME
+PROXY_FILE = _command_args.PROXIES_FILE
+MODE = INFORMATION_MODE if _command_args.InformationMode else TRANSACTION_MODE
 
 logger.info("Initializing logbook.")
 
@@ -186,11 +180,12 @@ PARAMS = None
 try:
     with open(_CONTROL_FILE) as data_file:    
         PARAMS = json.load(data_file)
-    if not "command" in PARAMS:
-        raise Exception()
+    for key in PARAMS.keys():
+        if not key in CONTROL_KEYS:
+            raise Exception("Unknown parameter: {0}".format(key))
     # check all params, if null then set default
-    PARAMS = {key: PARAMS.setdefault(key, CONTROL_DEFAULT_VALUES[key]) for key in CONTROL_KEYS}
-    #print(PARAMS)
+    for key in CONTROL_DEFAULT_VALUES.keys():
+        PARAMS.setdefault(key, CONTROL_DEFAULT_VALUES[key]) 
 except:
     print_message("Invalid file control. Check the syntax.")
     logger.error("Invalid file control. Check the syntax.")
@@ -200,9 +195,11 @@ except:
 else:
     logger.info("Parsing was successful.")
 print_message("Parameters:")
+logger.debug("Parameters:")
 for key in PARAMS.keys():
-    print_message("  {0} = '{1}'".format(key, PARAMS[key]))
-print_message("  File with proxies = '{0}'".format(PROXY_FILE))
+    param_str = "  {0} = '{1}'".format(key, PARAMS[key])
+    print_message(param_str)
+    logger.debug(param_str)
 _SUCCESSFUL_START_FLAG = True
 
 # Register current session

@@ -8,22 +8,12 @@ from urllib.parse import urlparse
 import utils
 import settings
 
-_HOST = r"http://sci-hub.cc/"
+_HOST = r"https://sci-hub.cc/"
 _FULLURL = r"{0}{1}"
 
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOG_LEVEL)
 
-
-def error_handler(error, response, url):
-    """Check captcha, maybe it is the cause of the error"""
-    if isinstance(error, utils.TypeError):
-        soup = utils.get_soup(url)
-        captcha = soup.find('img', id="captcha")
-        if captcha != None and utils.handle_captcha(url) == "y": 
-            return 3, True
-    return 3, False
-utils.add_exception_handler_if_not_exists(urlparse(_HOST).hostname, error_handler)
 
 def get_pdf_url(DOI):
     """Get link to a PDF if this available"""
@@ -40,6 +30,8 @@ def get_pdf_url(DOI):
         logger.debug("PDF for this paper is anavailable.")
         return None
     PDF_url = save_btn.find("a")["onclick"].split("href='")[1].strip("'")
+    if PDF_url.startswith("//"):
+        PDF_url = PDF_url.replace("//", "https://")
     logger.debug("URL for PDF: {0}.".format(PDF_url))
     return PDF_url
 
@@ -49,9 +41,10 @@ def get_pdf(DOI, filename):
     url = get_pdf_url(DOI)
     if url == None: return False
     try:
-        settings.print_message("\tDownload pdf...")
+        settings.print_message("Download pdf...", 2)
         return utils.download_file(url, filename)
     except:
-        logger.warn(traceback.format_exc())
-        return False
+        #logger.warn(traceback.format_exc())
+        #return False
+        raise
     return True

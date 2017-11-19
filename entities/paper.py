@@ -38,6 +38,7 @@ class Paper(object):
         self.cluster = None
         self.EndNote = None
         self.paper_version = None
+        self.RIS = None
 
     def get_info_from_sch(self, general_information, additional_information, paper_version = 1):
         # General
@@ -107,9 +108,34 @@ class Paper(object):
         if "rg_id" in rg_info: self.rg_paper_id = rg_info["rg_id"] 
         if "references_count" in rg_info: self.references_count = rg_info["references_count"] 
         if "rg_type" in rg_info: self.rg_type = rg_info["rg_type"] 
-        if "references" in rg_info: self.references = rg_info["references"] 
+        #if "references" in rg_info: self.references = rg_info["references"] 
         if "start_page" in rg_info and self.start_page == None: self.start_page = rg_info["start_page"]
         if "end_page" in rg_info and self.end_page == None: self.end_page = rg_info["end_page"]
+        if "RIS" in rg_info: self.RIS = rg_info["RIS"]
+        return True
+
+
+    def get_data_from_rg_id(self, rg_paper_id):
+        rg_info = researchgate.fill_paper(researchgate.get_info_from_RIS(rg_paper_id), rg_paper_id)
+        logger.debug("Save info about paper (or its version)")
+        if "primary_title" in rg_info: self.title = rg_info["primary_title"] 
+        if "year" in rg_info: self.year = int(rg_info["year"][:4])
+        #if "publisher" in rg_info: self.publisher = rg_info["publisher"] 
+        if "authors" in rg_info: self.authors = rg_info["authors"] 
+        if "doi" in rg_info: self.DOI = rg_info["doi"] 
+        if "abstract" in rg_info: self.abstract = rg_info["abstract"] 
+        if "abstract_ru" in rg_info: self.abstract_ru = rg_info["abstract_ru"] 
+        if "rg_id" in rg_info: self.rg_paper_id = rg_info["rg_id"] 
+        if "references_count" in rg_info: self.references_count = rg_info["references_count"] 
+        if "type_of_reference" in rg_info: self.rg_type = rg_info["type_of_reference"] 
+        #if "references" in rg_info: self.references = rg_info["references"] 
+        if "start_page" in rg_info and self.start_page == None: self.start_page = rg_info["start_page"]
+        if "end_page" in rg_info and self.end_page == None: self.end_page = rg_info["end_page"]
+        if "volume" in rg_info: 
+            self.volume = rg_info["volume"] 
+        elif self.end_page != None and self.start_page != None: 
+            self.volume = int(self.end_page.split()[0].strip()) - int(self.start_page.split()[0].strip()) + 1
+        if "RIS" in rg_info: self.RIS = rg_info["RIS"]
         return True
 
     def add_to_database(self):
@@ -129,6 +155,7 @@ class Paper(object):
                 "references_count":self.references_count,
                 "rg_type":self.rg_type,
                 "EndNote":self.EndNote,
+                "RIS":self.RIS,
                 "authors":len(self.authors)
             }
             )
@@ -161,6 +188,7 @@ class Paper(object):
                 "references_count":self.references_count,
                 "rg_type":self.rg_type,
                 "EndNote":self.EndNote,
+                "RIS":self.RIS,
                 "authors":len(self.authors),
                 "id":self.db_id
             }

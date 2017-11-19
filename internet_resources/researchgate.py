@@ -28,18 +28,6 @@ _AUTHORDATA = r"publicprofile.ProfileHighlightsStats.html?accountId={0}"
 _RGIDRE = r"\/[0-9]+_"
 
 
-def error_handler(error, response, url):
-    """Handle exception"""
-
-    if response != None:
-        logger.debug(response.status_code)
-        if response.status_code in [404, 406, 302, 429] or isinstance(error, requests.exceptions.ProxyError):
-            return 1
-    return 1
-    #return 4, None
-utils.add_exception_handler_if_not_exists(urlparse(_HOST).hostname, error_handler)
-utils.add_exception_handler_if_not_exists(urlparse('https://scholar.google.com').hostname, error_handler)
-
 def get_query_json(params):
     """Return resulting json"""
     #   DEBUG messages
@@ -64,7 +52,8 @@ def identification_and_fill_paper(params, query_json = None, delay=0):
         paper_info_url = _ident_and_fill_paper(
             get_query_json(params) if query_json == None else query_json, params)
     except Exception as error:
-        logger.warn(traceback.format_exc())
+        #logger.warn(traceback.format_exc())
+        raise
     return paper_info_url
 
 
@@ -73,8 +62,28 @@ def get_rg_paper_id_from_url(url):
     try:
         res = re.findall(_RGIDRE, url)[0].strip("/_")
     except Exception as error:
-        logger.warn(traceback.format_exc())
+        #logger.warn(traceback.format_exc())
+        raise
     return res
+
+
+def fill_paper(src_info, rg_paper_id):
+    info = src_info
+    logger.debug("Translate abstract.")
+    if "abstract" in info:
+        try:
+            info["abstract_ru"] = translate(info["abstract"], 'ru')
+        except Exception as error:
+            #logger.warn(traceback.format_exc())
+            raise
+    logger.debug("Get references.")
+    info["rg_id"] = rg_paper_id
+    ref_dict = get_referring_papers(rg_paper_id)
+    if ref_dict == None:
+        pass
+    if ref_dict != None and len(ref_dict) > 0 :
+        info["references_count"] = len(ref_dict)
+    return info
 
 
 def _ident_and_fill_paper(json_query_result, params):
@@ -113,7 +122,7 @@ def _ident_and_fill_paper(json_query_result, params):
                 # Second compare
                 else:
                     logger.debug("The title and year of the paper coincided, identification of information from the RIS.")
-                    timeout = random.uniform(0, 3)
+                    timeout = 0#random.uniform(0, 3)
                     logger.debug("Sleep {0} seconds.".format(timeout))
                     time.sleep(timeout)
                     paper_url =  _FULLURL.format(_HOST, papers_item['data']['publicationUrl'])
@@ -129,26 +138,17 @@ def _ident_and_fill_paper(json_query_result, params):
                     else:
                         logger.debug("Paper #%i was identified with EndNote file #%i." % (on_page_paper_count, params["paper_version"]))
                         logger.debug("EndNote file #%i:\n%s" % (params["paper_version"], params["EndNote"]))
-                        logger.debug("RIS file:\n%s" % info["RIS"])
-                        logger.debug("Translate abstract.")
-                        try:
-                            info["abstract_ru"] = translate(info["abstract"], 'ru')
-                        except Exception as error:
-                            logger.warn(traceback.format_exc())
-                        logger.debug("Get references.")
-                        info["rg_id"] = rg_paper_id
-                        ref_dict = get_referring_papers(rg_paper_id)
-                        if len(ref_dict) > 0 :
-                            info["references_count"] = len(ref_dict)
+                        info = fill_paper(info, rg_paper_id)
                         info["rg_type"] = paper_type
                         return info
             except Exception as error:
-                logger.warn(traceback.format_exc())
+                #logger.warn(traceback.format_exc())
+                raise
         if len(papers_box) >= 10:
             pagenum += 1
             logger.debug("Load next page in resulting query selection.")
             # Delay about Delay seconds for hide 429 error.
-            timeout = random.uniform(1, 2)
+            timeout = 0#random.uniform(1, 2)
             logger.debug("Sleep {0} seconds.".format(timeout))
             time.sleep(timeout)
             qtext = requests.utils.quote(stopwords.delete_stopwords(params["title"], " and "))
@@ -178,7 +178,8 @@ def get_paper_info_from_html(PaperURL):
     try:
         res["abstract_ru"] = translate(res["abstract"], 'ru')
     except Exception as error:
-        logger.warn(traceback.format_exc())
+        #logger.warn(traceback.format_exc())
+        raise
     logger.debug("Get references count.")
     rg_paper_id = soup.find('meta', property="rg:id")['content'][3:]
     res["rg_id"] = rg_paper_id
@@ -207,7 +208,8 @@ def get_info_from_RIS(rg_paper_id):
         if "doi" in res and not utils.is_doi(res["doi"]): res.pop("doi")
         res["RIS"] = data
     except:
-        logger.warn(traceback.format_exc())
+        #logger.warn(traceback.format_exc())
+        raise
     return res
 
 
@@ -219,8 +221,9 @@ def get_referring_papers(rg_paper_id):
     try:
         dict_req_result = utils.get_json_data(url)
     except:
-        logger.warn(traceback.format_exc())
-        return None
+        #logger.warn(traceback.format_exc())
+        #return None
+        raise
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)
     if success:
@@ -238,8 +241,9 @@ def get_authors(rg_paper_id):
     try:
         dict_req_result = utils.get_json_data(url)
     except:
-        logger.warn(traceback.format_exc())
-        return None
+        #logger.warn(traceback.format_exc())
+        #return None
+        raise
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)
     if success:
@@ -257,8 +261,9 @@ def get_auth_info(rg_account_id):
     try:
         dict_req_result = utils.get_json_data(url)
     except:
-        logger.warn(traceback.format_exc())
-        return None
+        #logger.warn(traceback.format_exc())
+        #return None
+        raise
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)
     if success:
@@ -290,11 +295,12 @@ def get_pdf(rg_paper_id, filename):
     url = get_pdf_url(rg_paper_id)
     if url == None: return False
     try:
-        settings.print_message("\tDownload pdf...")
+        settings.print_message("Download pdf...", 2)
         return utils.download_file(url, filename)
     except:
-        logger.warn(traceback.format_exc())
-        return False
+        #logger.warn(traceback.format_exc())
+        #return False
+        raise
     return True
 
 

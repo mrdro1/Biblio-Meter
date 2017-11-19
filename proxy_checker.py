@@ -20,8 +20,20 @@ DEFAULT_ATEEMPTS_COUNT = 2
 LOCK = multiprocessing.Lock()
 RESULTS = list()
 
-def print_message(message):
-    print("[{0}] {1}".format(datetime.now(), message))
+# CONSOLE LOG
+cfromat = "[{0}] {1}{2}"
+def print_message(message, level=0):
+    level_indent = " " * level
+    print(cfromat.format(datetime.now(), level_indent, message))
+#
+
+# Programm version
+__VERSION__ = "0.1.3"
+__RELEASE_VERSION__ = "0.1.3"
+
+# Header
+_header = "Proxy-checker {0}(v{1}, {2})".format(__RELEASE_VERSION__, __VERSION__, datetime.now().strftime("%B %d %Y, %H:%M:%S"))
+
 
 # Command line parser
 parser = argparse.ArgumentParser()
@@ -41,7 +53,7 @@ if OUTPUT_FILE == None:
     file_name, file_ext = os.path.splitext(full_file_name) 
     OUTPUT_FILE = os.path.join(input_directory, "{0}_good{1}".format(file_name, file_ext))
 ATTEMPTS_COUNT = DEFAULT_ATEEMPTS_COUNT if command_args.ATTEMPTS_COUNT == None else command_args.ATTEMPTS_COUNT
-total = 0
+
 
 def get_request(url, proxy):
     """Send get request & return data"""
@@ -57,20 +69,20 @@ def get_request(url, proxy):
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-def check(proxy):
-    global total
+
+def check(proxy, total, lock):
     try:
         for url in TEST_URLS:
             for i in range(ATTEMPTS_COUNT):
                 if get_request(url, {"https":proxy}) == False:
                     print_message("Skip proxy {0}, is bad (didn't pass the {1} test on the url '{2}')".format(proxy, i + 1, url))
                     return
-        LOCK.acquire()
-        total += 1
-        print_message("Add proxy {0} in good proxies (total good {1})".format(proxy, total))
+        lock.acquire()
+        total.value += 1
+        print_message("Add proxy {0} in good proxies (total good {1})".format(proxy, total.value))
         with open(OUTPUT_FILE, "a") as file:
             file.write("{0}\n".format(proxy))
-        LOCK.release()
+        lock.release()
         return True
     except Exception as error:
         print_message(traceback.format_exc())      
@@ -82,11 +94,13 @@ def results_collectors(result):
 def main():
     threads = 8
     pool = multiprocessing.Pool(threads, init_worker)
-    lock = multiprocessing.Lock()
+    m = multiprocessing.Manager()
+    lock = m.Lock()
+    total = m.Value('i', 0)
     print_message("Parameters:")
-    print_message("  Input file: '{0}'".format(INPUT_FILE))
-    print_message("  Output file: '{0}'".format(OUTPUT_FILE))
-    print_message("  Number of attempts: {0}".format(ATTEMPTS_COUNT))
+    print_message("Input file: '{0}'".format(INPUT_FILE), 2)
+    print_message("Output file: '{0}'".format(OUTPUT_FILE), 2)
+    print_message("Number of attempts: {0}".format(ATTEMPTS_COUNT), 2)
     with open(OUTPUT_FILE, "w") as Fo:
         pass
     with open(INPUT_FILE, "r") as Fi:
@@ -94,7 +108,7 @@ def main():
         print_message("Start checking")
         proxies = list(Fi.readlines())
         for proxy in proxies:
-            pool.apply_async(check, args=(proxy.strip(), ), callback=results_collectors)
+            pool.apply_async(check, args=(proxy.strip(), total, lock), callback=results_collectors)
     try:
         while True:
             time.sleep(2)

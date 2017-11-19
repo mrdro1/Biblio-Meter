@@ -1,4 +1,3 @@
-python-Levenshtein
 browser-cookie3
 mtranslate
 RISparser

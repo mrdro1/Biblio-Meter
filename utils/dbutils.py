@@ -93,7 +93,8 @@ def create_tables_if_not_exists():
          start_page integer,
          end_page integer,
          authors integer,
-         EndNote varchar(1000),
+         EndNote_google text,
+         RIS_researchgate text,
          notes varchar(1000),
          score integer,
          ignore boolean not null,
@@ -164,6 +165,16 @@ def get_paper_ID(params):
     return id
 
 
+def check_exists_paper_paper_edge(params):
+    logger.debug("Check exists paper-paper edge for %s." % json.dumps(params))
+    res = execute_sql("""
+        SELECT count(*)
+        FROM paper_paper
+        WHERE r$paper1 = :IDpaper1 and r$paper2 = :IDpaper2 and type = :type
+        """, **params)[0][0]
+    return res != 0
+
+
 def set_program_transaction(Command, Params):
     def ADD_Transaction():
         global _CURRENT_PROGRAM_TRANSACTION_ID
@@ -200,11 +211,11 @@ def add_new_paper(params):
         INSERT INTO papers(
             title, year, publisher, start_page, end_page, pages, g_type,
             DOI, abstract, abstract_ru, rg_id, references_count, rg_type,
-            EndNote, authors, r$transaction, ignore
+            EndNote_google, RIS_researchgate, authors, r$transaction, ignore
         ) VALUES(
             :title, :year, :publisher, :start_page, :end_page, :pages, :g_type,
             :DOI, :abstract, :abstract_ru, :rg_id, :references_count, :rg_type,
-            :EndNote, :authors, :transaction, :ignore
+            :EndNote, :RIS, :authors, :transaction, :ignore
         )
         """, **params)
 
@@ -232,14 +243,14 @@ def add_new_author(params):
             )""", **params)
 
 
-def add_author_paperRef(IDAuthor, IDPaper):
+def add_author_paper_edge(IDAuthor, IDPaper):
     execute_sql("""
     INSERT INTO author_paper 
     VALUES(?, ?, ?)
     """, *(IDAuthor, IDPaper, _CURRENT_PROGRAM_TRANSACTION_ID))
 
 
-def add_paper_paperRef(IDPaper1, IDPaper2, Type):
+def add_paper_paper_edge(IDPaper1, IDPaper2, Type):
     execute_sql("""
     INSERT INTO paper_paper
     VALUES(?, ?, ?, ?)
@@ -262,7 +273,8 @@ def update_paper(params):
             rg_id=:rg_id,
             references_count=:references_count,
             rg_type=:rg_type,
-            EndNote=:EndNote,
+            EndNote_google=:EndNote,
+            RIS_researchgate=:RIS
             authors=:authors
         WHERE id = :id
         """, **params)

@@ -7,11 +7,12 @@ import sys, traceback, logging
 import browser_cookie3 #
 import random
 import requests
+from requests.exceptions import ProxyError, ConnectTimeout, SSLError, ReadTimeout
 from bs4 import BeautifulSoup
 import webbrowser
 import time
 import re
-#import progressbar as pb
+import progressbar as pb
 import json
 from urllib.parse import urlparse
 #
@@ -19,7 +20,7 @@ import settings
 import utils
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 class switch(object):
@@ -41,19 +42,15 @@ class switch(object):
         return False
 
 
-class ConnError(Exception): pass
-
-
-class TypeError(Exception): pass
-
-
 class ProxyManager:
     """ Class for manage with proxies for each host name: load, get current, set next from inf list """
 
     def __init__(self):
-        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', 'sci-hub.cc']
+        self.MAX_REQUESTS = 5
+        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', 'sci-hub.cc', 'otherhost']
         self.file_name = settings.PROXY_FILE
         self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
+        self.proxy_request_count = {host_name: 0 for host_name in self.list_host_names}
         # initialize current proxies for each host name
         self.proxy = dict()
         [self.set_next_proxy(host_name) for host_name in self.list_host_names]  # set self.proxy
@@ -69,23 +66,33 @@ class ProxyManager:
 
     def set_next_proxy(self, host_name):
         """ change current proxy for specific host name """
-        host_name = self.update_host_name_for_scholar(host_name)
+        host_name = self.update_host_name_for_resources(host_name)
+        if not host_name in self.list_host_names:
+            host_name = "otherhost"
         self.proxy[host_name] = next(self.dict_gens_proxy[host_name])
-        logger.debug("Change proxy to {0}".format(self.proxy[host_name]))
-        settings.print_message("Change proxy to {0}".format(self.proxy[host_name]))
+        self.proxy_request_count[host_name] = 0
+        logger.debug("Change proxy to {0} for {1}".format(self.proxy[host_name], host_name))
         return 0
 
     def get_cur_proxy(self, host_name):
         """ get current proxy for specific host name """
-        logger.debug("Get current proxy.")
-        host_name = self.update_host_name_for_scholar(host_name)
+        logger.debug("Get current proxy for {0}.".format(host_name))
+        host_name = self.update_host_name_for_resources(host_name)
+        if not host_name in self.list_host_names:
+            host_name = "otherhost"
         logger.debug("Proxy: {0}".format(self.proxy[host_name]))
+        if self.proxy_request_count[host_name] % self.MAX_REQUESTS == self.MAX_REQUESTS - 1:
+            self.set_next_proxy(host_name)
+        else:
+            self.proxy_request_count[host_name] += 1
         return self.proxy[host_name]
 
-    def update_host_name_for_scholar(self, host_name):
+    def update_host_name_for_resources(self, host_name):
         """  """
         if host_name.startswith('scholar'):
             host_name = 'scholar.google.com'
+        if host_name.endswith('sci-hub.cc'):
+            host_name = 'sci-hub.cc'
         return host_name
 
 
@@ -157,7 +164,7 @@ _DEFAULT_HEADER = {
     'User-Agent' : _get_user_agent(),
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-    'Accept-Encoding': 'gzip, deflate, br'
+    'Accept-Encoding': 'gzip, deflate'
     }
 
 
@@ -167,25 +174,6 @@ _HTTP_PARAMS = {
     "cookies" : _get_cookies("")
 }
 
-
-
-
-# Handlers dictionary. Keys = host, value = handler
-# handler signature:
-# (parameter, result_value) handler(error:Exception, request:Preparedrequest, url:str)
-_EXCEPTION_HANDLERS = dict()
-
-def add_exception_handler(host, handler):
-    _EXCEPTION_HANDLERS[host] = handler
-
-
-def add_exception_handler_if_not_exists(host, handler):
-    if not host in _EXCEPTION_HANDLERS: _EXCEPTION_HANDLERS[host] = handler
-
-
-def remove_exception_handler(host):
-    if host in _EXCEPTION_HANDLERS: _EXCEPTION_HANDLERS.pop[host]
-#
 
 def _set_http_params(session = None, header = None, cookies = None):
     """Set http params. If parameter none, it will be auto-generated or the default value will be used."""
@@ -197,7 +185,9 @@ def _set_http_params(session = None, header = None, cookies = None):
 
 def _check_captcha(soup):
     """Return true if ReCaptcha was found"""
-    return soup.find('div', id='gs_captcha_ccl') != None or soup.find('div', class_='g-recaptcha') != None
+    return soup.find('div', id='gs_captcha_ccl') != None or \
+       soup.find('div', class_='g-recaptcha') != None or \
+       soup.find('img', id="captcha") != None
 
 
 def handle_captcha(url):
@@ -211,6 +201,7 @@ def handle_captcha(url):
         settings.print_message("Waiting for cookies to be updated.")
         DELAY_TIME = 2
         max_iter = 5
+        _PROXY_OBJ.set_next_proxy(host)
         while max_iter > 0:
             timeout = random.uniform(0, DELAY_TIME)
             logger.debug("Sleep {0} seconds.".format(timeout))
@@ -228,38 +219,35 @@ def get_request(url, stream=False):
         resp = None
         try:
             proxy = _PROXY_OBJ.get_cur_proxy(host)
-            resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], cookies=_HTTP_PARAMS["cookies"], proxies=proxy, stream=stream)
-            if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
-                count_try_for_captcha += 1
-                if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
-                    _PROXY_OBJ.set_next_proxy(host)
-                else:
-                    handle_captcha(url)
-                continue
+            resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], 
+                cookies=_HTTP_PARAMS["cookies"], proxies=proxy, stream=stream, timeout=5)
+            if 'text/html' in resp.headers['Content-Type']:
+                if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
+                    count_try_for_captcha += 1
+                    if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
+                        _PROXY_OBJ.set_next_proxy(host)
+                    else:
+                        handle_captcha(url)
+                    continue
             if resp.status_code != 200:
-                raise ConnError(resp.status_code, resp.reason)
+                if resp.status_code == 429:
+                    raise ProxyError("Error: 429, To many requests.")
+                break
             if resp.status_code == 200:
                 if stream:
                     return resp
                 else:
                     return resp.text  # OK
-        except Exception as error:
+        except(ProxyError, ConnectTimeout, SSLError, ReadTimeout):
             logger.warn(traceback.format_exc())
-            '''if host != "" and host in _EXCEPTION_HANDLERS:
-                command, com_params = _EXCEPTION_HANDLERS[host](error, resp, url)
-                if command == 0: raise
-                elif command == 1:
-                    proxy = com_params
-                    continue
-                elif command == 2: break
-                elif command == 3: return com_params'''
+            settings.print_message("Connection error (see log for get more informartion), change proxy.")
             _PROXY_OBJ.set_next_proxy(host)
-            if isinstance(error, requests.exceptions.ProxyError):
-                settings.print_message("Connection error (see log for get more informartion)")
-            else:
-                settings.print_message(error)
             continue
-    raise ConnError(resp.status_code, resp.reason)
+        except Exception as error:
+            #logger.warn(traceback.format_exc())
+            #settings.print_message(error)
+            raise
+    raise Exception(resp.status_code, resp.reason)
 
 def _get_name_max_try_to_host(url):
     """   """
@@ -267,9 +255,10 @@ def _get_name_max_try_to_host(url):
         {
             'www.researchgate.net': 'researchgate',
             'scholar.google.com': 'google',
-            'sci-hub.cc': 'sci-hub'
+            'sci-hub.cc': 'sci_hub'
         }
     host = urlparse(url).hostname
+    host = _PROXY_OBJ.update_host_name_for_resources(host)
     name = dict_host_to_name[host]
     name_field_in_ctl_dict = name + '_captcha_retry_by_proxy_count'
     return name_field_in_ctl_dict
@@ -280,7 +269,8 @@ def get_soup(url):
         soup = BeautifulSoup(get_request(url), 'html.parser')
         return soup
     except Exception as error:
-        logger.warn(traceback.format_exc())
+        #logger.warn(traceback.format_exc())
+        raise
     return None
 
 
@@ -290,7 +280,8 @@ def get_text_data(url, ignore_errors = False, repeat_until_captcha = False):
         data = get_request(url)
         return data
     except Exception as error:
-        logger.warn(traceback.format_exc())
+        #logger.warn(traceback.format_exc())
+        raise
     return None
 
 
@@ -305,7 +296,8 @@ def get_json_data(url):
         logger.debug("Parse host answer from json.")
         json_data = json.loads(resp)
     except Exception as error:
-        logger.warn(traceback.format_exc())
+        #logger.warn(traceback.format_exc())
+        raise
     _HTTP_PARAMS["header"].update({"Accept" : tmp_accept})
     return json_data
 
@@ -313,26 +305,8 @@ def get_json_data(url):
 def download_file(url, output_filename):
     """Download file from url"""
     logger.warn("Download file (url='%s') and save (filename='%s')" % (url, output_filename))
-    while(1):
-        response = None
-        try:
-            response = get_request(url, stream=True)
-            if "html" in response.headers["content-type"].split("/")[1]:
-                raise TypeError("Loading html page")
-            content_length = int(response.headers['content-length'])
-            break
-        except Exception as error:
-            logger.warn(traceback.format_exc())
-            host = urlparse(url).hostname
-            if host != "" and host in _EXCEPTION_HANDLERS:
-                command, com_params = _EXCEPTION_HANDLERS[host](error, response, url)
-                if command == 0: raise
-                elif command == 1: continue
-                elif command == 2: break
-                elif command == 3: return com_params
-                else:
-                    continue
-            else: return False
+    response = get_request(url, stream=True)
+    content_length = int(response.headers['content-length'])
 
     downloaded_size = 0
     chunk_size = 65536

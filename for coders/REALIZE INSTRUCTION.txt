@@ -1,0 +1,8 @@
+If you want commit your changes:
+1) test your code (only changed modules, full programm)
+2) change number version in file version.txt
+	MAJOR version when you make incompatible API changes,
+	MINOR version when you add functionality in a backwards-compatible manner, and
+	PATCH version when you make backwards-compatible bug fixes.
+3) write understandable description
+4) COMMIT

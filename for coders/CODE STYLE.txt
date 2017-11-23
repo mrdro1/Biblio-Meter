@@ -1,0 +1,5 @@
+Mikle's wishes:
+- all function must contain doc string with: several sentences about "what do this function", sentence about input and output data 
+
+Vladimir's wishes:
+ 

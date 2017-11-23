@@ -4,6 +4,7 @@ import collections
 import os, logging, re, traceback, sys
 import json
 from datetime import datetime
+import re
 #
 _main_dir = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(_main_dir, 'utils\\'))
@@ -12,13 +13,33 @@ sys.path.insert(0, os.path.join(_main_dir, 'internet_resources\\'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, close_connection
 
-# Programm version
-__VERSION__ = "0.5.2"
-__RELEASE_VERSION__ = "0.2.5"
 
-# Header
-_header = "BiblioMeter {0}(v{1}, {2})".format(__RELEASE_VERSION__, __VERSION__, datetime.now().strftime("%B %d %Y, %H:%M:%S"))
+def build_version_string():
+    """ This function read current version from version.txt and format version string """
+    # MAJOR version when you make incompatible API changes
+    __MAJOR_VERSION__ = str()
+    # MINOR version when you add functionality in a backwards-compatible manner
+    __MINOR_VERSION__ = str()
+    # PATCH version when you make backwards-compatible bug fixes
+    __PATCH_VERSION__ = str()
+    with open('version.txt', 'r') as version_file:
+        lines = version_file.readlines()
+        for line in lines:
+            if line.startswith('__MAJOR_VERSION__'):
+                __MAJOR_VERSION__ = re.findall('\d+', line)[0]
+            if line.startswith('__MINOR_VERSION__'):
+                __MINOR_VERSION__ = re.findall('\d+', line)[0]
+            if line.startswith('__PATCH_VERSION__'):
+                __PATCH_VERSION__ = re.findall('\d+', line)[0]
+    _header = "BiblioMeter (v{0}.{1}.{2}) {3}".format(__MAJOR_VERSION__, __MINOR_VERSION__, __PATCH_VERSION__,
+                                                      datetime.now().strftime("%B %d %Y, %H:%M:%S"))
 
+    return _header
+
+# Program version
+_header = build_version_string()
+print(_header)
+logging.info(_header)
 
 # Default browser
 CHROME = 0

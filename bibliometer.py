@@ -170,33 +170,89 @@ def get_PDFs():
     return result
 
 
-def get_references():
-    """This function loads links to articles for papers selected from the database"""
+def select_papers_for_citation_graph(tree_queue):
+    """ This function selects articles from the database and checks the SQL. """
     logger.debug("Select papers from database.")
     settings.print_message("Select papers from database.")
     PAPERS_SQL = settings.PARAMS["papers"]
-    MAX_TREE_LEVEL = int(settings.PARAMS["max_tree_level"])
     papers = dbutils.execute_sql(PAPERS_SQL)
     settings.print_message("{0} papers selected.".format(len(papers)))
     # Get columns from query
     columns = dict()
     for N, column in enumerate(dbutils.get_sql_columns(PAPERS_SQL)): columns[column.lower()] = N
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else 1000000
     # Check query
     def error_msg(param_name):
        logger.error("Column '{0}' not found in query".format(param_name)) 
        settings.print_message("ERROR: Column '{0}' not found in query.".format(param_name))
        settings.print_message("From the database should be selected column '{0}'.".format(param_name))
-    result = (False, 0, 0, 0)
     if not "rg_id" in columns:
        error_msg("rg_id")
-       return result
+       raise Exception(error_msg("rg_id"))
     if not "id" in columns:
        error_msg("id")
-       return result
-    tree_queue = queue.Queue()
+       raise Exception(error_msg("rg_id"))
     for db_paper in papers:
+        # The tree is in the queue in which the tuples are stored. 
+        # Each tuple is (id of paper in the database, id of the paper on the researchgate, the level of the tree)
         tree_queue.put((db_paper[columns["id"]], db_paper[columns["rg_id"]], 1))
+    return 0
+
+
+def create_and_fill_paper_for_citation_graph(parent_paper_db_id, rg_new_paper_id, edge_type):
+    """ This function creates a new instance of the paper and fills it with information. """
+    # Create new paper entity
+    newpaper = paper.Paper()
+    # fill new paper
+    settings.print_message("Filling in information about the paper.", 4)
+    logger.debug("Filling in information about the paper.")
+    newpaper.get_data_from_rg_id(rg_new_paper_id)
+    logger.debug("Check exists paper and if not then insert into DB.")
+    if newpaper.in_database(): 
+        settings.print_message("This paper already exists, id = {0}.".format(newpaper.db_id), 4)
+    else:
+        # Add new paper in DB
+        settings.print_message("Adding a paper to the database", 4)
+        newpaper.add_to_database()
+    # Get and insert in database info about author
+    settings.print_message("Authors:", 4)
+    for author_info in newpaper.authors:
+        # Create new author entity
+        newauthor = author.Author()
+        newauthor.get_base_info_from_sch({"name":author_info})
+        settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 6)
+        logger.debug("Check exists author and if not then insert into DB.")
+        if not newauthor.in_database():
+            # Insert new author into DB
+            settings.print_message("Adding author to the database", 6)
+            newauthor.save_to_database()
+        else:
+            settings.print_message("This author already exists, id = %i." % newauthor.db_id, 6)
+        # Insert into DB reference
+        dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
+    # Add reference in DB
+    edge_params = \
+    {
+        "IDpaper1" : parent_paper_db_id,
+        "IDpaper2" : newpaper.db_id,
+        "type" : edge_type
+    }
+    logger.debug("Check exists edge and if not then insert into DB.")
+    if not dbutils.check_exists_paper_paper_edge(edge_params):
+        logger.debug("Add edge ({0}, {1}, {2}) in DB.".format(parent_paper_db_id, newpaper.db_id, edge_type))
+        settings.print_message("Add edge ({0}, {1}, {2}) in DB.".format(parent_paper_db_id, newpaper.db_id, edge_type), 4)
+        dbutils.add_paper_paper_edge(parent_paper_db_id, newpaper.db_id, edge_type)
+    else:
+        settings.print_message("This edge ({0}, {1}, {2}) already exists.".format(parent_paper_db_id, newpaper.db_id, edge_type), 4)
+        logger.debug("This edge ({0}, {1}, {2}) already exists.".format(parent_paper_db_id, newpaper.db_id, edge_type))
+    return newpaper
+
+def get_references():
+    """This function loads links to articles for papers selected from the database"""
+    MAX_TREE_LEVEL = int(settings.PARAMS["max_tree_level"])
+    MAX_RELATED_PAPERS = int(settings.PARAMS["max_related_papers"])
+    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else 1000000
+    tree_queue = queue.Queue()
+    select_papers_for_citation_graph(tree_queue)
     papers_counter = 0
     while not tree_queue.empty():
         papers_counter += 1
@@ -208,6 +264,10 @@ def get_references():
         total_ref = 0
         if ref_papers_list != None:
             total_ref = len(ref_papers_list)
+        else:
+            logger.debug("Paper #{0} hasn't cited list, skip.".format(papers_counter))
+            settings.print_message("Paper #{0} hasn't cited list, skip.".format(papers_counter), 2)
+            continue
         for new_paper_counter, ref_paper in enumerate(ref_papers_list):
             if ref_paper["publication"] == None: # It's citation
                 settings.print_message("Paper #{0} is citation, skip.".format(new_paper_counter + 1), 2)
@@ -215,66 +275,62 @@ def get_references():
                 continue
             settings.print_message("Handle new paper #{0} from references (total {1}).".format(new_paper_counter + 1, total_ref), 2)
             logger.debug("Handle new paper #{0} from references (total {1}).".format(new_paper_counter + 1, total_ref))
-            # Create new paper entity
-            newpaper = paper.Paper()
-            # fill new paper
-            settings.print_message("Filling in information about the paper.", 4)
-            logger.debug("Filling in information about the paper #{0}.".format(new_paper_counter + 1))
-            newpaper.get_data_from_rg_id(researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]))
-            logger.debug("Check exists paper and if not then insert into DB.")
-            if newpaper.in_database(): 
-                settings.print_message("This paper already exists, id = {0}.".format(newpaper.db_id), 4)
-            else:
-                # Add new paper in DB
-                settings.print_message("Adding a paper to the database", 4)
-                newpaper.add_to_database()
-            # Get and insert in database info about author
-            settings.print_message("Authors:", 4)
-            for author_info in newpaper.authors:
-                # Create new author entity
-                newauthor = author.Author()
-                newauthor.get_base_info_from_sch({"name":author_info})
-                settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 6)
-                logger.debug("Check exists author and if not then insert into DB.")
-                if not newauthor.in_database():
-                    # Insert new author into DB
-                    settings.print_message("Adding author to the database", 6)
-                    newauthor.save_to_database()
-                else:
-                    settings.print_message("This author already exists, id = %i." % newauthor.db_id, 6)
-                # Insert into DB reference
-                dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
-            # Add reference in DB
-            edge_params = \
-            {
-                "IDpaper1" : parent_paper_db_id,
-                "IDpaper2" : newpaper.db_id,
-                "type" : "related"
-            }
-            logger.debug("Check exists edge and if not then insert into DB.")
-            if not dbutils.check_exists_paper_paper_edge(edge_params):
-                logger.debug("Add edge ({0}, {1}, 'related') in DB.".format(parent_paper_db_id, newpaper.db_id))
-                settings.print_message("Add edge ({0}, {1}, 'related') in DB.".format(parent_paper_db_id, newpaper.db_id), 4)
-                dbutils.add_paper_paper_edge(parent_paper_db_id, newpaper.db_id, "related")
-            else:
-                settings.print_message("This edge ({0}, {1}, 'related') already exists.".format(parent_paper_db_id, newpaper.db_id), 4)
-                logger.debug("This edge ({0}, {1}, 'related') already exists.".format(parent_paper_db_id, newpaper.db_id))
+            
+            newpaper = create_and_fill_paper_for_citation_graph(parent_paper_db_id, 
+                researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "related")
+
             # Add new paper in queue
-            if tree_level < MAX_TREE_LEVEL:
+            if tree_level < MAX_TREE_LEVEL and new_paper_counter < MAX_RELATED_PAPERS:
                 logger.debug("Add this paper (db_id={0}, rg_id={1}) in tree levels queue.".format(newpaper.db_id, newpaper.rg_paper_id))
                 tree_queue.put((newpaper.db_id, newpaper.rg_paper_id, tree_level + 1))
             else:
                 pass
             # Commit transaction each commit_iterations iterations
             if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
-    pass
+
 
 def get_cities():
-    pass
+    """This function loads articles that reference selected papers from the database"""
+    MAX_TREE_LEVEL = int(settings.PARAMS["max_tree_level"])
+    MAX_CITED_PAPERS = int(settings.PARAMS["max_cited_papers"])
+    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else 1000000
+    tree_queue = queue.Queue()
+    select_papers_for_citation_graph(tree_queue)
+    papers_counter = 0
+    while not tree_queue.empty():
+        papers_counter += 1
+        parent_paper_db_id, parent_paper_rg_id, tree_level = tree_queue.get()
+        logger.debug("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
+        settings.print_message("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
+        settings.print_message("Get paper citations. RGID={0}.".format(parent_paper_rg_id), 2)
+        cited_papers_list = researchgate.get_citations_papers(parent_paper_rg_id)
+        total_ref = 0
+        if cited_papers_list != None:
+            total_ref = len(cited_papers_list)
+        else:
+            logger.debug("Paper #{0} hasn't cited list, skip.".format(papers_counter))
+            settings.print_message("Paper #{0} hasn't cited list, skip.".format(papers_counter), 2)
+            continue
+        for new_paper_counter, ref_paper in enumerate(cited_papers_list):
+            if ref_paper["publication"] == None: # It's citation
+                settings.print_message("Paper #{0} is not article, skip.".format(new_paper_counter + 1), 2)
+                logger.debug("Paper #{0} is not article, skip.".format(new_paper_counter + 1))
+                continue
+            settings.print_message("Handle new paper #{0} from citations (total {1}).".format(new_paper_counter + 1, total_ref), 2)
+            logger.debug("Handle new paper #{0} from citations (total {1}).".format(new_paper_counter + 1, total_ref))
+ 
+            newpaper = create_and_fill_paper_for_citation_graph(parent_paper_db_id, 
+                researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "citied")
 
+            # Add new paper in queue
+            if tree_level < MAX_TREE_LEVEL and new_paper_counter < MAX_CITED_PAPERS:
+                logger.debug("Add this paper (db_id={0}, rg_id={1}) in tree levels queue.".format(newpaper.db_id, newpaper.rg_paper_id))
+                tree_queue.put((newpaper.db_id, newpaper.rg_paper_id, tree_level + 1))
+            else:
+                pass
+            # Commit transaction each commit_iterations iterations
+            if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
 
-def test():
-    pass
 
 def dispatch(command):
     result = None

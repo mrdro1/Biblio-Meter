@@ -12,15 +12,6 @@ logger.setLevel(_LOG_LEVEL)
 
 DB_CONNECTION = None
 
-# Papers sql
-
-
-
-# Transaction sql
-
-
-# References sql
-
 _CURRENT_PROGRAM_TRANSACTION_ID = -1
 
 def set_Loglevel(Loglevel):

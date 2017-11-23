@@ -22,6 +22,7 @@ _WORDUNION = "%252B"
 _BLOCKUNION = "%252C"
 _PUBLICATIONPAGE = r'publication/{0}'
 _PUBREFERENCESDATA = r'publicliterature.PublicPublicationReferenceList.html?publicationUid={0}&initialDisplayLimit=1000&loadMoreCount=1000'
+_PUBCITEDSDATA = r'publicliterature.PublicationCitationList.html?publicationUid={0}&initialDisplayLimit=1000&loadMoreCount=1000'
 _PUBRISDATA = r"publicliterature.PublicationHeaderDownloadCitation.downloadCitation.html?publicationUid={0}&fileType=RIS&citationAndAbstract=true"
 _AUTHORSLISTDATA = r"publicliterature.PublicationAuthorList.loadMore.html?publicationUid={0}&offset={1}&count={2}"
 _AUTHORDATA = r"publicprofile.ProfileHighlightsStats.html?accountId={0}"
@@ -233,6 +234,26 @@ def get_referring_papers(rg_paper_id):
     return None
 
 
+def get_citations_papers(rg_paper_id):
+    """Get cited dict for paper with rg_paper_id"""
+    logger.debug("Downloading the list of cited articles.")
+    ref_url = _PUBCITEDSDATA.format(rg_paper_id)
+    url = _FULLURL.format(_HOST, ref_url)
+    try:
+        dict_req_result = utils.get_json_data(url)
+    except:
+        #logger.warn(traceback.format_exc())
+        #return None
+        raise
+    success = dict_req_result['success']
+    logger.debug("Status=%s." % success)
+    if success:
+        logger.debug("Data is correct and parse is successfuly.")
+        return dict_req_result["result"]["state"]["rigel"]["store"]["publication:id:PB:{0}".format(rg_paper_id)]["incomingCitingPublicationsWithContext"]["__pagination__"][0]["list"]
+    logger.debug("Data is not correct.")
+    return None
+
+
 def get_authors(rg_paper_id):
     """Get authors for paper with rg_paper_id"""
     logger.debug("Get authors for paper.")
@@ -298,8 +319,6 @@ def get_pdf(rg_paper_id, filename):
         settings.print_message("Download pdf...", 2)
         return utils.download_file(url, filename)
     except:
-        #logger.warn(traceback.format_exc())
-        #return False
         raise
     return True
 

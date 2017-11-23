@@ -46,7 +46,7 @@ class ProxyManager:
     """ Class for manage with proxies for each host name: load, get current, set next from inf list """
 
     def __init__(self):
-        self.MAX_REQUESTS = 5
+        self.MAX_REQUESTS = 2
         self.list_host_names = ['www.researchgate.net', 'scholar.google.com', 'sci-hub.cc', 'otherhost']
         self.file_name = settings.PROXY_FILE
         self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
@@ -191,7 +191,8 @@ def _check_captcha(soup):
 
 
 def handle_captcha(url):
-        # ReCaptcha :(
+        # Captcha :(
+        host = urlparse(url).hostname
         res = input("CAPTCHA was found. To continue, you need to enter the captcha in your browser.\nDo you want to open a browser to enter? [y/n]: ")
         if res != 'y' and res != 'n': raise Exception('Error: CAPTCHA was found. To continue, needed to enter the captcha in browser.')
         if res == 'y':

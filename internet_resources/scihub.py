@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import utils
 import settings
 
-_HOST = r"https://sci-hub.cc/"
+_HOST = r"https://sci-hub.bz/"
 _FULLURL = r"{0}{1}"
 
 logger = logging.getLogger(__name__)

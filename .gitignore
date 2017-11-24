@@ -1,4 +1,4 @@
-*.pyproj
-*.pyc
+*.pyproj 
+*.pyc 
 *.db3
 *.log

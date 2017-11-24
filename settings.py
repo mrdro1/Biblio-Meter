@@ -33,13 +33,11 @@ def build_version_string():
                 __PATCH_VERSION__ = re.findall('\d+', line)[0]
     _header = "BiblioMeter (v{0}.{1}.{2}) {3}".format(__MAJOR_VERSION__, __MINOR_VERSION__, __PATCH_VERSION__,
                                                       datetime.now().strftime("%B %d %Y, %H:%M:%S"))
-
     return _header
 
 # Program version
 _header = build_version_string()
-print(_header)
-logging.info(_header)
+
 
 # Default browser
 CHROME = 0

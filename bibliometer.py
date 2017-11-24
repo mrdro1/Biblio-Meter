@@ -262,11 +262,11 @@ def get_references():
         settings.print_message("Get paper references. RGID={0}.".format(parent_paper_rg_id), 2)
         ref_papers_list = researchgate.get_referring_papers(parent_paper_rg_id)
         total_ref = 0
-        if ref_papers_list != None:
+        if ref_papers_list != None and len(ref_papers_list) != 0:
             total_ref = len(ref_papers_list)
         else:
             logger.debug("Paper #{0} hasn't cited list, skip.".format(papers_counter))
-            settings.print_message("Paper #{0} hasn't cited list, skip.".format(papers_counter), 2)
+            settings.print_message("Paper #{0} hasn't references list, skip.".format(papers_counter), 2)
             continue
         for new_paper_counter, ref_paper in enumerate(ref_papers_list):
             if ref_paper["publication"] == None: # It's citation
@@ -280,13 +280,14 @@ def get_references():
                 researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "related")
 
             # Add new paper in queue
-            if tree_level < MAX_TREE_LEVEL and new_paper_counter < MAX_RELATED_PAPERS:
+            if tree_level < MAX_TREE_LEVEL:
                 logger.debug("Add this paper (db_id={0}, rg_id={1}) in tree levels queue.".format(newpaper.db_id, newpaper.rg_paper_id))
                 tree_queue.put((newpaper.db_id, newpaper.rg_paper_id, tree_level + 1))
             else:
                 pass
             # Commit transaction each commit_iterations iterations
             if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
+            if  new_paper_counter >= MAX_RELATED_PAPERS - 1: break
 
 
 def get_cities():
@@ -323,14 +324,14 @@ def get_cities():
                 researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "citied")
 
             # Add new paper in queue
-            if tree_level < MAX_TREE_LEVEL and new_paper_counter < MAX_CITED_PAPERS:
+            if tree_level < MAX_TREE_LEVEL:
                 logger.debug("Add this paper (db_id={0}, rg_id={1}) in tree levels queue.".format(newpaper.db_id, newpaper.rg_paper_id))
                 tree_queue.put((newpaper.db_id, newpaper.rg_paper_id, tree_level + 1))
             else:
                 pass
             # Commit transaction each commit_iterations iterations
             if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
-
+            if  new_paper_counter >= MAX_CITED_PAPERS - 1: break
 
 def dispatch(command):
     result = None

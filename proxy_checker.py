@@ -11,9 +11,9 @@ import signal
 import argparse
 
 TEST_URLS = [
-    "https://scholar.google.ru/scholar?hl=en&as_sdt=0%2C5&q=test&btnG=",
+    "https://scholar.google.ru/",
     "https://www.researchgate.net/search?q=test",
-    "http://sci-hub.cc/10.1145/1497185.1497232"
+    "https://sci-hub.bz/"
     ]
 
 DEFAULT_ATEEMPTS_COUNT = 2
@@ -28,8 +28,8 @@ def print_message(message, level=0):
 #
 
 # Programm version
-__VERSION__ = "0.1.3"
-__RELEASE_VERSION__ = "0.1.3"
+__VERSION__ = "0.1.4"
+__RELEASE_VERSION__ = "0.1.4"
 
 # Header
 _header = "Proxy-checker {0}(v{1}, {2})".format(__RELEASE_VERSION__, __VERSION__, datetime.now().strftime("%B %d %Y, %H:%M:%S"))
@@ -92,7 +92,7 @@ def results_collectors(result):
     RESULTS.append(result)
 
 def main():
-    threads = 8
+    threads = 100
     pool = multiprocessing.Pool(threads, init_worker)
     m = multiprocessing.Manager()
     lock = m.Lock()

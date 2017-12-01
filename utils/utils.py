@@ -270,7 +270,7 @@ def handle_captcha(response):
     browser_options = webdriver.ChromeOptions()
     browser_options.add_argument('--proxy-server={0}'.format(
        [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
-    browser = webdriver.Chrome(executable_path=r"D:\Programming\GitHub\Biblio-Meter\chromedriver.exe", 
+    browser = webdriver.Chrome(executable_path=settings.PATH_TO_WEB_DRIVER,
                                chrome_options=browser_options, desired_capabilities=dict(response.request.headers), )
     resp_cookies = response.cookies.get_dict()#requests.utils.dict_from_cookiejar(_HTTP_PARAMS["cookies"])
     browser.get("{0}://{1}".format(urlparse(response.request.url).scheme, urlparse(response.request.url).netloc))
@@ -287,6 +287,8 @@ def handle_captcha(response):
     return 0
 
 
+REQUEST_STATISTIC = {'count_requests': 0, 'failed_requests':list()}
+
 def get_request(url, stream=False):
     """Send get request [, catch errors, try again]* & return data"""
     host = urlparse(url).hostname
@@ -296,6 +298,10 @@ def get_request(url, stream=False):
         resp = None
         if bad_requests_counter >= settings.PARAMS["http_contiguous_requests"]:
             settings.print_message("Failed {} times get requests from '{}'".format(settings.PARAMS["http_contiguous_requests"], url))
+            # +1 bad requests
+            global REQUEST_STATISTIC
+            REQUEST_STATISTIC['failed_requests'].append(url)
+            REQUEST_STATISTIC['count_requests'] += 1
             return None
         try:
             proxy = _PROXY_OBJ.get_cur_proxy(host)
@@ -317,6 +323,9 @@ def get_request(url, stream=False):
                 continue
 
             if resp.status_code == 200:
+                # +1 good requests
+                global REQUEST_STATISTIC
+                REQUEST_STATISTIC['count_requests'] += 1
                 if stream:
                     return resp
                 else:

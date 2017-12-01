@@ -38,6 +38,8 @@ def build_version_string():
 # Program version
 _header = build_version_string()
 
+# Path to web driver
+PATH_TO_WEB_DRIVER = 'chromedriver.exe'
 
 # Default browser
 CHROME = 0

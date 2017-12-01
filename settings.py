@@ -85,9 +85,9 @@ CONTROL_KEYS = [
     "researchgate_captcha_retry_by_proxy_count",
     "sci_hub_captcha_retry_by_proxy_count",
     "max_tree_level",
-    "max_related_papers",
     "max_cited_papers",
-    "commit_iterations"
+    "commit_iterations",
+    "http_contiguous_requests"
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
@@ -96,7 +96,8 @@ CONTROL_DEFAULT_VALUES = \
         "google_captcha_retry_by_proxy_count" : 4,
         "researchgate_captcha_retry_by_proxy_count" : 4,
         "sci_hub_captcha_retry_by_proxy_count" : 0,
-        "commit_iterations" : 1000000
+        "commit_iterations" : 1000000,
+        "http_contiguous_requests" : 20
     }
 
 

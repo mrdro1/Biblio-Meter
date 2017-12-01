@@ -17,16 +17,46 @@ logger.setLevel(settings.LOG_LEVEL)
 
 _HOST = r"https://www.researchgate.net/"
 _PUBSEARCH = r'publicbrowse.SearchItemsList.html?query[0]={0}&type=publications&page={1}'
+_SEARCHBYDOI = r'search?q={0}'
 _FULLURL = r'{0}{1}'
 _WORDUNION = "%252B"
 _BLOCKUNION = "%252C"
 _PUBLICATIONPAGE = r'publication/{0}'
-_PUBREFERENCESDATA = r'publicliterature.PublicPublicationReferenceList.html?publicationUid={0}&initialDisplayLimit=1000&loadMoreCount=1000'
-_PUBCITEDSDATA = r'publicliterature.PublicationCitationList.html?publicationUid={0}&initialDisplayLimit=1000&loadMoreCount=1000'
+_REFINFO = r'publicliterature.PublicationResourceTabBox.html?publicationUid={0}&showLiteratureReviewInfo=1'
+_PUBREFERENCESDATA = r'publicliterature.PublicPublicationReferenceList.html?publicationUid={0}&initialDisplayLimit={1}'
+_PUBCITEDSDATA = r'publicliterature.PublicationCitationList.html?publicationUid={0}&initialDisplayLimit={1}'
 _PUBRISDATA = r"publicliterature.PublicationHeaderDownloadCitation.downloadCitation.html?publicationUid={0}&fileType=RIS&citationAndAbstract=true"
 _AUTHORSLISTDATA = r"publicliterature.PublicationAuthorList.loadMore.html?publicationUid={0}&offset={1}&count={2}"
 _AUTHORDATA = r"publicprofile.ProfileHighlightsStats.html?accountId={0}"
 _RGIDRE = r"\/[0-9]+_"
+
+
+def paper_search_by_DOI(DOI):
+    url = _FULLURL.format(_HOST, _SEARCHBYDOI.format(DOI))
+    logger.debug("Get paper by DOI {0} from '{1}'.".format(DOI, url))
+    resp = utils.get_request(url, True)
+    if resp.request.url != url:
+        return get_rg_paper_id_from_url(resp.request.url)
+    return None
+
+
+def get_info_about_ref_and_citations(rg_paper_id):
+    url = _FULLURL.format(_HOST, _REFINFO.format(rg_paper_id))
+    logger.debug("Get info about references and cities for paper RGID='{0}'.".format(rg_paper_id))
+    try:
+        dict_req_result = utils.get_json_data(url)
+    except:
+        raise
+    success = dict_req_result['success']
+    logger.debug("Status=%s." % success)
+    if success:
+        logger.debug("Data is correct and parse is successfuly.")
+        return {
+                'citationsCount' : dict_req_result['result']['data']['citationsCount'], 
+                'referencesCount' : dict_req_result['result']['data']['referencesCount']
+               }
+    logger.debug("Data is not correct.")
+    return None
 
 
 def get_query_json(params):
@@ -46,10 +76,6 @@ def identification_and_fill_paper(params, query_json = None, delay=0):
     """Search papers on researchgate and fill the data about it"""
     paper_info_url = None
     try:
-        # Delay about Delay seconds for hide 429 error.
-        timeout = random.uniform(0, delay)
-        logger.debug("Sleep {0} seconds.".format(timeout))
-        time.sleep(timeout)
         paper_info_url = _ident_and_fill_paper(
             get_query_json(params) if query_json == None else query_json, params)
     except Exception as error:
@@ -123,9 +149,6 @@ def _ident_and_fill_paper(json_query_result, params):
                 # Second compare
                 else:
                     logger.debug("The title and year of the paper coincided, identification of information from the RIS.")
-                    timeout = 0#random.uniform(0, 3)
-                    logger.debug("Sleep {0} seconds.".format(timeout))
-                    time.sleep(timeout)
                     paper_url =  _FULLURL.format(_HOST, papers_item['data']['publicationUrl'])
                     logger.debug("Process RIS for paper #%i." % on_page_paper_count)
                     rg_paper_id = get_rg_paper_id_from_url(paper_url)
@@ -148,10 +171,6 @@ def _ident_and_fill_paper(json_query_result, params):
         if len(papers_box) >= 10:
             pagenum += 1
             logger.debug("Load next page in resulting query selection.")
-            # Delay about Delay seconds for hide 429 error.
-            timeout = 0#random.uniform(1, 2)
-            logger.debug("Sleep {0} seconds.".format(timeout))
-            time.sleep(timeout)
             qtext = requests.utils.quote(stopwords.delete_stopwords(params["title"], " and "))
             #   DEBUG messages
             url = _PUBSEARCH.format(qtext, pagenum)
@@ -215,15 +234,14 @@ def get_info_from_RIS(rg_paper_id):
 
 
 def get_referring_papers(rg_paper_id):
-    """Get references dict for paper with rg_paper_id"""
+    """ Get references dict for paper with rg_paper_id """
     logger.debug("Downloading the list of referring articles.")
-    ref_url = _PUBREFERENCESDATA.format(rg_paper_id)
+    info = get_info_about_ref_and_citations(rg_paper_id)
+    ref_url = _PUBREFERENCESDATA.format(rg_paper_id, info["referencesCount"])
     url = _FULLURL.format(_HOST, ref_url)
     try:
         dict_req_result = utils.get_json_data(url)
     except:
-        #logger.warn(traceback.format_exc())
-        #return None
         raise
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)
@@ -237,13 +255,12 @@ def get_referring_papers(rg_paper_id):
 def get_citations_papers(rg_paper_id):
     """Get cited dict for paper with rg_paper_id"""
     logger.debug("Downloading the list of cited articles.")
-    ref_url = _PUBCITEDSDATA.format(rg_paper_id)
+    info = get_info_about_ref_and_citations(rg_paper_id)
+    ref_url = _PUBCITEDSDATA.format(rg_paper_id, info["citationsCount"])
     url = _FULLURL.format(_HOST, ref_url)
     try:
         dict_req_result = utils.get_json_data(url)
     except:
-        #logger.warn(traceback.format_exc())
-        #return None
         raise
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)

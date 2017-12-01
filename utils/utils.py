@@ -10,6 +10,10 @@ import requests
 from requests.exceptions import ProxyError, ConnectTimeout, SSLError, ReadTimeout
 from bs4 import BeautifulSoup
 import webbrowser
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 import time
 import re
 import progressbar as pb
@@ -23,7 +27,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class switch(object):
+class Switch(object):
     """SWITCHER"""
     def __init__(self, value):
         self.value = value
@@ -46,7 +50,7 @@ class ProxyManager:
     """ Class for manage with proxies for each host name: load, get current, set next from inf list """
 
     def __init__(self):
-        self.MAX_REQUESTS = 2
+        self.MAX_REQUESTS = 1
         self.list_host_names = ['www.researchgate.net', 'scholar.google.com', 'sci-hub.cc', 'otherhost']
         self.file_name = settings.PROXY_FILE
         self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
@@ -81,10 +85,19 @@ class ProxyManager:
         if not host_name in self.list_host_names:
             host_name = "otherhost"
         logger.debug("Proxy: {0}".format(self.proxy[host_name]))
-        if self.proxy_request_count[host_name] % self.MAX_REQUESTS == self.MAX_REQUESTS - 1:
+        if self.proxy_request_count[host_name] >= self.MAX_REQUESTS:
             self.set_next_proxy(host_name)
         else:
             self.proxy_request_count[host_name] += 1
+        return self.proxy[host_name]
+
+    def get_cur_proxy_without_changing(self, host_name):
+        """ get current proxy for specific host name without changing it """
+        logger.debug("Get current proxy for {0}.".format(host_name))
+        host_name = self.update_host_name_for_resources(host_name)
+        if not host_name in self.list_host_names:
+            host_name = "otherhost"
+        logger.debug("Proxy: {0}".format(self.proxy[host_name]))
         return self.proxy[host_name]
 
     def update_host_name_for_resources(self, host_name):
@@ -149,7 +162,7 @@ def _get_user_agent():
         return 'Mozilla/5.0 (compatible; MSIE ' + version + '; ' + os + '; ' + token + 'Trident/' + engine + ')'
 
 
-def _get_cookies(domain):
+def _get_cookies(domain=""):
     """Load cookie from default browser and filtering them by domain"""
     if settings.DEFAULT_BROWSER == settings.CHROME:
         logger.debug("Load cookie from chrome.")
@@ -158,6 +171,58 @@ def _get_cookies(domain):
         logger.debug("Load cookie from firefox.")
         return browser_cookie3.firefox(domain_name=domain)
     return None
+
+
+def _load_cookie_from_dict(data_dict):
+        """ Creates a cookie from the dict """
+        COOKIE_DEFAULT_VALUES = collections.defaultdict(lambda: str())
+        COOKIE_DEFAULT_VALUES = \
+            {
+                "version" : 0,
+                "name" : None,
+                "value" : None,
+                "port" : 0,
+                "port_specified" : False,
+                "domain" : None,
+                "domain_specified" : False,
+                "domain_initial_dot" : False,
+                "path" : '/',
+                "path_specified" : True,
+                "secure" : False,
+                "expires" : None,
+                "discard" : False,
+                "comment" : None,
+                "comment_url" : None,
+                "rest" : {},
+                "rfc2109" : False
+            }
+        cookie_params = dict( [(str(t[0]), t[1]) for t in data_dict.items() if t[0] in list(COOKIE_DEFAULT_VALUES)])
+        for key in COOKIE_DEFAULT_VALUES.keys():
+            cookie_params.setdefault(key, COOKIE_DEFAULT_VALUES[key])
+        if "httpOnly" in data_dict:
+            cookie_params["rest"] = {"HttpOnly":data_dict["httpOnly"]}
+        return requests.cookies.cookielib.Cookie(**cookie_params)
+
+
+def cl2cj(cookies_list):
+    """ Convert list with cookies in dictionary to cookie jar """
+    cj = requests.cookies.cookielib.CookieJar()
+    for x in cookies_list:
+         cj.set_cookie(_load_cookie_from_dict(x))
+    return cj
+
+
+def _update_cookie_jar(cjar, cookie_list):
+    """ Insert or update cookies in cookie jar """
+    cj = cl2cj(cookie_list)
+    res_cj = requests.cookies.cookielib.CookieJar()
+    for old_cookie in cjar:
+        if [cookie for cookie in cj 
+            if old_cookie.name == cookie.name 
+            and old_cookie.domain == cookie.domain] == []:
+                res_cj.set_cookie(old_cookie)
+    _ = [res_cj.set_cookie(new_cookie) for new_cookie in cj]
+    return res_cj
 
 
 _DEFAULT_HEADER = {
@@ -171,17 +236,26 @@ _DEFAULT_HEADER = {
 _HTTP_PARAMS = {
     "session" : requests.Session(),
     "header" : _DEFAULT_HEADER,
-    "cookies" : _get_cookies("")
+    "cookies" : _get_cookies()
 }
 
 
 def _set_http_params(session = None, header = None, cookies = None):
-    """Set http params. If parameter none, it will be auto-generated or the default value will be used."""
+    """ Set http params. If parameter none, it will be auto-generated or the default value will be used. """
     global _HTTP_PARAMS
     _HTTP_PARAMS["session"] = session if session != None else requests.Session()
     _HTTP_PARAMS["header"].update(header if header != None else {"User-Agent" : _get_user_agent()})
-    _HTTP_PARAMS["cookies"] = cookies if cookies != None else _get_cookies("")
+    _HTTP_PARAMS["cookies"] = cookies if cookies != None else _get_cookies()
 
+
+def set_http_param(param, value):
+    """ Set value to http param. """
+    global _HTTP_PARAMS
+    _HTTP_PARAMS[param] = value
+
+def get_http_param(param):
+    """ Get http param. """
+    return _HTTP_PARAMS[param]
 
 def _check_captcha(soup):
     """Return true if ReCaptcha was found"""
@@ -190,65 +264,75 @@ def _check_captcha(soup):
        soup.find('img', id="captcha") != None
 
 
-def handle_captcha(url):
-        # Captcha :(
-        host = urlparse(url).hostname
-        res = input("CAPTCHA was found. To continue, you need to enter the captcha in your browser.\nDo you want to open a browser to enter? [y/n]: ")
-        if res != 'y' and res != 'n': raise Exception('Error: CAPTCHA was found. To continue, needed to enter the captcha in browser.')
-        if res == 'y':
-            webbrowser.open(url=url)
-            input("Press Enter after entering to continue")
-        logger.debug("Waiting for cookies to be updated.")
-        settings.print_message("Waiting for cookies to be updated.")
-        DELAY_TIME = 2
-        max_iter = 5
-        _PROXY_OBJ.set_next_proxy(host)
-        while max_iter > 0:
-            timeout = random.uniform(0, DELAY_TIME)
-            logger.debug("Sleep {0} seconds.".format(timeout))
-            time.sleep(timeout)
-            _set_http_params()
-            max_iter -= 1
-        return res
+def handle_captcha(response):
+    """ Captcha handler """
+    host = urlparse(response.request.url).hostname
+    browser_options = webdriver.ChromeOptions()
+    browser_options.add_argument('--proxy-server={0}'.format(
+       [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
+    browser = webdriver.Chrome(executable_path=r"D:\Programming\GitHub\Biblio-Meter\chromedriver.exe", 
+                               chrome_options=browser_options, desired_capabilities=dict(response.request.headers), )
+    resp_cookies = response.cookies.get_dict()#requests.utils.dict_from_cookiejar(_HTTP_PARAMS["cookies"])
+    browser.get("{0}://{1}".format(urlparse(response.request.url).scheme, urlparse(response.request.url).netloc))
+    resp_cookies_for_browser = \
+        [{'name': key, 'value': val} for key, val in resp_cookies.items()]
+    _ = [browser.add_cookie(c) for c in resp_cookies_for_browser]
+    browser.get(response.request.url)
+    WebDriverWait(browser, 1200).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".gs_ri div")))
+    new_cookies = browser.get_cookies()
+    #for new_cookie in new_cookies:
+    #   if new_cookie["name"] == "GSP":
+    #       new_cookie.update({"value":"{0}:CF=3".format(new_cookie["value"])}) 
+    _HTTP_PARAMS["cookies"] = _update_cookie_jar(_HTTP_PARAMS["cookies"], browser.get_cookies())
+    return 0
 
 
 def get_request(url, stream=False):
     """Send get request [, catch errors, try again]* & return data"""
     host = urlparse(url).hostname
     count_try_for_captcha = 0
+    bad_requests_counter = 0
     while(True):
         resp = None
+        if bad_requests_counter >= settings.PARAMS["http_contiguous_requests"]:
+            settings.print_message("Failed {} times get requests from '{}'".format(settings.PARAMS["http_contiguous_requests"], url))
+            return None
         try:
             proxy = _PROXY_OBJ.get_cur_proxy(host)
             resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], 
                 cookies=_HTTP_PARAMS["cookies"], proxies=proxy, stream=stream, timeout=5)
+            #handle_captcha(resp)
             if 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
                     count_try_for_captcha += 1
                     if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
                         _PROXY_OBJ.set_next_proxy(host)
+                        continue
                     else:
-                        handle_captcha(url)
-                    continue
+                        handle_captcha(resp)
+                        continue
             if resp.status_code != 200:
-                if resp.status_code == 429:
-                    raise ProxyError("Error: 429, To many requests.")
-                break
+                bad_requests_counter += 1
+                _PROXY_OBJ.set_next_proxy(host)
+                continue
+
             if resp.status_code == 200:
                 if stream:
                     return resp
                 else:
                     return resp.text  # OK
-        except(ProxyError, ConnectTimeout, SSLError, ReadTimeout):
+        #except(ProxyError, ConnectTimeout, SSLError, ReadTimeout):
+        #    bad_requests_counter += 1
+        #    logger.warn(traceback.format_exc())
+        #    _PROXY_OBJ.set_next_proxy(host)
+        #    continue
+        except Exception as error:
             logger.warn(traceback.format_exc())
-            settings.print_message("Connection error (see log for get more informartion), change proxy.")
+            bad_requests_counter += 1
             _PROXY_OBJ.set_next_proxy(host)
             continue
-        except Exception as error:
-            #logger.warn(traceback.format_exc())
-            #settings.print_message(error)
-            raise
     raise Exception(resp.status_code, resp.reason)
+
 
 def _get_name_max_try_to_host(url):
     """   """

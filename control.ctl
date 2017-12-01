@@ -4,4 +4,3 @@
 "google_clusters_handling":"True",
 "max_researchgate_papers":"15"
 }
-

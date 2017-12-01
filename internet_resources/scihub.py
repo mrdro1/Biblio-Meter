@@ -24,8 +24,8 @@ def get_pdf_url(DOI):
     save_btn = soup.find('div', id = 'save')
     user_answer = None
     if captcha != None:
-        user_answer = utils.handle_captcha(url)
-        if user_answer == "y": return get_pdf_url(DOI)
+        utils.handle_captcha(url)
+        return get_pdf_url(DOI)
     if save_btn == None or user_answer != None: 
         logger.debug("PDF for this paper is anavailable.")
         return None

@@ -36,6 +36,7 @@ def _cluster_handler(cluster_id, papers_count):
     url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
     logger.debug("Get cluster page URL='%s'." % url)
     soup = utils.get_soup(url)
+    #utils.soup2file(soup, "D:\A.html")
     # This dictionary contains info about unique papers
     EndNote_list = list()
     file_counter = 0
@@ -104,9 +105,6 @@ def _cluster_handler(cluster_id, papers_count):
                         else:
                             logger.debug("EndNote file #{0} like #{1} EndNote file in merged array, skipped.".format(
                                 file_counter, similar_file_index + 1))
-                timeout = random.uniform(0, 5)
-                logger.debug("Sleep {0} seconds.".format(timeout))
-                time.sleep(timeout)
         # NEXT button on html page
         if soup.find(class_='gs_ico gs_ico_nav_next'):
             url = soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip()

@@ -84,8 +84,8 @@ def create_tables_if_not_exists():
          start_page integer,
          end_page integer,
          authors integer,
-         EndNote_google text,
-         RIS_researchgate text,
+         g_endnote text,
+         rg_ris text,
          notes varchar(1000),
          score integer,
          ignore boolean not null,
@@ -117,6 +117,13 @@ def create_tables_if_not_exists():
     cur = DB_CONNECTION.cursor()
     for sql_op in create_tables_sql:
         cur.execute(sql_op)
+
+
+def get_columns_names(tablename):
+    logger.debug("Get columns names from table %s." % tablename)
+    cur = DB_CONNECTION.cursor()
+    cur.execute("SELECT * FROM {}".format(tablename))
+    return [cn[0] for cn in cur.description]
 
 
 def get_author_ID(params):
@@ -202,7 +209,7 @@ def add_new_paper(params):
         INSERT INTO papers(
             title, year, publisher, start_page, end_page, pages, g_type,
             DOI, abstract, abstract_ru, rg_id, references_count, rg_type,
-            EndNote_google, RIS_researchgate, authors, r$transaction, ignore
+            g_endnote, rg_ris, authors, r$transaction, ignore
         ) VALUES(
             :title, :year, :publisher, :start_page, :end_page, :pages, :g_type,
             :DOI, :abstract, :abstract_ru, :rg_id, :references_count, :rg_type,
@@ -264,8 +271,8 @@ def update_paper(params):
             rg_id=:rg_id,
             references_count=:references_count,
             rg_type=:rg_type,
-            EndNote_google=:EndNote,
-            RIS_researchgate=:RIS
+            g_endnote=:EndNote,
+            rg_ris=:RIS
             authors=:authors
         WHERE id = :id
         """, **params)

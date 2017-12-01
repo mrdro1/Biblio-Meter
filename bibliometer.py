@@ -120,24 +120,8 @@ def get_PDFs():
     settings.print_message("{0} papers selected.".format(len(papers)))
     # Get columns from query
     columns = dict()
-    for N, column in enumerate(dbutils.get_sql_columns(PAPERS_SQL)): columns[column.lower()] = N
-
-    # Check query
-    def error_msg(param_name):
-       logger.error("Column '{0}' not found in query".format(param_name)) 
-       settings.print_message("ERROR: Column '{0}' not found in query.".format(param_name))
-       settings.print_message("From the database should be selected column '{0}'.".format(param_name))
-    result = (False, 0, 0, 0)
-    if not "rg_id" in columns:
-       error_msg("rg_id")
-       return result
-    if not "doi" in columns:
-       error_msg("DOI")
-       return result
-    if not "id" in columns:
-       error_msg("id")
-       return result
-    
+    for N, column in enumerate(dbutils.get_columns_names("papers")): 
+        columns[column.lower()] = N
     logger.debug("Create folder 'PDF' if not exists.")
     pdf_path = "%s\\%s\\" % (settings.DB_PATH, "PDF")
     if not os.path.exists(pdf_path): os.mkdir(pdf_path)
@@ -148,7 +132,6 @@ def get_PDFs():
         rg_paper_id = paper[columns["rg_id"]]
         DOI = paper[columns["doi"]]
         id = paper[columns["id"]]
-        settings.print_message("Trying to take pdf from researchgate. RGID={0}.".format(rg_paper_id), 2)
         logger.debug("File name generation.")
         pdf_file_name = "{0}{1}.pdf".format(pdf_path, id)
         counter = 1
@@ -156,16 +139,26 @@ def get_PDFs():
             pdf_file_name = "{0}{1}_{2}.pdf".format(pdf_path, id, counter)
             counter += 1
         logger.debug("PDF file name=%s." % pdf_file_name)
-        if researchgate.get_pdf(rg_paper_id, pdf_file_name): 
-            new_files_counter += 1
-            continue
-        settings.print_message("PDF unavailable on researchgate.".format(DOI), 2)
-        settings.print_message("Trying to take pdf from sci-hub. DOI={0}".format(DOI), 2)
-        if not scihub.get_pdf(DOI, pdf_file_name): 
-            settings.print_message("PDF unavailable on sci-hub.".format(DOI), 2)
-            unavailable_files_counter += 1
-        else: 
-            new_files_counter += 1
+        if rg_paper_id == None:
+            logger.debug("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(paper_index + 1))
+            settings.print_message("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(paper_index + 1), 2)
+            rg_paper_id = researchgate.paper_search_by_DOI(DOI)
+            if rg_paper_id == None:
+                logger.debug("Paper #{0} not found on Researchgate.".format(paper_index + 1))
+                settings.print_message("Paper #{0} not found on Researchgate.".format(paper_index + 1), 2)
+        if rg_paper_id != None:
+            settings.print_message("Trying to take pdf from researchgate. RGID={0}.".format(rg_paper_id), 2)
+            if researchgate.get_pdf(rg_paper_id, pdf_file_name): 
+                new_files_counter += 1
+                continue
+            settings.print_message("PDF unavailable on researchgate.", 2)
+        if DOI != None:
+            settings.print_message("Trying to take pdf from sci-hub. DOI={0}".format(DOI), 2)
+            if not scihub.get_pdf(DOI, pdf_file_name): 
+                settings.print_message("PDF unavailable on sci-hub.".format(DOI), 2)
+                unavailable_files_counter += 1
+            else: 
+                new_files_counter += 1
     result = (True, new_files_counter, unavailable_files_counter, unavailable_files_counter + new_files_counter)
     return result
 
@@ -179,22 +172,12 @@ def select_papers_for_citation_graph(tree_queue):
     settings.print_message("{0} papers selected.".format(len(papers)))
     # Get columns from query
     columns = dict()
-    for N, column in enumerate(dbutils.get_sql_columns(PAPERS_SQL)): columns[column.lower()] = N
-    # Check query
-    def error_msg(param_name):
-       logger.error("Column '{0}' not found in query".format(param_name)) 
-       settings.print_message("ERROR: Column '{0}' not found in query.".format(param_name))
-       settings.print_message("From the database should be selected column '{0}'.".format(param_name))
-    if not "rg_id" in columns:
-       error_msg("rg_id")
-       raise Exception(error_msg("rg_id"))
-    if not "id" in columns:
-       error_msg("id")
-       raise Exception(error_msg("rg_id"))
+    for N, column in enumerate(dbutils.get_columns_names("papers")): 
+        columns[column.lower()] = N
     for db_paper in papers:
         # The tree is in the queue in which the tuples are stored. 
         # Each tuple is (id of paper in the database, id of the paper on the researchgate, the level of the tree)
-        tree_queue.put((db_paper[columns["id"]], db_paper[columns["rg_id"]], 1))
+        tree_queue.put((db_paper[columns["id"]], db_paper[columns["rg_id"]], db_paper[columns["doi"]], 1))
     return 0
 
 
@@ -249,16 +232,23 @@ def create_and_fill_paper_for_citation_graph(parent_paper_db_id, rg_new_paper_id
 def get_references():
     """This function loads links to articles for papers selected from the database"""
     MAX_TREE_LEVEL = int(settings.PARAMS["max_tree_level"])
-    MAX_RELATED_PAPERS = int(settings.PARAMS["max_related_papers"])
     commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else 1000000
     tree_queue = queue.Queue()
     select_papers_for_citation_graph(tree_queue)
     papers_counter = 0
     while not tree_queue.empty():
         papers_counter += 1
-        parent_paper_db_id, parent_paper_rg_id, tree_level = tree_queue.get()
+        parent_paper_db_id, parent_paper_rg_id, parent_paper_DOI, tree_level = tree_queue.get()
         logger.debug("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
         settings.print_message("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
+        if parent_paper_rg_id == None:
+            logger.debug("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(papers_counter))
+            settings.print_message("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(papers_counter), 2)
+            parent_paper_rg_id = researchgate.paper_search_by_DOI(parent_paper_DOI)
+            if parent_paper_rg_id == None:
+                logger.debug("Paper #{0} not found on Researchgate, skip.".format(papers_counter))
+                settings.print_message("Paper #{0} not found on Researchgate, skip.".format(papers_counter), 2)
+                continue
         settings.print_message("Get paper references. RGID={0}.".format(parent_paper_rg_id), 2)
         ref_papers_list = researchgate.get_referring_papers(parent_paper_rg_id)
         total_ref = 0
@@ -277,7 +267,7 @@ def get_references():
             logger.debug("Handle new paper #{0} from references (total {1}).".format(new_paper_counter + 1, total_ref))
             
             newpaper = create_and_fill_paper_for_citation_graph(parent_paper_db_id, 
-                researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "related")
+                researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "citied")
 
             # Add new paper in queue
             if tree_level < MAX_TREE_LEVEL:
@@ -287,7 +277,6 @@ def get_references():
                 pass
             # Commit transaction each commit_iterations iterations
             if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
-            if  new_paper_counter >= MAX_RELATED_PAPERS - 1: break
 
 
 def get_cities():
@@ -300,9 +289,17 @@ def get_cities():
     papers_counter = 0
     while not tree_queue.empty():
         papers_counter += 1
-        parent_paper_db_id, parent_paper_rg_id, tree_level = tree_queue.get()
+        parent_paper_db_id, parent_paper_rg_id, parent_paper_DOI, tree_level = tree_queue.get()
         logger.debug("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
         settings.print_message("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
+        if parent_paper_rg_id == None:
+            logger.debug("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(papers_counter))
+            settings.print_message("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(papers_counter), 2)
+            parent_paper_rg_id = researchgate.paper_search_by_DOI(parent_paper_DOI)
+            if parent_paper_rg_id == None:
+                logger.debug("Paper #{0} not found on Researchgate, skip.".format(papers_counter))
+                settings.print_message("Paper #{0} not found on Researchgate, skip.".format(papers_counter), 2)
+                continue
         settings.print_message("Get paper citations. RGID={0}.".format(parent_paper_rg_id), 2)
         cited_papers_list = researchgate.get_citations_papers(parent_paper_rg_id)
         total_ref = 0
@@ -337,7 +334,7 @@ def dispatch(command):
     result = None
     logger.debug("command %s.", command)
     try:
-        for case in utils.switch(command):
+        for case in utils.Switch(command):
             start_time = datetime.now()
             if case("getPapersByKeyWords"): 
                 logger.debug("Handling command '%s'." % command)

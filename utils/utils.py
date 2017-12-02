@@ -18,6 +18,7 @@ import time
 import re
 import progressbar as pb
 import json
+import os
 from urllib.parse import urlparse
 #
 import settings
@@ -266,24 +267,34 @@ def _check_captcha(soup):
 
 def handle_captcha(response):
     """ Captcha handler """
+    settings.print_message("CAPTCHA was found. To continue, you need to enter the captcha in your browser.")
     host = urlparse(response.request.url).hostname
-    browser_options = webdriver.ChromeOptions()
-    browser_options.add_argument('--proxy-server={0}'.format(
-       [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
-    browser = webdriver.Chrome(executable_path=r"D:\Programming\GitHub\Biblio-Meter\chromedriver.exe", 
-                               chrome_options=browser_options, desired_capabilities=dict(response.request.headers), )
-    resp_cookies = response.cookies.get_dict()#requests.utils.dict_from_cookiejar(_HTTP_PARAMS["cookies"])
-    browser.get("{0}://{1}".format(urlparse(response.request.url).scheme, urlparse(response.request.url).netloc))
-    resp_cookies_for_browser = \
-        [{'name': key, 'value': val} for key, val in resp_cookies.items()]
-    _ = [browser.add_cookie(c) for c in resp_cookies_for_browser]
-    browser.get(response.request.url)
-    WebDriverWait(browser, 1200).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".gs_ri div")))
-    new_cookies = browser.get_cookies()
+    cline = 'start chrome -proxy-server={1} "{0}"'
+    os.popen(cline.format(response.request.url, 
+        [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
+    input("Press Enter after entering to continue")
+    logger.debug("Waiting for cookies to be updated.")
+    settings.print_message("Waiting for cookies to be updated.")
+    _set_http_params()
+
+    #browser_options = webdriver.ChromeOptions()
+    #browser_options.add_argument('--proxy-server={0}'.format(
+    #   [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
+    #browser = webdriver.Chrome(executable_path=r"D:\Programming\GitHub\Biblio-Meter\chromedriver.exe", 
+    #                           chrome_options=browser_options, desired_capabilities=dict(response.request.headers), )
+    #resp_cookies = response.cookies.get_dict()#requests.utils.dict_from_cookiejar(_HTTP_PARAMS["cookies"])
+    #browser.get("{0}://{1}".format(urlparse(response.request.url).scheme, urlparse(response.request.url).netloc))
+    #resp_cookies_for_browser = \
+    #    [{'name': key, 'value': val} for key, val in resp_cookies.items()]
+    #_ = [browser.add_cookie(c) for c in resp_cookies_for_browser]
+    #browser.get(response.request.url)
+    #WebDriverWait(browser, 1200).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".gs_ri div")))
+    #new_cookies = browser.get_cookies()
     #for new_cookie in new_cookies:
     #   if new_cookie["name"] == "GSP":
     #       new_cookie.update({"value":"{0}:CF=3".format(new_cookie["value"])}) 
-    _HTTP_PARAMS["cookies"] = _update_cookie_jar(_HTTP_PARAMS["cookies"], browser.get_cookies())
+    #_HTTP_PARAMS["cookies"] = _update_cookie_jar(_HTTP_PARAMS["cookies"], browser.get_cookies())
+
     return 0
 
 

@@ -339,9 +339,13 @@ def dispatch(command):
             if case("getPapersByKeyWords"): 
                 logger.debug("Handling command '%s'." % command)
                 settings.print_message("Handling command '%s'." % command)
-                result = get_papers_by_key_words() 
+                # START COMMAND
+                result = get_papers_by_key_words()
                 logger.debug("Handling was successful. Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
                 settings.print_message("Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
+                logging.info('HTTP-requests: {0}({1} failed)'.format(utils.REQUEST_STATISTIC['count_requests'],
+                                                                     len(utils.REQUEST_STATISTIC['failed_requests'])))
+                logging.info('List failed HTTP-requests: {0}'.format(utils.REQUEST_STATISTIC['failed_requests']))
                 break
             if case("updateAuthors"): 
                 result = update_authors()

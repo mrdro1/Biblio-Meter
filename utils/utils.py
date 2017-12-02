@@ -268,8 +268,7 @@ def _check_captcha(soup):
 def handle_captcha(response):
     """ Captcha handler """
     settings.print_message("CAPTCHA was found. To continue, you need to enter the captcha in your browser.")
-    host = urlparse(response.request.url).hostname
-    cline = 'start chrome -proxy-server={1} "{0}"'
+    cline = 'start chrome -proxy-server={1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
     os.popen(cline.format(response.request.url, 
         [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
     input("Press Enter after entering to continue")
@@ -298,6 +297,8 @@ def handle_captcha(response):
     return 0
 
 
+REQUEST_STATISTIC = {'count_requests': 0, 'failed_requests':list()}
+
 def get_request(url, stream=False):
     """Send get request [, catch errors, try again]* & return data"""
     host = urlparse(url).hostname
@@ -307,6 +308,10 @@ def get_request(url, stream=False):
         resp = None
         if bad_requests_counter >= settings.PARAMS["http_contiguous_requests"]:
             settings.print_message("Failed {} times get requests from '{}'".format(settings.PARAMS["http_contiguous_requests"], url))
+            # +1 bad requests
+            global REQUEST_STATISTIC
+            REQUEST_STATISTIC['failed_requests'].append(url)
+            REQUEST_STATISTIC['count_requests'] += 1
             return None
         try:
             proxy = _PROXY_OBJ.get_cur_proxy(host)
@@ -328,6 +333,9 @@ def get_request(url, stream=False):
                 continue
 
             if resp.status_code == 200:
+                # +1 good requests
+                global REQUEST_STATISTIC
+                REQUEST_STATISTIC['count_requests'] += 1
                 if stream:
                     return resp
                 else:

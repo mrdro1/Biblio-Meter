@@ -26,7 +26,7 @@ import utils
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
+REQUEST_STATISTIC = {'count_requests': 0, 'failed_requests':list()}
 
 class Switch(object):
     """SWITCHER"""
@@ -174,56 +174,56 @@ def _get_cookies(domain=""):
     return None
 
 
-def _load_cookie_from_dict(data_dict):
-        """ Creates a cookie from the dict """
-        COOKIE_DEFAULT_VALUES = collections.defaultdict(lambda: str())
-        COOKIE_DEFAULT_VALUES = \
-            {
-                "version" : 0,
-                "name" : None,
-                "value" : None,
-                "port" : 0,
-                "port_specified" : False,
-                "domain" : None,
-                "domain_specified" : False,
-                "domain_initial_dot" : False,
-                "path" : '/',
-                "path_specified" : True,
-                "secure" : False,
-                "expires" : None,
-                "discard" : False,
-                "comment" : None,
-                "comment_url" : None,
-                "rest" : {},
-                "rfc2109" : False
-            }
-        cookie_params = dict( [(str(t[0]), t[1]) for t in data_dict.items() if t[0] in list(COOKIE_DEFAULT_VALUES)])
-        for key in COOKIE_DEFAULT_VALUES.keys():
-            cookie_params.setdefault(key, COOKIE_DEFAULT_VALUES[key])
-        if "httpOnly" in data_dict:
-            cookie_params["rest"] = {"HttpOnly":data_dict["httpOnly"]}
-        return requests.cookies.cookielib.Cookie(**cookie_params)
+#def _load_cookie_from_dict(data_dict):
+#        """ Creates a cookie from the dict """
+#        COOKIE_DEFAULT_VALUES = collections.defaultdict(lambda: str())
+#        COOKIE_DEFAULT_VALUES = \
+#            {
+#                "version" : 0,
+#                "name" : None,
+#                "value" : None,
+#                "port" : 0,
+#                "port_specified" : False,
+#                "domain" : None,
+#                "domain_specified" : False,
+#                "domain_initial_dot" : False,
+#                "path" : '/',
+#                "path_specified" : True,
+#                "secure" : False,
+#                "expires" : None,
+#                "discard" : False,
+#                "comment" : None,
+#                "comment_url" : None,
+#                "rest" : {},
+#                "rfc2109" : False
+#            }
+#        cookie_params = dict( [(str(t[0]), t[1]) for t in data_dict.items() if t[0] in list(COOKIE_DEFAULT_VALUES)])
+#        for key in COOKIE_DEFAULT_VALUES.keys():
+#            cookie_params.setdefault(key, COOKIE_DEFAULT_VALUES[key])
+#        if "httpOnly" in data_dict:
+#            cookie_params["rest"] = {"HttpOnly":data_dict["httpOnly"]}
+#        return requests.cookies.cookielib.Cookie(**cookie_params)
 
 
-def cl2cj(cookies_list):
-    """ Convert list with cookies in dictionary to cookie jar """
-    cj = requests.cookies.cookielib.CookieJar()
-    for x in cookies_list:
-         cj.set_cookie(_load_cookie_from_dict(x))
-    return cj
+#def cl2cj(cookies_list):
+#    """ Convert list with cookies in dictionary to cookie jar """
+#    cj = requests.cookies.cookielib.CookieJar()
+#    for x in cookies_list:
+#         cj.set_cookie(_load_cookie_from_dict(x))
+#    return cj
 
 
-def _update_cookie_jar(cjar, cookie_list):
-    """ Insert or update cookies in cookie jar """
-    cj = cl2cj(cookie_list)
-    res_cj = requests.cookies.cookielib.CookieJar()
-    for old_cookie in cjar:
-        if [cookie for cookie in cj 
-            if old_cookie.name == cookie.name 
-            and old_cookie.domain == cookie.domain] == []:
-                res_cj.set_cookie(old_cookie)
-    _ = [res_cj.set_cookie(new_cookie) for new_cookie in cj]
-    return res_cj
+#def _update_cookie_jar(cjar, cookie_list):
+#    """ Insert or update cookies in cookie jar """
+#    cj = cl2cj(cookie_list)
+#    res_cj = requests.cookies.cookielib.CookieJar()
+#    for old_cookie in cjar:
+#        if [cookie for cookie in cj 
+#            if old_cookie.name == cookie.name 
+#            and old_cookie.domain == cookie.domain] == []:
+#                res_cj.set_cookie(old_cookie)
+#    _ = [res_cj.set_cookie(new_cookie) for new_cookie in cj]
+#    return res_cj
 
 
 _DEFAULT_HEADER = {
@@ -267,6 +267,7 @@ def _check_captcha(soup):
 
 def handle_captcha(response):
     """ Captcha handler """
+    host = urlparse(response.request.url).hostname
     settings.print_message("CAPTCHA was found. To continue, you need to enter the captcha in your browser.")
     cline = 'start chrome -proxy-server={1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
     os.popen(cline.format(response.request.url, 
@@ -275,32 +276,12 @@ def handle_captcha(response):
     logger.debug("Waiting for cookies to be updated.")
     settings.print_message("Waiting for cookies to be updated.")
     _set_http_params()
-
-    #browser_options = webdriver.ChromeOptions()
-    #browser_options.add_argument('--proxy-server={0}'.format(
-    #   [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
-    #browser = webdriver.Chrome(executable_path=r"D:\Programming\GitHub\Biblio-Meter\chromedriver.exe", 
-    #                           chrome_options=browser_options, desired_capabilities=dict(response.request.headers), )
-    #resp_cookies = response.cookies.get_dict()#requests.utils.dict_from_cookiejar(_HTTP_PARAMS["cookies"])
-    #browser.get("{0}://{1}".format(urlparse(response.request.url).scheme, urlparse(response.request.url).netloc))
-    #resp_cookies_for_browser = \
-    #    [{'name': key, 'value': val} for key, val in resp_cookies.items()]
-    #_ = [browser.add_cookie(c) for c in resp_cookies_for_browser]
-    #browser.get(response.request.url)
-    #WebDriverWait(browser, 1200).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".gs_ri div")))
-    #new_cookies = browser.get_cookies()
-    #for new_cookie in new_cookies:
-    #   if new_cookie["name"] == "GSP":
-    #       new_cookie.update({"value":"{0}:CF=3".format(new_cookie["value"])}) 
-    #_HTTP_PARAMS["cookies"] = _update_cookie_jar(_HTTP_PARAMS["cookies"], browser.get_cookies())
-
     return 0
 
 
-REQUEST_STATISTIC = {'count_requests': 0, 'failed_requests':list()}
-
 def get_request(url, stream=False):
     """Send get request [, catch errors, try again]* & return data"""
+    global REQUEST_STATISTIC
     host = urlparse(url).hostname
     count_try_for_captcha = 0
     bad_requests_counter = 0
@@ -309,7 +290,6 @@ def get_request(url, stream=False):
         if bad_requests_counter >= settings.PARAMS["http_contiguous_requests"]:
             settings.print_message("Failed {} times get requests from '{}'".format(settings.PARAMS["http_contiguous_requests"], url))
             # +1 bad requests
-            global REQUEST_STATISTIC
             REQUEST_STATISTIC['failed_requests'].append(url)
             REQUEST_STATISTIC['count_requests'] += 1
             return None
@@ -334,7 +314,6 @@ def get_request(url, stream=False):
 
             if resp.status_code == 200:
                 # +1 good requests
-                global REQUEST_STATISTIC
                 REQUEST_STATISTIC['count_requests'] += 1
                 if stream:
                     return resp
@@ -370,7 +349,11 @@ def _get_name_max_try_to_host(url):
 def get_soup(url):
     """Return the BeautifulSoup for a page"""
     try:
-        soup = BeautifulSoup(get_request(url), 'html.parser')
+        request = get_request(url)
+        if request == None:
+            logger.debug("Request is empty, don't create soup.")
+            return None
+        soup = BeautifulSoup(request, 'html.parser')
         return soup
     except Exception as error:
         #logger.warn(traceback.format_exc())
@@ -397,6 +380,9 @@ def get_json_data(url):
     json_data = None
     try:
         resp = get_request(url)
+        if resp == None:
+            logger.debug("Json is empty.")
+            return None
         logger.debug("Parse host answer from json.")
         json_data = json.loads(resp)
     except Exception as error:
@@ -410,6 +396,7 @@ def download_file(url, output_filename):
     """Download file from url"""
     logger.warn("Download file (url='%s') and save (filename='%s')" % (url, output_filename))
     response = get_request(url, stream=True)
+    if response == None: return False
     content_length = int(response.headers['content-length'])
 
     downloaded_size = 0

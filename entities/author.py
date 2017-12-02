@@ -29,7 +29,12 @@ class Author(object):
     def get_info_from_sch(self):
         """Populate the Author with information from their profile"""
         if self.g_id == None: return False
-        info_dict = scholar.get_info_from_author_page(self.g_id)
+        try:
+            info_dict = scholar.get_info_from_author_page(self.g_id)
+        except:
+            logger.debug("Failed to load author information") 
+            return False
+        if info_dict == None: return False
         if "citations" in info_dict: self.citations = info_dict["citations"]
         if "hindex" in info_dict: self.hindex = info_dict["hindex"]
         if "i10index" in info_dict: self.i10index = info_dict["i10index"]

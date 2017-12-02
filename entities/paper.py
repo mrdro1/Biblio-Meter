@@ -2,6 +2,7 @@
 import endnoteparser
 import utils
 import sys, traceback, logging
+import re
 #
 import scholar
 import researchgate
@@ -97,7 +98,11 @@ class Paper(object):
                 "EndNote":self.EndNote,
                 "paper_version":self.paper_version
             }
-        rg_info = researchgate.identification_and_fill_paper(search_params, query_soup)
+        try:
+            rg_info = researchgate.identification_and_fill_paper(search_params, query_soup)
+        except:
+            logger.debug("Failed to load paper information") 
+            return False
         if rg_info == None:
             logger.debug("This paper (or its version) is not identified") 
             return False
@@ -116,7 +121,11 @@ class Paper(object):
 
 
     def get_data_from_rg_id(self, rg_paper_id):
-        rg_info = researchgate.fill_paper(researchgate.get_info_from_RIS(rg_paper_id), rg_paper_id)
+        try:
+            rg_info = researchgate.fill_paper(researchgate.get_info_from_RIS(rg_paper_id), rg_paper_id)
+        except:
+            logger.debug("Failed to load paper information") 
+            return False
         logger.debug("Save info about paper (or its version)")
         if "primary_title" in rg_info: self.title = rg_info["primary_title"] 
         if "year" in rg_info: self.year = int(rg_info["year"][:4])
@@ -131,10 +140,14 @@ class Paper(object):
         #if "references" in rg_info: self.references = rg_info["references"] 
         if "start_page" in rg_info and self.start_page == None: self.start_page = rg_info["start_page"]
         if "end_page" in rg_info and self.end_page == None: self.end_page = rg_info["end_page"]
-        if "volume" in rg_info: 
-            self.volume = rg_info["volume"] 
-        elif self.end_page != None and self.start_page != None: 
-            self.volume = int(self.end_page.split()[0].strip()) - int(self.start_page.split()[0].strip()) + 1
+        if self.end_page != None and self.start_page != None: 
+            re_st_page = re.search("[0-9]+$", self.start_page.strip())
+            re_end_page = re.search("^[0-9]+", self.end_page.strip())
+            if re_st_page: self.start_page = int(re_st_page.group())
+            if re_end_page: self.end_page = int(re_end_page.group())
+            if re_st_page and re_end_page: self.volume = self.end_page - self.start_page + 1
+        if "publisher" in rg_info: self.publisher = rg_info["publisher"]
+        if "alternate_title3" in rg_info and self.publisher == None: self.publisher = rg_info["alternate_title3"]
         if "RIS" in rg_info: self.RIS = rg_info["RIS"]
         return True
 

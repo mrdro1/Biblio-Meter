@@ -27,12 +27,12 @@ def get_papers_by_key_words():
     paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(settings.PARAMS)
     logger.debug(about_res_count)
     settings.print_message("Google: Found {0} papers.".format(about_res_count))
-    number_of_papers_compared = int(settings.PARAMS["max_researchgate_papers"]) if "max_researchgate_papers" in settings.PARAMS else 30
+    number_of_papers_compared = int(settings.PARAMS["max_researchgate_papers"])
     if number_of_papers_compared <= 0: utils.skip_RG_stage_for_all()
     new_papers = 0
     new_auth = 0
-    max_papers_count = int(settings.PARAMS["max_google_papers"]) if "max_google_papers" in settings.PARAMS else 1000000
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else 1000000
+    max_papers_count = int(settings.PARAMS["max_google_papers"])
+    commit_iterations = int(settings.PARAMS["commit_iterations"])
     papers_counter = 0
     if max_papers_count > 0:
         for paper_info in paper_generator:
@@ -183,12 +183,16 @@ def select_papers_for_citation_graph(tree_queue):
 
 def create_and_fill_paper_for_citation_graph(parent_paper_db_id, rg_new_paper_id, edge_type):
     """ This function creates a new instance of the paper and fills it with information. """
+    new_authors_count = 0
+    new_papers_count = 0
     # Create new paper entity
     newpaper = paper.Paper()
     # fill new paper
     settings.print_message("Filling in information about the paper.", 4)
     logger.debug("Filling in information about the paper.")
-    newpaper.get_data_from_rg_id(rg_new_paper_id)
+    if not newpaper.get_data_from_rg_id(rg_new_paper_id):
+        logger.debug("Failed to get information about the paper, skipped.")
+        return None, new_papers_count, new_authors_count
     logger.debug("Check exists paper and if not then insert into DB.")
     if newpaper.in_database(): 
         settings.print_message("This paper already exists, id = {0}.".format(newpaper.db_id), 4)
@@ -196,22 +200,24 @@ def create_and_fill_paper_for_citation_graph(parent_paper_db_id, rg_new_paper_id
         # Add new paper in DB
         settings.print_message("Adding a paper to the database", 4)
         newpaper.add_to_database()
-    # Get and insert in database info about author
-    settings.print_message("Authors:", 4)
-    for author_info in newpaper.authors:
-        # Create new author entity
-        newauthor = author.Author()
-        newauthor.get_base_info_from_sch({"name":author_info})
-        settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 6)
-        logger.debug("Check exists author and if not then insert into DB.")
-        if not newauthor.in_database():
-            # Insert new author into DB
-            settings.print_message("Adding author to the database", 6)
-            newauthor.save_to_database()
-        else:
-            settings.print_message("This author already exists, id = %i." % newauthor.db_id, 6)
-        # Insert into DB reference
-        dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
+        new_papers_count += 1
+        # Get and insert in database info about author
+        settings.print_message("Authors:", 4)
+        for author_info in newpaper.authors:
+            # Create new author entity
+            newauthor = author.Author()
+            newauthor.get_base_info_from_sch({"name":author_info})
+            settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 6)
+            logger.debug("Check exists author and if not then insert into DB.")
+            if not newauthor.in_database():
+                # Insert new author into DB
+                settings.print_message("Adding author to the database", 6)
+                newauthor.save_to_database()
+                new_authors_count += 1
+            else:
+                settings.print_message("This author already exists, id = %i." % newauthor.db_id, 6)
+            # Insert into DB reference
+            dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
     # Add reference in DB
     edge_params = \
     {
@@ -222,12 +228,12 @@ def create_and_fill_paper_for_citation_graph(parent_paper_db_id, rg_new_paper_id
     logger.debug("Check exists edge and if not then insert into DB.")
     if not dbutils.check_exists_paper_paper_edge(edge_params):
         logger.debug("Add edge ({0}, {1}, {2}) in DB.".format(parent_paper_db_id, newpaper.db_id, edge_type))
-        settings.print_message("Add edge ({0}, {1}, {2}) in DB.".format(parent_paper_db_id, newpaper.db_id, edge_type), 4)
+        #settings.print_message("Add edge ({0}, {1}, {2}) in DB.".format(parent_paper_db_id, newpaper.db_id, edge_type), 4)
         dbutils.add_paper_paper_edge(parent_paper_db_id, newpaper.db_id, edge_type)
     else:
-        settings.print_message("This edge ({0}, {1}, {2}) already exists.".format(parent_paper_db_id, newpaper.db_id, edge_type), 4)
+        #settings.print_message("This edge ({0}, {1}, {2}) already exists.".format(parent_paper_db_id, newpaper.db_id, edge_type), 4)
         logger.debug("This edge ({0}, {1}, {2}) already exists.".format(parent_paper_db_id, newpaper.db_id, edge_type))
-    return newpaper
+    return newpaper, new_papers_count, new_authors_count
 
 def get_references():
     """This function loads links to articles for papers selected from the database"""
@@ -236,6 +242,11 @@ def get_references():
     tree_queue = queue.Queue()
     select_papers_for_citation_graph(tree_queue)
     papers_counter = 0
+    new_papers_count = 0
+    new_authors_count = 0
+    filled_papers = 0
+    papers_without_list = 0
+    getinfo_fails = 0
     while not tree_queue.empty():
         papers_counter += 1
         parent_paper_db_id, parent_paper_rg_id, parent_paper_DOI, tree_level = tree_queue.get()
@@ -248,6 +259,7 @@ def get_references():
             if parent_paper_rg_id == None:
                 logger.debug("Paper #{0} not found on Researchgate, skip.".format(papers_counter))
                 settings.print_message("Paper #{0} not found on Researchgate, skip.".format(papers_counter), 2)
+                papers_without_list += 1
                 continue
         settings.print_message("Get paper references. RGID={0}.".format(parent_paper_rg_id), 2)
         ref_papers_list = researchgate.get_referring_papers(parent_paper_rg_id)
@@ -257,27 +269,33 @@ def get_references():
         else:
             logger.debug("Paper #{0} hasn't cited list, skip.".format(papers_counter))
             settings.print_message("Paper #{0} hasn't references list, skip.".format(papers_counter), 2)
+            papers_without_list += 1
             continue
         for new_paper_counter, ref_paper in enumerate(ref_papers_list):
             if ref_paper["publication"] == None: # It's citation
                 settings.print_message("Paper #{0} is citation, skip.".format(new_paper_counter + 1), 2)
-                logger.debug("Paper #{0} is citation, skip.".format(new_paper_counter + 1))
+                logger.debug("Paper #{0} is citation, skipped.".format(new_paper_counter + 1))
                 continue
             settings.print_message("Handle new paper #{0} from references (total {1}).".format(new_paper_counter + 1, total_ref), 2)
             logger.debug("Handle new paper #{0} from references (total {1}).".format(new_paper_counter + 1, total_ref))
-            
-            newpaper = create_and_fill_paper_for_citation_graph(parent_paper_db_id, 
+            filled_papers += 1
+            newpaper, _new_papers_count, _new_authors_count = create_and_fill_paper_for_citation_graph(parent_paper_db_id, 
                 researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "citied")
-
+            if newpaper == None:
+                settings.print_message("Failed to get information about the paper #{0}, skipped.".format(new_paper_counter + 1), 2)
+                getinfo_fails += 1
+                continue
+            new_papers_count += _new_papers_count
+            new_authors_count += _new_authors_count
             # Add new paper in queue
             if tree_level < MAX_TREE_LEVEL:
                 logger.debug("Add this paper (db_id={0}, rg_id={1}) in tree levels queue.".format(newpaper.db_id, newpaper.rg_paper_id))
-                tree_queue.put((newpaper.db_id, newpaper.rg_paper_id, tree_level + 1))
+                tree_queue.put((newpaper.db_id, newpaper.rg_paper_id, newpaper.DOI, tree_level + 1))
             else:
                 pass
             # Commit transaction each commit_iterations iterations
             if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
-
+    return (papers_counter, papers_without_list, new_papers_count, getinfo_fails, new_authors_count)
 
 def get_cities():
     """This function loads articles that reference selected papers from the database"""
@@ -287,6 +305,11 @@ def get_cities():
     tree_queue = queue.Queue()
     select_papers_for_citation_graph(tree_queue)
     papers_counter = 0
+    new_papers_count = 0
+    new_authors_count = 0
+    filled_papers = 0
+    papers_without_list = 0
+    getinfo_fails = 0
     while not tree_queue.empty():
         papers_counter += 1
         parent_paper_db_id, parent_paper_rg_id, parent_paper_DOI, tree_level = tree_queue.get()
@@ -299,6 +322,7 @@ def get_cities():
             if parent_paper_rg_id == None:
                 logger.debug("Paper #{0} not found on Researchgate, skip.".format(papers_counter))
                 settings.print_message("Paper #{0} not found on Researchgate, skip.".format(papers_counter), 2)
+                papers_without_list += 1
                 continue
         settings.print_message("Get paper citations. RGID={0}.".format(parent_paper_rg_id), 2)
         cited_papers_list = researchgate.get_citations_papers(parent_paper_rg_id)
@@ -306,8 +330,9 @@ def get_cities():
         if cited_papers_list != None:
             total_ref = len(cited_papers_list)
         else:
-            logger.debug("Paper #{0} hasn't cited list, skip.".format(papers_counter))
+            logger.debug("Paper #{0} hasn't cited list, skipped.".format(papers_counter))
             settings.print_message("Paper #{0} hasn't cited list, skip.".format(papers_counter), 2)
+            papers_without_list += 1
             continue
         for new_paper_counter, ref_paper in enumerate(cited_papers_list):
             if ref_paper["publication"] == None: # It's citation
@@ -316,19 +341,34 @@ def get_cities():
                 continue
             settings.print_message("Handle new paper #{0} from citations (total {1}).".format(new_paper_counter + 1, total_ref), 2)
             logger.debug("Handle new paper #{0} from citations (total {1}).".format(new_paper_counter + 1, total_ref))
- 
-            newpaper = create_and_fill_paper_for_citation_graph(parent_paper_db_id, 
+            filled_papers += 1
+            newpaper, _new_papers_count, _new_authors_count = create_and_fill_paper_for_citation_graph(parent_paper_db_id, 
                 researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "citied")
-
+            if newpaper == None:
+                settings.print_message("Failed to get information about the paper #{0}, skipped.".format(new_paper_counter + 1), 2)
+                getinfo_fails += 1
+                continue
+            new_papers_count += _new_papers_count
+            new_authors_count += _new_authors_count
             # Add new paper in queue
             if tree_level < MAX_TREE_LEVEL:
                 logger.debug("Add this paper (db_id={0}, rg_id={1}) in tree levels queue.".format(newpaper.db_id, newpaper.rg_paper_id))
-                tree_queue.put((newpaper.db_id, newpaper.rg_paper_id, tree_level + 1))
+                tree_queue.put((newpaper.db_id, newpaper.rg_paper_id, newpaper.DOI, tree_level + 1))
             else:
                 pass
             # Commit transaction each commit_iterations iterations
             if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
             if  new_paper_counter >= MAX_CITED_PAPERS - 1: break
+    return (papers_counter, papers_without_list, new_papers_count, getinfo_fails, new_authors_count)
+
+
+def print_to_log_http_statistic():
+    """ This function print statistic of http requests in log. """
+    logger.info('HTTP-requests: {0}({1} failed)'.format(utils.REQUEST_STATISTIC['count_requests'],
+                                                            len(utils.REQUEST_STATISTIC['failed_requests'])))
+    if len(utils.REQUEST_STATISTIC['failed_requests']) > 0:
+        logger.info('List failed HTTP-requests: {0}'.format(utils.REQUEST_STATISTIC['failed_requests']))
+
 
 def dispatch(command):
     result = None
@@ -337,15 +377,12 @@ def dispatch(command):
         for case in utils.Switch(command):
             start_time = datetime.now()
             if case("getPapersByKeyWords"): 
-                logger.debug("Handling command '%s'." % command)
-                settings.print_message("Handling command '%s'." % command)
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
                 # START COMMAND
                 result = get_papers_by_key_words()
-                logger.debug("Handling was successful. Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
-                settings.print_message("Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
-                logging.info('HTTP-requests: {0}({1} failed)'.format(utils.REQUEST_STATISTIC['count_requests'],
-                                                                     len(utils.REQUEST_STATISTIC['failed_requests'])))
-                logging.info('List failed HTTP-requests: {0}'.format(utils.REQUEST_STATISTIC['failed_requests']))
+                logger.debug("Processing was successful. Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
+                settings.print_message("Processing was successful. Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
                 break
             if case("updateAuthors"): 
                 result = update_authors()
@@ -354,20 +391,25 @@ def dispatch(command):
                 result = get_papers_of_authors()
                 break
             if case("getPDFs"): 
-                logger.debug("Handling command '%s'." % command)
-                settings.print_message("Handling command '%s'." % command)
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
                 result = get_PDFs()
-                settings.print_message("Handling was successful. Downloads files: %i. Not available pdf's: %i. Processed total: %i." % result[1:])
-                logger.debug("Handling was successful. Downloads files: %i. Not available pdf's: %i. Processed total: %i." % result[1:])
+                settings.print_message("Processing was successful. Downloads files: %i. Not available pdf's: %i. Processed total: %i." % result[1:])
+                logger.debug("Processing was successful. Downloads files: %i. Not available pdf's: %i. Processed total: %i." % result[1:])
                 break
             if case("getReferences"): 
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
                 result = get_references()
+                logger.debug("Processing was successful. Processed total papers: %i. Papers without references: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
+                settings.print_message("Processing was successful. Processed total papers: %i. Papers without references: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)      
                 break
             if case("getCities"): 
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
                 result = get_cities()
-                break
-            if case("test"): 
-                result = test()
+                logger.debug("Processing was successful. Processed total papers: %i. Papers without citations: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
+                settings.print_message("Processing was successful. Processed total papers: %i. Papers without citations: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)       
                 break
             if case(): # default
                 logger.warn("Unknown command: %s" % command)
@@ -380,6 +422,7 @@ def dispatch(command):
         logger.debug("Run began on {0}".format(start_time))
         logger.debug("Run ended on {0}".format(end_time))
         logger.debug("Elapsed time was: {0}".format(end_time - start_time))
+        print_to_log_http_statistic()
         # Fix database changes
         dbutils.commit()
         return
@@ -388,8 +431,10 @@ def dispatch(command):
         settings.RESULT = "WARNING: User was terminated processing"
     except:
         logger.error(traceback.format_exc())
-        settings.print_message("An error has occurred. For more details, see the log.")
+        settings.print_message("Processing finished with error.")
+        settings.print_message("For more details, see the log.")
         settings.RESULT = "ERROR: {0}".format(traceback.format_exc())
+    print_to_log_http_statistic()
     dbutils.rollback()
 
 def main():  

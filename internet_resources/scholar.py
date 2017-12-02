@@ -52,8 +52,8 @@ def _cluster_handler(cluster_id, papers_count):
                 and len(EndNote_1["author"]) == len(EndNote_1["author"]) \
                 and EndNote_1["type"] == EndNote_2["type"] and \
                 (
-                    not "volume" in EndNote_1 or not "volume" in EndNote_2 \
-                    or EndNote_1["volume"] == EndNote_2["volume"]
+                    not "pages" in EndNote_1 or not "pages" in EndNote_2 \
+                    or EndNote_1["pages"] == EndNote_2["pages"]
                 )
 
     # return list of similar papers (maybe empty)
@@ -80,6 +80,9 @@ def _cluster_handler(cluster_id, papers_count):
                 file_counter += 1
                 logger.debug("EndNote file #%i (total %i)" % (file_counter, papers_count)) 
                 paper_EndNote_data = get_info_from_EndNote(links["EndNote"], True)
+                if paper_EndNote_data == None:
+                    logger.debug("Skip EndNote file #%i, could not upload file." % file_counter)
+                    continue
                 if not "year" in paper_EndNote_data or not "author" in paper_EndNote_data: 
                     logger.debug("Skip EndNote file #%i, empty year or authors fields." % file_counter)
                 else:
@@ -172,6 +175,7 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
                 settings.print_message("Cluster handling...", 3)
                 general_information["cluster"] = int(re.findall(r'\d+', link['href'].strip())[0])
                 different_information = _cluster_handler(general_information["cluster"], count_sim_papers)
+                if different_information == None: break
                 full_info["different_information"] = different_information
                 settings.print_message("Versions in cluster: %i." % len(different_information), 3)
                 return full_info
@@ -181,7 +185,9 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     different_information.append(dict())
     for link in footer_links:
         if 'EndNote' in link.text:
-            different_information[0].update(get_info_from_EndNote(link['href'].strip(), True))
+            end_note = get_info_from_EndNote(link['href'].strip(), True)
+            if end_note != None:
+                different_information[0].update(end_note)
             different_information[0]["url_scholarbib"] = link['href'].strip()
         if 'Cited by' in link.text or 'Цитируется' in link.text:
             different_information[0]["citedby"] = int(re.findall(r'\d+', link.text)[0])
@@ -198,12 +204,15 @@ def get_info_from_EndNote(file_url, return_source = False):
         try:
             pages = EndNote_info["pages"].split("-")
             if len(pages) == 2:
-                EndNote_info["start_page"] = int(pages[0])
-                EndNote_info["end_page"] = int(pages[1])
-                if not "volume" in EndNote_info: EndNote_info["volume"] = int(pages[1]) - int(pages[0]) + 1
+                start_page = pages[0].strip()
+                end_page = pages[1].strip()
+                re_st_page = re.search("[0-9]+$", start_page)
+                re_end_page = re.search("^[0-9]+", end_page)
+                if re_st_page: EndNote_info["start_page"] = int(re_st_page.group())
+                if re_end_page: EndNote_info["end_page"] = int(re_end_page.group())
+                if re_st_page and re_end_page: EndNote_info["volume"] = EndNote_info["end_page"] - EndNote_info["start_page"] + 1
         except Exception as error:
-            logger.warn("Can't eval paper volume.")
-
+            logger.warn("Can't eval count of pages for paper.")
     if return_source: EndNote_info.update({ "EndNote" : EndNode_file })
     return EndNote_info
 

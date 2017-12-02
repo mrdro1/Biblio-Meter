@@ -35,7 +35,7 @@ def paper_search_by_DOI(DOI):
     url = _FULLURL.format(_HOST, _SEARCHBYDOI.format(DOI))
     logger.debug("Get paper by DOI {0} from '{1}'.".format(DOI, url))
     resp = utils.get_request(url, True)
-    if resp.request.url != url:
+    if  resp != None and resp.request.url != url:
         return get_rg_paper_id_from_url(resp.request.url)
     return None
 
@@ -47,6 +47,9 @@ def get_info_about_ref_and_citations(rg_paper_id):
         dict_req_result = utils.get_json_data(url)
     except:
         raise
+    if dict_req_result == None: 
+        logger.debug("Data is empty.")
+        return None
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)
     if success:
@@ -105,16 +108,18 @@ def fill_paper(src_info, rg_paper_id):
             raise
     logger.debug("Get references.")
     info["rg_id"] = rg_paper_id
-    ref_dict = get_referring_papers(rg_paper_id)
-    if ref_dict == None:
-        pass
-    if ref_dict != None and len(ref_dict) > 0 :
-        info["references_count"] = len(ref_dict)
+
+    len_ref_info = get_info_about_ref_and_citations(rg_paper_id)
+    if len_ref_info != None:
+        info["references_count"] = len_ref_info["referencesCount"]
     return info
 
 
 def _ident_and_fill_paper(json_query_result, params):
-    """Return paper info"""
+    """ Return paper info """
+    if json_query_result == None:
+        logger.debug("This paper not found in researchgate.")
+        return None
     pagenum = 1
     papers_count = 0
     qtext = requests.utils.quote(stopwords.delete_stopwords(params["title"], " and "))
@@ -153,7 +158,9 @@ def _ident_and_fill_paper(json_query_result, params):
                     logger.debug("Process RIS for paper #%i." % on_page_paper_count)
                     rg_paper_id = get_rg_paper_id_from_url(paper_url)
                     info = get_info_from_RIS(rg_paper_id)
-                    if params["authors_count"] != len(info['authors']):
+                    if info == None:
+                        logger.debug("Could not load RIS file for paper #%i, skipped." % (on_page_paper_count))
+                    elif params["authors_count"] != len(info['authors']):
                         logger.debug("Count of author of paper #%i does not coincide with the count of author of the required paper, skipped." % (on_page_paper_count))
                     elif 'start_page' in info and params["spage"] != None and str(params["spage"]) != info['start_page']:
                         logger.debug("Start page of paper #%i does not coincide with the start page of the required paper, skipped." % (on_page_paper_count))
@@ -237,12 +244,16 @@ def get_referring_papers(rg_paper_id):
     """ Get references dict for paper with rg_paper_id """
     logger.debug("Downloading the list of referring articles.")
     info = get_info_about_ref_and_citations(rg_paper_id)
+    if info == None: return None
     ref_url = _PUBREFERENCESDATA.format(rg_paper_id, info["referencesCount"])
     url = _FULLURL.format(_HOST, ref_url)
     try:
         dict_req_result = utils.get_json_data(url)
     except:
         raise
+    if dict_req_result == None: 
+        logger.debug("Data is empty.")
+        return None
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)
     if success:
@@ -256,12 +267,16 @@ def get_citations_papers(rg_paper_id):
     """Get cited dict for paper with rg_paper_id"""
     logger.debug("Downloading the list of cited articles.")
     info = get_info_about_ref_and_citations(rg_paper_id)
+    if info == None: return None
     ref_url = _PUBCITEDSDATA.format(rg_paper_id, info["citationsCount"])
     url = _FULLURL.format(_HOST, ref_url)
     try:
         dict_req_result = utils.get_json_data(url)
     except:
         raise
+    if dict_req_result == None: 
+        logger.debug("Data is empty.")
+        return None
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)
     if success:
@@ -282,6 +297,9 @@ def get_authors(rg_paper_id):
         #logger.warn(traceback.format_exc())
         #return None
         raise
+    if dict_req_result == None: 
+        logger.debug("Data is empty.")
+        return None
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)
     if success:
@@ -302,6 +320,9 @@ def get_auth_info(rg_account_id):
         #logger.warn(traceback.format_exc())
         #return None
         raise
+    if dict_req_result == None: 
+        logger.debug("Data is empty.")
+        return None
     success = dict_req_result['success']
     logger.debug("Status=%s." % success)
     if success:

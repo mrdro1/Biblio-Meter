@@ -2,4 +2,7 @@ Mikle's wishes:
 - all function must contain doc string with: several sentences about "what do this function", sentence about input and output data 
 
 Vladimir's wishes:
- 
+- Constants are named with a capital letter
+- There should be no magic numbers in the code
+- There must be 2 spaces before and after the functions
+- Operators are obfuscated by spaces, except for the cases of defining default parameters

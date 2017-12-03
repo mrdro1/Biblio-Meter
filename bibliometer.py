@@ -366,16 +366,18 @@ def print_to_log_http_statistic():
     """ This function print statistic of http requests in log. """
     logger.info('HTTP-requests: {0}({1} failed)'.format(utils.REQUEST_STATISTIC['count_requests'],
                                                             len(utils.REQUEST_STATISTIC['failed_requests'])))
+    settings.print_message('HTTP-requests: {0} ({1} failed)'.format(utils.REQUEST_STATISTIC['count_requests'],
+                                                            len(utils.REQUEST_STATISTIC['failed_requests'])))
     if len(utils.REQUEST_STATISTIC['failed_requests']) > 0:
-        logger.info('List failed HTTP-requests: {0}'.format(utils.REQUEST_STATISTIC['failed_requests']))
+        logger.info('List failed HTTP-requests:\n{0}'.format("\n".join(utils.REQUEST_STATISTIC['failed_requests'])))
 
 
 def dispatch(command):
     result = None
     logger.debug("command %s.", command)
+    start_time = datetime.now()
     try:
         for case in utils.Switch(command):
-            start_time = datetime.now()
             if case("getPapersByKeyWords"): 
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
@@ -414,28 +416,28 @@ def dispatch(command):
             if case(): # default
                 logger.warn("Unknown command: %s" % command)
                 settings.print_message("Unknown command: %s" % command)
-                return
-        end_time = datetime.now()
-        settings.print_message("Run began on {0}".format(start_time))
-        settings.print_message("Run ended on {0}".format(end_time))
-        settings.print_message("Elapsed time was: {0}".format(end_time - start_time))
-        logger.debug("Run began on {0}".format(start_time))
-        logger.debug("Run ended on {0}".format(end_time))
-        logger.debug("Elapsed time was: {0}".format(end_time - start_time))
-        print_to_log_http_statistic()
+                break
         # Fix database changes
         dbutils.commit()
-        return
     except KeyboardInterrupt:
         settings.print_message("Caught KeyboardInterrupt, terminating processing")
         settings.RESULT = "WARNING: User was terminated processing"
+        dbutils.rollback()
     except:
         logger.error(traceback.format_exc())
         settings.print_message("Processing finished with error.")
         settings.print_message("For more details, see the log.")
         settings.RESULT = "ERROR: {0}".format(traceback.format_exc())
+        dbutils.rollback()
+    end_time = datetime.now()
+    settings.print_message("Run began on {0}".format(start_time))
+    settings.print_message("Run ended on {0}".format(end_time))
+    settings.print_message("Elapsed time was: {0}".format(end_time - start_time))
+    logger.debug("Run began on {0}".format(start_time))
+    logger.debug("Run ended on {0}".format(end_time))
+    logger.debug("Elapsed time was: {0}".format(end_time - start_time))
     print_to_log_http_statistic()
-    dbutils.rollback()
+
 
 def main():  
     dispatch(settings.PARAMS["command"])

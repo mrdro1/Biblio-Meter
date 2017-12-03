@@ -181,6 +181,7 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
                 return full_info
 
     # Paper not in cluster => get addition info for it
+    settings.print_message("Cluster link not exists.", 3)
     different_information = list()
     different_information.append(dict())
     for link in footer_links:
@@ -197,7 +198,11 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
 
 def get_info_from_EndNote(file_url, return_source = False):
     """Populate the Publication with information from its profile"""
-    EndNode_file = utils.get_text_data(file_url).replace("\r", "")
+    EndNode_file = utils.get_text_data(file_url)
+    if EndNode_file == None:
+        logger.debug("Upload empty EndNote file.")
+        return None
+    EndNode_file = EndNode_file.replace("\r", "")
     logger.debug("EndNote file:\n%s" % EndNode_file)
     EndNote_info = EndNote_parsing(EndNode_file)      
     if "pages" in EndNote_info:
@@ -230,6 +235,7 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers)
             if counter >= max_papers_count: break;
             counter += 1
             settings.print_message("Handle paper #%i (total %i)" % (counter, total_papers))
+            logger.debug("Handle paper #%i (total %i)" % (counter, total_papers))
             logger.debug("Parse html and get info about paper #{0} on searching page (total {1} on page)".format(page_counter + 1, page_total))
             yield _get_info_from_resulting_selection(paper, handling_cluster)
         if soup.find(class_='gs_ico gs_ico_nav_next') and counter < max_papers_count:

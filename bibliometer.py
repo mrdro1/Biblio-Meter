@@ -25,6 +25,9 @@ def get_papers_by_key_words():
     logger.debug("Search papers from google.scholar.")
     settings.print_message("Search papers from google.scholar.")
     paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(settings.PARAMS)
+    if paper_generator is None:
+        logger.debug("Soup from google.scholar is None. End command get_papers_by_key_words")
+        return (0, 0, 0)
     logger.debug(about_res_count)
     settings.print_message("Google: Found {0} papers.".format(about_res_count))
     number_of_papers_compared = int(settings.PARAMS["max_researchgate_papers"])

@@ -130,23 +130,31 @@ def EndNote_parsing(SourceText, DecodeIdentifiers = True):
     logger.debug("Parsing EndNode text.")
     for line in SourceText.strip().split("\n"):
         cmd_line = line.strip("\t\r")
-        if len(cmd_line) < 4: 
+        # check that line from EN have length bigger than minimum ("%O A")
+        if len(cmd_line) < 4:
             logger.debug("Invalid length: len == %i < 4." % len(cmd_line))
             return None
         code = cmd_line[:2]
         value = cmd_line[3:]
-        if not code in _PARAMS: 
+        # check code name
+        if not code in _PARAMS:
             logger.debug("Unknown code: %s." % code)
             return None
-        if code == _TYPECODE and not value in _TYPE: 
+        # procces on type paper: valid name type
+        if code == _TYPECODE and not value in _TYPE:
             logger.debug("Unknown type: %s." % value)
             return None
-        #if code == _AUTHCODE: value = " ".join(value.split(', ')[::-1])
+        # if code == _AUTHCODE: value = " ".join(value.split(', ')[::-1])
+
+        # procces code with many value, for example: authors
+        # if current code exists in result dict, than convert value to list and append current value
         if trueCode(code) in resultDict:
+        # code is yet in result dict, but value is not list
             if not isinstance(resultDict[trueCode(code)], list):
                 logger.debug("Parameter '%s' has more one value. Union this parameter in list." % code)
                 resultDict[trueCode(code)] = list(resultDict[trueCode(code)])
             resultDict[trueCode(code)].append(value)
+        # code is not in result dict, just add pair key-value to result dict
         else:
             if code == _AUTHCODE: value = list([value])
             resultDict[trueCode(code)] = value

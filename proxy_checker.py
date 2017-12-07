@@ -94,7 +94,7 @@ def results_collectors(result):
 
 def main():
 	print_message(_header)
-	threads = 100
+	threads = 20
 	pool = multiprocessing.Pool(threads, init_worker)
 	m = multiprocessing.Manager()
 	lock = m.Lock()

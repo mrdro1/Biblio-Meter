@@ -2,3 +2,5 @@
 *.pyc 
 *.db3
 *.log
+*.xml
+*.iml

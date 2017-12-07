@@ -181,7 +181,10 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
                 return full_info
 
     # Paper not in cluster => get addition info for it
-    settings.print_message("Cluster link not exists.", 3)
+    if handling_cluster:
+        settings.print_message("Cluster link not exists.", 3)
+    else:
+        settings.print_message("Don't touch cluster info.", 3)
     different_information = list()
     different_information.append(dict())
     for link in footer_links:
@@ -242,6 +245,9 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers)
             url = soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip()
             logger.debug("Load next page in resulting query selection.")
             soup = utils.get_soup(_FULLURL.format(_HOST, url))
+            if soup is None:
+                logger.debug("Soup from google.scholar is None. Break from paper generator loop.")
+                break
             page_num += 1
         else:
             break
@@ -249,17 +255,19 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers)
 
 def get_about_count_results(soup):
     """Shows the approximate number of pages as a result"""
-    title = soup.find('div', {'id': 'gs_ab_md'}).find('div', {'class': 'gs_ab_mdw'})
+    title = soup.find('div', {'id': 'gs_ab_md'})
     if title:
-        count_papers = title.text
-        if count_papers:
-            count_papers = count_papers.split(' ')[1].replace(',', '')
-        else:
-            count_papers = 1
-        try:
-            int(count_papers)
-        except:
-            count_papers = title.text.split(' ')[0].replace(',', '')
+        title = title.find('div', {'class': 'gs_ab_mdw'})
+        if title:
+            count_papers = title.text
+            if count_papers:
+                count_papers = count_papers.split(' ')[1].replace(',', '')
+            else:
+                count_papers = 1
+            try:
+                int(count_papers)
+            except:
+                count_papers = title.text.split(' ')[0].replace(',', '')
     else:
         count_papers = 1
     return int(count_papers)
@@ -310,6 +318,8 @@ def search_pubs_custom_url(url, handling_cluster, max_iter):
     URL should be of the form '/scholar?q=...'"""
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, url))
     soup = utils.get_soup(_FULLURL.format(_HOST, url))
+    if soup is None:
+        return None, None
     about = get_about_count_results(soup)
     return (_search_scholar_soup(soup, handling_cluster, max_iter, about), about)
 

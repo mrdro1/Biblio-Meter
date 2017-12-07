@@ -62,8 +62,14 @@ class Paper(object):
         # Matching authors from the header and from EndNote, adding information in case of coincidence
         self.authors = list()
         for auth_index, additional_author in enumerate(additional_information["author"]):
-            sirname = additional_author.split(", ")[0]
-            name_initials = additional_author.split(", ")[1][0]
+            splited_author_name = additional_author.split(", ")
+            # if string with name has not ',' (for example: chinese name), than name_initials is empty string
+            if len(splited_author_name) == 1:
+                sirname = splited_author_name[0]
+                name_initials = str()
+            else:
+                sirname = additional_author.split(", ")[0]
+                name_initials = additional_author.split(", ")[1][0]
             intersect_lst = [(index, author) for index, author in enumerate(general_information["author"]) if  not "name" in author and sirname in author["shortname"] and name_initials == author["shortname"][0]] 
             author_dict = {"name" : additional_author}
             if intersect_lst != []: author_dict.update(intersect_lst[0][1])

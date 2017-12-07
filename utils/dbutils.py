@@ -43,28 +43,28 @@ def create_tables_if_not_exists():
          google_i10_index varchar(1000),
          google_citations integer,
          notes varchar(1000),
-         r$transaction integer not null,
-         foreign key (r$transaction) references transactions(id)
+         r_transaction integer not null,
+         foreign key (r_transaction) references transactions(id)
         );
         ''',
         '''
         create table if not exists authors_skills
         (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
          skill varchar(1000) not null,
-         r$author integer not null,
-         r$transaction integer not null,
-         foreign key (r$author) references authors(id),
-         foreign key (r$transaction) references transactions(id)
+         r_author integer not null,
+         r_transaction integer not null,
+         foreign key (r_author) references authors(id),
+         foreign key (r_transaction) references transactions(id)
         );
         ''',
         '''
         create table if not exists authors_topics
         (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
          topic varchar(1000) not null,
-         r$author integer not null,
-         r$transaction integer not null,
-         foreign key (r$author) references authors(id),
-         foreign key (r$transaction) references transactions(id)
+         r_author integer not null,
+         r_transaction integer not null,
+         foreign key (r_author) references authors(id),
+         foreign key (r_transaction) references transactions(id)
         );
         ''',
         '''
@@ -89,29 +89,29 @@ def create_tables_if_not_exists():
          notes varchar(1000),
          score integer,
          ignore boolean not null,
-         r$transaction integer not null,
-         foreign key (r$transaction) references transactions(id)
+         r_transaction integer not null,
+         foreign key (r_transaction) references transactions(id)
         );
         ''',
         '''
         create table if not exists author_paper
-        (r$author integer not null,
-         r$paper integer not null,
-         r$transaction integer not null,
-         foreign key (r$transaction) references transactions(id),
-         foreign key (r$author) references authors(id),
-         foreign key (r$paper) references papers(id)
+        (r_author integer not null,
+         r_paper integer not null,
+         r_transaction integer not null,
+         foreign key (r_transaction) references transactions(id),
+         foreign key (r_author) references authors(id),
+         foreign key (r_paper) references papers(id)
         );
         ''',
         '''
         create table if not exists paper_paper
-        (r$paper1 integer not null,
-         r$paper2 integer not null,
+        (r_paper1 integer not null,
+         r_paper2 integer not null,
          type varchar(100) check (type in ('citied','related')),
-         r$transaction integer not null,
-         foreign key (r$transaction) references transactions(id),
-         foreign key (r$paper2) references papers(id),
-         foreign key (r$paper2) references papers(id)
+         r_transaction integer not null,
+         foreign key (r_transaction) references transactions(id),
+         foreign key (r_paper2) references papers(id),
+         foreign key (r_paper2) references papers(id)
         );
         ''']
     cur = DB_CONNECTION.cursor()
@@ -168,7 +168,7 @@ def check_exists_paper_paper_edge(params):
     res = execute_sql("""
         SELECT count(*)
         FROM paper_paper
-        WHERE r$paper1 = :IDpaper1 and r$paper2 = :IDpaper2 and type = :type
+        WHERE r_paper1 = :IDpaper1 and r_paper2 = :IDpaper2 and type = :type
         """, **params)[0][0]
     return res != 0
 
@@ -209,7 +209,7 @@ def add_new_paper(params):
         INSERT INTO papers(
             title, year, publisher, start_page, end_page, pages, g_type,
             DOI, abstract, abstract_ru, rg_id, references_count, rg_type,
-            g_endnote, rg_ris, authors, r$transaction, ignore
+            g_endnote, rg_ris, authors, r_transaction, ignore
         ) VALUES(
             :title, :year, :publisher, :start_page, :end_page, :pages, :g_type,
             :DOI, :abstract, :abstract_ru, :rg_id, :references_count, :rg_type,
@@ -229,7 +229,7 @@ def add_new_author(params):
             google_h_index,
             google_i10_index,
             google_citations,
-            r$transaction
+            r_transaction
             ) VALUES (
             :name,
             :shortname,

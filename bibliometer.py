@@ -151,17 +151,29 @@ def get_PDFs():
                 settings.print_message("Paper #{0} not found on Researchgate.".format(paper_index + 1), 2)
         if rg_paper_id != None:
             settings.print_message("Trying to take pdf from researchgate. RGID={0}.".format(rg_paper_id), 2)
-            if researchgate.get_pdf(rg_paper_id, pdf_file_name): 
-                new_files_counter += 1
+            try:
+                if researchgate.get_pdf(rg_paper_id, pdf_file_name):
+                    new_files_counter += 1
+                    continue
+            except:
+                logger.debug("Failed get_pdf from Researchgate for paper #{0}.".format(paper_index + 1))
+                settings.print_message("failed load PDF on researchgate.", 2)
                 continue
             settings.print_message("PDF unavailable on researchgate.", 2)
         if DOI != None:
             settings.print_message("Trying to take pdf from sci-hub. DOI={0}".format(DOI), 2)
-            if not scihub.get_pdf(DOI, pdf_file_name): 
-                settings.print_message("PDF unavailable on sci-hub.".format(DOI), 2)
+            try:
+                if not scihub.get_pdf(DOI, pdf_file_name):
+                    settings.print_message("PDF unavailable on sci-hub. DOI={0}".format(DOI), 2)
+                    unavailable_files_counter += 1
+                else:
+                    new_files_counter += 1
+            except:
                 unavailable_files_counter += 1
-            else: 
-                new_files_counter += 1
+                logger.debug("Failed get_pdf from sci-hub for paper #{0}. DOI={0}".format(paper_index + 1, DOI))
+                settings.print_message("failed load PDF on sci-hub. DOI={0}".format(DOI), 2)
+                continue
+
     result = (True, new_files_counter, unavailable_files_counter, unavailable_files_counter + new_files_counter)
     return result
 

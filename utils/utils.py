@@ -52,7 +52,7 @@ class ProxyManager:
 
     def __init__(self):
         self.MAX_REQUESTS = 1
-        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', 'sci-hub.cc', 'otherhost']
+        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', settings.SCIHUB_HOST_NAME, 'otherhost']
         self.file_name = settings.PROXY_FILE
         self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
         self.proxy_request_count = {host_name: 0 for host_name in self.list_host_names}
@@ -105,8 +105,8 @@ class ProxyManager:
         """  """
         if host_name.startswith('scholar'):
             host_name = 'scholar.google.com'
-        if host_name.endswith('sci-hub.cc'):
-            host_name = 'sci-hub.cc'
+        if host_name.endswith(settings.SCIHUB_HOST_NAME):
+            host_name = settings.SCIHUB_HOST_NAME
         return host_name
 
 
@@ -338,7 +338,7 @@ def _get_name_max_try_to_host(url):
         {
             'www.researchgate.net': 'researchgate',
             'scholar.google.com': 'google',
-            'sci-hub.cc': 'sci_hub'
+            settings.SCIHUB_HOST_NAME: 'sci_hub'
         }
     host = urlparse(url).hostname
     host = _PROXY_OBJ.update_host_name_for_resources(host)

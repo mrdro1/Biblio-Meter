@@ -35,6 +35,9 @@ def build_version_string():
                                                       datetime.now().strftime("%B %d %Y, %H:%M:%S"))
     return _header
 
+# name sci-hub site (for example: sci-hub.tw)
+SCIHUB_HOST_NAME = 'sci-hub.tw'
+
 # Program version
 _header = build_version_string()
 

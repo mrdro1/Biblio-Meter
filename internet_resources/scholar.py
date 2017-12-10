@@ -34,7 +34,7 @@ _SCHOLARCLUSTERRE = r'cluster=[0-9]*'
 def _cluster_handler(cluster_id, papers_count):
     logger.debug("Handle %i papers from cluster %s." % (papers_count, cluster_id))
     url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
-    logger.debug("Get cluster page URL='%s'." % url)
+    logger.debug("Get cluster page URL='{0}'.".format(url))
     soup = utils.get_soup(url)
     #utils.soup2file(soup, "D:\A.html")
     # This dictionary contains info about unique papers
@@ -62,6 +62,9 @@ def _cluster_handler(cluster_id, papers_count):
 
     # Loop on pages
     while True:
+        if soup is None:
+            logger.debug("Soup for cluster page URL='{0}' is None.".format(url))
+            return None
         # This list contains links to EndNote and cited by count for each paper in cluster
         logger.debug("Find EndNote links for each paper in cluster.")
         footer_links = [
@@ -319,6 +322,7 @@ def search_pubs_custom_url(url, handling_cluster, max_iter):
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, url))
     soup = utils.get_soup(_FULLURL.format(_HOST, url))
     if soup is None:
+        logger.debug("Soup for generator publication page URL='{0}' is None.".format(url))
         return None, None
     about = get_about_count_results(soup)
     return (_search_scholar_soup(soup, handling_cluster, max_iter, about), about)
@@ -329,6 +333,9 @@ def get_info_from_author_page(author_id):
     PAGESIZE = 100
     url = '{0}&pagesize={1}'.format(_CITATIONAUTH.format(author_id), PAGESIZE)
     soup = utils.get_soup(_FULLURL.format(_HOST, url))
+    if soup is None:
+        logger.debug("Soup for author page URL='{0}' is None.".format(url))
+        return None
     # Sitations, h-index, i10-index
     res = dict()
     index = soup.find_all('td', class_='gsc_rsb_std')

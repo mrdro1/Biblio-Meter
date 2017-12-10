@@ -433,6 +433,7 @@ def dispatch(command):
                 settings.print_message("Unknown command: %s" % command)
                 break
         # Fix database changes
+        utils.save_good_cookie(result)
         dbutils.commit()
     except KeyboardInterrupt:
         settings.print_message("Caught KeyboardInterrupt, terminating processing")

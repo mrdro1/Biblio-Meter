@@ -10,12 +10,12 @@ import signal
 #
 import argparse
 #
-import settings
+import CONST
 
 TEST_URLS = [
 	"https://scholar.google.ru/",
 	"https://www.researchgate.net/search?q=test",
-	"https://{0}/".format(settings.SCIHUB_HOST_NAME)
+	"https://{0}/".format(CONST.SCIHUB_HOST_NAME)
 	]
 
 DEFAULT_ATEEMPTS_COUNT = 2

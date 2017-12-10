@@ -5,10 +5,11 @@ import re
 import random
 from urllib.parse import urlparse
 #
+import CONST
 import utils
 import settings
 
-_HOST = r"https://{0}//".format(settings.SCIHUB_HOST_NAME)
+_HOST = r"https://{0}//".format(CONST.SCIHUB_HOST_NAME)
 _FULLURL = r"{0}{1}"
 
 logger = logging.getLogger(__name__)

@@ -35,8 +35,6 @@ def build_version_string():
                                                       datetime.now().strftime("%B %d %Y, %H:%M:%S"))
     return _header
 
-# name sci-hub site (for example: sci-hub.tw)
-SCIHUB_HOST_NAME = 'sci-hub.tw'
 
 # Program version
 _header = build_version_string()
@@ -92,7 +90,8 @@ CONTROL_KEYS = [
     "max_tree_level",
     "max_cited_papers",
     "commit_iterations",
-    "http_contiguous_requests"
+    "http_contiguous_requests",
+    "limit_resp_for_one_code"
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
@@ -102,7 +101,8 @@ CONTROL_DEFAULT_VALUES = \
         "researchgate_captcha_retry_by_proxy_count" : 4,
         "sci_hub_captcha_retry_by_proxy_count" : 0,
         "commit_iterations" : 1000000,
-        "http_contiguous_requests" : 20
+        "http_contiguous_requests" : 20,
+        "limit_resp_for_one_code": 20
     }
 
 

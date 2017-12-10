@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import collections
+import datetime
 import itertools
+import pickle
 from random import shuffle
 #
 import sys, traceback, logging
@@ -21,12 +23,15 @@ import json
 import os
 from urllib.parse import urlparse
 #
+import CONST
 import settings
 import utils
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 REQUEST_STATISTIC = {'count_requests': 0, 'failed_requests':list()}
+# dict for save count response with same status code != 200
+dict_bad_status_code = collections.defaultdict(lambda: 0)
 
 class Switch(object):
     """SWITCHER"""
@@ -52,7 +57,7 @@ class ProxyManager:
 
     def __init__(self):
         self.MAX_REQUESTS = 1
-        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', settings.SCIHUB_HOST_NAME, 'otherhost']
+        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', CONST.SCIHUB_HOST_NAME, 'otherhost']
         self.file_name = settings.PROXY_FILE
         self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
         self.proxy_request_count = {host_name: 0 for host_name in self.list_host_names}
@@ -105,13 +110,50 @@ class ProxyManager:
         """  """
         if host_name.startswith('scholar'):
             host_name = 'scholar.google.com'
-        if host_name.endswith(settings.SCIHUB_HOST_NAME):
-            host_name = settings.SCIHUB_HOST_NAME
+        if host_name.endswith(CONST.SCIHUB_HOST_NAME):
+            host_name = CONST.SCIHUB_HOST_NAME
         return host_name
 
 
 # init proxy
 _PROXY_OBJ = ProxyManager()
+
+# Region for work with good cookies
+def save_good_cookie(result_transaction):
+    """ Function save cookies if transaction was good (end with flag 'SUCCESS') """
+    if result_transaction:
+        file_name = 'good_cookies\\cookies{0}.pkl'.format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+        pickle.dump(_HTTP_PARAMS['cookies'],
+                    open(file_name, 'wb'))
+        logger.debug("Save cookies file {0} to /good_cookies.".format(file_name))
+    return 0
+
+def _get_good_cookies():
+    """ Function return obj with good cookies, which select randomly from folder /good_cookies """
+    list_files = os.listdir('good_cookies')
+    count_files = len(list_files)
+    rand_num = random.randint(0, count_files - 1)
+    file_name = list_files[rand_num]
+    logger.debug("Get new cookies file {0} from /good_cookies.".format(file_name))
+    cookies = pickle.load(open('good_cookies/'+file_name, 'rb'))
+    return cookies
+
+def is_many_bad_status_code():
+    """ Function for check count response with same status code.
+        If count for some status is big (parameter in control file),
+        than reload cookies."""
+    function_answer = False
+    # status by count appearance and select status with biggest value
+    if dict_bad_status_code:
+        list_status = dict_bad_status_code.items()
+        code_with_biggest_value, biggest_appearance_count = sorted(list_status, key=lambda x: x[1])[-1]
+        if biggest_appearance_count > settings.PARAMS['limit_resp_for_one_code']:
+            logger.debug("Status code {0} has {1} appearance. Cookies will reload.".format(code_with_biggest_value,
+                                                                                           biggest_appearance_count))
+            dict_bad_status_code.clear()
+            function_answer = True
+    return function_answer
+
 
 
 def soup2file(soup, file_name):
@@ -309,7 +351,11 @@ def get_request(url, stream=False):
                         continue
             if resp.status_code != 200:
                 bad_requests_counter += 1
+                dict_bad_status_code[resp.status_code] += 1
                 _PROXY_OBJ.set_next_proxy(host)
+                # if count resp with same code enough big than reload cookies
+                if is_many_bad_status_code():
+                    _HTTP_PARAMS["cookies"] = _get_good_cookies()
                 continue
 
             if resp.status_code == 200:
@@ -338,7 +384,7 @@ def _get_name_max_try_to_host(url):
         {
             'www.researchgate.net': 'researchgate',
             'scholar.google.com': 'google',
-            settings.SCIHUB_HOST_NAME: 'sci_hub'
+            CONST.SCIHUB_HOST_NAME: 'sci_hub'
         }
     host = urlparse(url).hostname
     host = _PROXY_OBJ.update_host_name_for_resources(host)

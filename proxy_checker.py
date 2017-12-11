@@ -18,6 +18,7 @@ TEST_URLS = [
 	"https://{0}/".format(CONST.SCIHUB_HOST_NAME)
 	]
 
+
 DEFAULT_ATEEMPTS_COUNT = 2
 LOCK = multiprocessing.Lock()
 RESULTS = list()
@@ -30,7 +31,7 @@ def print_message(message, level=0):
 #
 
 # Programm version
-__VERSION__ = "0.1.5"
+__VERSION__ = "0.1.6"
 
 # Header
 _header = "Proxy-checker (v{0}, {1})".format(__VERSION__, datetime.now().strftime("%B %d %Y, %H:%M:%S"))
@@ -112,7 +113,7 @@ def main():
 		start_time = datetime.now()
 		print_message("Start checking")
 		print_message("{0:23} {1:8} {2:6} {3}".format("PROXY", "STATUS", "TOTAL", "COMMENT")) # HEADER
-		proxies = list(Fi.readlines())
+		proxies = set(Fi.readlines())
 		for proxy in proxies:
 			pool.apply_async(check, args=(proxy.strip(), total_good, total_bad, lock), callback=results_collectors)
 	try:

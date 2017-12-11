@@ -6,7 +6,7 @@ import pickle
 from random import shuffle
 #
 import sys, traceback, logging
-import browser_cookie3 #
+import browsercookie #
 import random
 import requests
 from requests.exceptions import ProxyError, ConnectTimeout, SSLError, ReadTimeout
@@ -32,6 +32,7 @@ logger.setLevel(logging.DEBUG)
 REQUEST_STATISTIC = {'count_requests': 0, 'failed_requests':list()}
 # dict for save count response with same status code != 200
 dict_bad_status_code = collections.defaultdict(lambda: 0)
+
 
 class Switch(object):
     """SWITCHER"""
@@ -121,9 +122,9 @@ _PROXY_OBJ = ProxyManager()
 # Region for work with good cookies
 def save_good_cookie(result_transaction):
     """ Function save cookies if transaction was good (end with flag 'SUCCESS') """
-    if result_transaction:
+    if result_transaction == "SUCCESS":
         file_name = 'good_cookies\\cookies{0}.pkl'.format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-        pickle.dump(_HTTP_PARAMS['cookies'],
+        pickle.dump(SESSION.cookies,
                     open(file_name, 'wb'))
         logger.debug("Save cookies file {0} to /good_cookies.".format(file_name))
     return 0
@@ -205,15 +206,27 @@ def _get_user_agent():
         return 'Mozilla/5.0 (compatible; MSIE ' + version + '; ' + os + '; ' + token + 'Trident/' + engine + ')'
 
 
+_DEFAULT_HEADER = {
+    'User-Agent' : _get_user_agent(),
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
+    'Accept-Encoding': 'gzip, deflate'
+    }
+
+
 def _get_cookies(domain=""):
     """Load cookie from default browser and filtering them by domain"""
     if settings.DEFAULT_BROWSER == settings.CHROME:
         logger.debug("Load cookie from chrome.")
-        return browser_cookie3.chrome(domain_name=domain)
+        return browsercookie.chrome()#domain_name=domain)
     if settings.DEFAULT_BROWSER == settings.FIREFOX:
         logger.debug("Load cookie from firefox.")
-        return browser_cookie3.firefox(domain_name=domain)
+        return browsercookie.firefox()#domain_name=domain)
     return None
+
+SESSION = requests.Session()
+SESSION.headers = _DEFAULT_HEADER
+SESSION.cookies = _get_cookies()
 
 
 #def _load_cookie_from_dict(data_dict):
@@ -267,39 +280,6 @@ def _get_cookies(domain=""):
 #    _ = [res_cj.set_cookie(new_cookie) for new_cookie in cj]
 #    return res_cj
 
-
-_DEFAULT_HEADER = {
-    'User-Agent' : _get_user_agent(),
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-    'Accept-Encoding': 'gzip, deflate'
-    }
-
-
-_HTTP_PARAMS = {
-    "session" : requests.Session(),
-    "header" : _DEFAULT_HEADER,
-    "cookies" : _get_cookies()
-}
-
-
-def _set_http_params(session = None, header = None, cookies = None):
-    """ Set http params. If parameter none, it will be auto-generated or the default value will be used. """
-    global _HTTP_PARAMS
-    _HTTP_PARAMS["session"] = session if session != None else requests.Session()
-    _HTTP_PARAMS["header"].update(header if header != None else {"User-Agent" : _get_user_agent()})
-    _HTTP_PARAMS["cookies"] = cookies if cookies != None else _get_cookies()
-
-
-def set_http_param(param, value):
-    """ Set value to http param. """
-    global _HTTP_PARAMS
-    _HTTP_PARAMS[param] = value
-
-def get_http_param(param):
-    """ Get http param. """
-    return _HTTP_PARAMS[param]
-
 def _check_captcha(soup):
     """Return true if ReCaptcha was found"""
     return soup.find('div', id='gs_captcha_ccl') != None or \
@@ -317,7 +297,7 @@ def handle_captcha(response):
     input("Press Enter after entering to continue")
     logger.debug("Waiting for cookies to be updated.")
     settings.print_message("Waiting for cookies to be updated.")
-    _set_http_params()
+    SESSION.cookies = _get_cookies()
     return 0
 
 
@@ -337,8 +317,7 @@ def get_request(url, stream=False):
             return None
         try:
             proxy = _PROXY_OBJ.get_cur_proxy(host)
-            resp = _HTTP_PARAMS["session"].get(url, headers=_HTTP_PARAMS["header"], 
-                cookies=_HTTP_PARAMS["cookies"], proxies=proxy, stream=stream, timeout=5)
+            resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)
             #handle_captcha(resp)
             if 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
@@ -355,7 +334,7 @@ def get_request(url, stream=False):
                 _PROXY_OBJ.set_next_proxy(host)
                 # if count resp with same code enough big than reload cookies
                 if is_many_bad_status_code():
-                    _HTTP_PARAMS["cookies"] = _get_good_cookies()
+                    SESSION.cookies = _get_good_cookies()
                 continue
 
             if resp.status_code == 200:
@@ -420,9 +399,8 @@ def get_text_data(url, ignore_errors = False, repeat_until_captcha = False):
 
 def get_json_data(url):
     """Send get request to URL and get data in JSON format"""
-    global _HTTP_PARAMS
-    tmp_accept = _HTTP_PARAMS["header"]["Accept"]
-    _HTTP_PARAMS["header"].update({"Accept" : "application/json"})
+    tmp_accept = SESSION.headers["Accept"]
+    SESSION.headers.update({"Accept" : "application/json"})
     json_data = None
     try:
         resp = get_request(url)
@@ -434,7 +412,7 @@ def get_json_data(url):
     except Exception as error:
         #logger.warn(traceback.format_exc())
         raise
-    _HTTP_PARAMS["header"].update({"Accept" : tmp_accept})
+    SESSION.headers.update({"Accept" : tmp_accept})
     return json_data
 
 

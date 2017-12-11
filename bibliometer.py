@@ -49,6 +49,7 @@ def get_papers_by_key_words():
                 # if papers_counter > max_papers_count: break;
                 if not "year" in paper_addition_information or not "author" in paper_addition_information: 
                     logger.debug("Skip paper #%i, empty year or authors fields." % papers_counter)
+                    continue
                 logger.debug("Process content of EndNote file #%i\n%s\n%s" % (papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)) )
                 # Create new paper entity
                 newpaper = paper.Paper()
@@ -433,7 +434,6 @@ def dispatch(command):
                 settings.print_message("Unknown command: %s" % command)
                 break
         # Fix database changes
-        utils.save_good_cookie(result)
         dbutils.commit()
     except KeyboardInterrupt:
         settings.print_message("Caught KeyboardInterrupt, terminating processing")
@@ -453,6 +453,7 @@ def dispatch(command):
     logger.debug("Run ended on {0}".format(end_time))
     logger.debug("Elapsed time was: {0}".format(end_time - start_time))
     print_to_log_http_statistic()
+    utils.save_good_cookie(settings.RESULT)
 
 
 def main():  

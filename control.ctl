@@ -1,6 +1,6 @@
 {"command":"getPapersByKeyWords",
-"query":"\"Evaluating location predictors with extencive wi-fi mobility data\"",
-"max_google_papers":"20",
-"google_clusters_handling":"False",
+"query":"knowledge extraction \"neural net\"",
+"max_google_papers":"10",
+"google_clusters_handling":"True",
 "max_researchgate_papers":"5"
 }

@@ -125,7 +125,7 @@ def save_good_cookie():
     ratio_good_request = (utils.REQUEST_STATISTIC['count_requests'] - len(utils.REQUEST_STATISTIC['failed_requests']))/utils.REQUEST_STATISTIC['count_requests']
     if ratio_good_request > 0.5:
         file_name = 'good_cookies\\cookies{0}.pkl'.format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-        pickle.dump(SESSION.cookies,
+        pickle.dump([cookie for cookie in SESSION.cookies],
                     open(file_name, 'wb'))
         logger.debug("Save cookies file {0} to /good_cookies.".format(file_name))
     return 0
@@ -138,7 +138,9 @@ def _get_good_cookies():
     file_name = list_files[rand_num]
     logger.debug("Get new cookies file {0} from /good_cookies.".format(file_name))
     cookies = pickle.load(open('good_cookies/'+file_name, 'rb'))
-    return cookies
+    res_cj = requests.cookies.cookielib.CookieJar()
+    for cookie in cookies: res_cj.set_cookie(cookie)
+    return res_cj
 
 def is_many_bad_status_code():
     """ Function for check count response with same status code.

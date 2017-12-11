@@ -120,9 +120,10 @@ class ProxyManager:
 _PROXY_OBJ = ProxyManager()
 
 # Region for work with good cookies
-def save_good_cookie(result_transaction):
+def save_good_cookie():
     """ Function save cookies if transaction was good (end with flag 'SUCCESS') """
-    if result_transaction == "SUCCESS":
+    ratio_good_request = (utils.REQUEST_STATISTIC['count_requests'] - len(utils.REQUEST_STATISTIC['failed_requests']))/utils.REQUEST_STATISTIC['count_requests']
+    if ratio_good_request > 0.5:
         file_name = 'good_cookies\\cookies{0}.pkl'.format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
         pickle.dump(SESSION.cookies,
                     open(file_name, 'wb'))

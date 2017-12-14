@@ -82,7 +82,14 @@ def _cluster_handler(cluster_id, papers_count):
             if links != {}:
                 file_counter += 1
                 logger.debug("EndNote file #%i (total %i)" % (file_counter, papers_count)) 
-                paper_EndNote_data = get_info_from_EndNote(links["EndNote"], True)
+                if links.get("EndNote"):
+                    paper_EndNote_data = get_info_from_EndNote(links["EndNote"], True)
+                else:
+                    settings.print_message('Error getting EndNote files. '
+                                           'Please change the display settings Google Scholar in English '
+                                           '(https://scholar.google.com/).')
+                    logger.debug('End work programme because did not find link to EndNote file.')
+                    raise Exception('Did not find EndNote.')
                 if paper_EndNote_data == None:
                     logger.debug("Skip EndNote file #%i, could not upload file." % file_counter)
                     continue

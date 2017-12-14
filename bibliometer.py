@@ -453,8 +453,6 @@ def dispatch(command):
     logger.debug("Run ended on {0}".format(end_time))
     logger.debug("Elapsed time was: {0}".format(end_time - start_time))
     print_to_log_http_statistic()
-    # save cookie for feature using
-    utils.save_good_cookie()
 
 
 def main():  

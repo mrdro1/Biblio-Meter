@@ -120,27 +120,20 @@ class ProxyManager:
 _PROXY_OBJ = ProxyManager()
 
 # Region for work with good cookies
-def save_good_cookie():
-    """ Function save cookies if transaction was good (end with flag 'SUCCESS') """
-    ratio_good_request = (utils.REQUEST_STATISTIC['count_requests'] - len(utils.REQUEST_STATISTIC['failed_requests']))/utils.REQUEST_STATISTIC['count_requests']
-    if ratio_good_request > 0.5:
-        file_name = 'good_cookies\\cookies{0}.pkl'.format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-        pickle.dump([cookie for cookie in SESSION.cookies],
-                    open(file_name, 'wb'))
-        logger.debug("Save cookies file {0} to /good_cookies.".format(file_name))
-    return 0
-
-def _get_good_cookies():
-    """ Function return obj with good cookies, which select randomly from folder /good_cookies """
-    list_files = os.listdir('good_cookies')
-    count_files = len(list_files)
-    rand_num = random.randint(0, count_files - 1)
-    file_name = list_files[rand_num]
-    logger.debug("Get new cookies file {0} from /good_cookies.".format(file_name))
-    cookies = pickle.load(open('good_cookies/'+file_name, 'rb'))
-    res_cj = requests.cookies.cookielib.CookieJar()
-    for cookie in cookies: res_cj.set_cookie(cookie)
-    return res_cj
+DONT_TOUCH_KEYS_IN_COOKIES = ['SSID', 'SID', 'HSID']
+def del_gs_cookies():
+    """ Function del google scholar cookies """
+    logger.debug("Start delete cookies for google.com and google scholar")
+    if SESSION.cookies._cookies.get('.scholar.google.com'):
+        del SESSION.cookies._cookies['.scholar.google.com']
+        logger.debug("Delete cookies for google scholar")
+    if SESSION.cookies._cookies.get('.google.com'):
+        google_cookies_keys = list(SESSION.cookies._cookies['.google.com']['/'].keys())
+        for key in google_cookies_keys:
+            if key not in DONT_TOUCH_KEYS_IN_COOKIES:
+                del SESSION.cookies._cookies['.google.com']['/'][key]
+        logger.debug("Delete cookies for google.com")
+    return SESSION.cookies
 
 def is_many_bad_status_code():
     """ Function for check count response with same status code.
@@ -151,7 +144,7 @@ def is_many_bad_status_code():
     if dict_bad_status_code:
         list_status = dict_bad_status_code.items()
         code_with_biggest_value, biggest_appearance_count = sorted(list_status, key=lambda x: x[1])[-1]
-        if biggest_appearance_count > settings.PARAMS['limit_resp_for_one_code']:
+        if biggest_appearance_count > int(settings.PARAMS['limit_resp_for_one_code']):
             logger.debug("Status code {0} has {1} appearance. Cookies will reload.".format(code_with_biggest_value,
                                                                                            biggest_appearance_count))
             dict_bad_status_code.clear()
@@ -337,7 +330,7 @@ def get_request(url, stream=False):
                 _PROXY_OBJ.set_next_proxy(host)
                 # if count resp with same code enough big than reload cookies
                 if is_many_bad_status_code():
-                    SESSION.cookies = _get_good_cookies()
+                    del_gs_cookies()
                 continue
 
             if resp.status_code == 200:

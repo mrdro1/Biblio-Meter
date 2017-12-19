@@ -137,6 +137,7 @@ def main():
             print_message("Caught KeyboardInterrupt, terminating processing")
             pool.terminate()
             pool.join()
+        current_count_proxies = len(CURRENT_GOOD_PROXIES)
         if iter_filtering != REFILTERING_COUNT-1:
             # end iteration => reset all global lists, sets, counters
             RESULTS.clear()
@@ -144,9 +145,10 @@ def main():
             CURRENT_GOOD_PROXIES.clear()
             total_good = m.Value('i', 0)
             total_bad = m.Value('i', 0)
+            current_count_proxies = len(proxies)
         if REFILTERING_COUNT>1:
             print_message('End {0} iteration. Current count good proxies: {1}'.format(iter_filtering+1,
-                                                                                      max(len(proxies), len(CURRENT_GOOD_PROXIES))))
+                                                                                      current_count_proxies))
     # close pool
     if pool:
         pool.close()

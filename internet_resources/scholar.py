@@ -197,14 +197,22 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
         settings.print_message("Don't touch cluster info.", 3)
     different_information = list()
     different_information.append(dict())
+    is_end_note = False
     for link in footer_links:
         if 'EndNote' in link.text:
             end_note = get_info_from_EndNote(link['href'].strip(), True)
             if end_note != None:
                 different_information[0].update(end_note)
+                is_end_note = True
             different_information[0]["url_scholarbib"] = link['href'].strip()
         if 'Cited by' in link.text or 'Цитируется' in link.text:
             different_information[0]["citedby"] = int(re.findall(r'\d+', link.text)[0])
+    if not is_end_note:
+        settings.print_message('Error getting EndNote files. '
+                               'Please change the display settings Google Scholar in English '
+                               '(https://scholar.google.com/).')
+        logger.debug('End work programme because did not find link to EndNote file.')
+        raise Exception('Did not find EndNote.')
     full_info["different_information"] = tuple(different_information)
     return full_info
 

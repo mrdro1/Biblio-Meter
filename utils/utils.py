@@ -423,6 +423,7 @@ def download_file(url, output_filename):
     chunk_size = 65536
  
     with open(output_filename, 'bw') as outfile:
+        logger.debug('Create file {0}, start download.'.format(output_filename))
         widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]
         progress = pb.ProgressBar(maxval=content_length,
                                   widgets=widgets).start()
@@ -430,7 +431,8 @@ def download_file(url, output_filename):
             outfile.write(chunk)
             downloaded_size += len(chunk)
             progress.update(downloaded_size)
-    print("")
+        logger.debug('End download file {0}.'.format(output_filename))
+    #print("")
     return True
 
 

@@ -351,6 +351,7 @@ def get_pdf_url(rg_paper_id):
 
 def get_pdf(rg_paper_id, filename):
     """Load pdf for paper with rg_paper_id and save to file filename"""
+    settings.print_message("PDF-file exists in ResearchGate.", 2)
     url = get_pdf_url(rg_paper_id)
     if url == None: return False
     try:

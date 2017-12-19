@@ -88,6 +88,7 @@ def create_tables_if_not_exists():
          rg_ris text,
          notes varchar(1000),
          score integer,
+         pdf_transaction integer,
          ignore boolean not null,
          r_transaction integer not null,
          foreign key (r_transaction) references transactions(id)
@@ -287,11 +288,19 @@ def execute_sql(SQL, *args, **options):
     else: 
         logger.debug("Execute sql: type={1} sql='{0}'".format(SQL, operator_type))
         cur.execute(SQL)
-    if operator_type == "select": 
+    # variables for checking len row, this need for logging
+    len_row = 0
+    if operator_type == "select":
         res = cur.fetchall()
+        if res:
+            len_row = len(res[0])
     elif operator_type == "insert": res = cur.lastrowid
     else: res = None
-    logger.debug("Query result: {0}".format(json.dumps(res)))
+    if len_row>3:
+        res_for_logging = [row[:3] for row in res]
+    else:
+        res_for_logging = res
+    logger.debug("Query result: {0}".format(json.dumps(res_for_logging)))
     return res
 
 
@@ -341,3 +350,9 @@ def get_sql_columns(SQL):
     res = [param for param in map(str.strip, params.split(","))]
     logger.info("Extracted columns: {0}".format(str(res)))
     return res
+
+def update_pdf_transaction(paper_id):
+    sql_update_pdf_transaction = 'UPDATE papers SET pdf_transaction = {0} where id = {1}'
+    logger.debug("Update pdf_transaction for paper id={0}.".format(paper_id))
+    execute_sql(sql_update_pdf_transaction.format(_CURRENT_PROGRAM_TRANSACTION_ID, paper_id))
+    return 0

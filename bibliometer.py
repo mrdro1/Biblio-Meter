@@ -108,7 +108,6 @@ def get_papers_by_key_words():
     settings.print_message("End processing. Changes in DB: %i." % (new_auth + new_papers))
     return (new_papers, new_auth, papers_counter)
 
-
 def update_authors():
     pass
 
@@ -117,6 +116,9 @@ def get_papers_of_authors():
 
 def get_PDFs():
     """This function loads pdf articles from the RG and Sci-hub selected from the query from the database"""
+    # statistic for pdf sources
+    RG_PDF, SCI_PDF = 0, 0
+    #
     logger.debug("Select papers from database.")
     settings.print_message("Select papers from database.")
     PAPERS_SQL = settings.PARAMS["papers"]
@@ -126,16 +128,20 @@ def get_PDFs():
     columns = dict()
     for N, column in enumerate(dbutils.get_columns_names("papers")): 
         columns[column.lower()] = N
-    logger.debug("Create folder 'PDF' if not exists.")
-    pdf_path = "%s\\%s\\" % (settings.DB_PATH, "PDF")
+    logger.debug("Create folder 'PDF_{0}' if not exists.".format(settings._DB_FILE))
+    pdf_path = "%s\\%s\\" % (settings.DB_PATH, "PDF_{0}".format(settings._DB_FILE))
     if not os.path.exists(pdf_path): os.mkdir(pdf_path)
     new_files_counter = 0
     unavailable_files_counter = 0
     for paper_index, paper in enumerate(papers):
-        settings.print_message("Handle paper #{0}.".format(paper_index + 1))
+        settings.print_message("Handle paper #{0} - {1}.".format(paper_index + 1, paper[columns['title']]))
         rg_paper_id = paper[columns["rg_id"]]
         DOI = paper[columns["doi"]]
         id = paper[columns["id"]]
+        if (rg_paper_id is None) and (DOI is None):
+            settings.print_message('DOI and ResearchGate ID empty, skip the paper.')
+            logger.debug("DOI and ResearchGate ID empty, skip the paper.")
+            continue
         logger.debug("File name generation.")
         pdf_file_name = "{0}{1}.pdf".format(pdf_path, id)
         counter = 1
@@ -143,38 +149,57 @@ def get_PDFs():
             pdf_file_name = "{0}{1}_{2}.pdf".format(pdf_path, id, counter)
             counter += 1
         logger.debug("PDF file name=%s." % pdf_file_name)
-        if rg_paper_id == None:
-            logger.debug("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(paper_index + 1))
-            settings.print_message("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(paper_index + 1), 2)
-            rg_paper_id = researchgate.paper_search_by_DOI(DOI)
-            if rg_paper_id == None:
-                logger.debug("Paper #{0} not found on Researchgate.".format(paper_index + 1))
-                settings.print_message("Paper #{0} not found on Researchgate.".format(paper_index + 1), 2)
         if rg_paper_id != None:
-            settings.print_message("Trying to take pdf from researchgate. RGID={0}.".format(rg_paper_id), 2)
+            settings.print_message("Getting PDF-file in ResearchGate by ID: {0}.".format(rg_paper_id), 2)
+            logger.debug("Getting PDF-file in ResearchGate by ID: {0}.".format(rg_paper_id))
             try:
                 if researchgate.get_pdf(rg_paper_id, pdf_file_name):
                     new_files_counter += 1
+                    RG_PDF += 1
+                    settings.print_message("Complete!", 2)
+                    dbutils.update_pdf_transaction(id)
                     continue
             except:
                 logger.debug("Failed get_pdf from Researchgate for paper #{0}.".format(paper_index + 1))
                 settings.print_message("failed load PDF on researchgate.", 2)
                 continue
             settings.print_message("PDF unavailable on researchgate.", 2)
+        else:
+            settings.print_message("PDF-file not exists in ResearchGate.", 2)
+        '''if rg_paper_id == None:
+            logger.debug("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(paper_index + 1))
+            settings.print_message("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(paper_index + 1), 2)
+            rg_paper_id = researchgate.paper_search_by_DOI(DOI)
+            if rg_paper_id == None:
+                logger.debug("Paper #{0} not found on Researchgate.".format(paper_index + 1))
+                settings.print_message("Paper #{0} not found on Researchgate.".format(paper_index + 1), 2)'''
+
         if DOI != None:
-            settings.print_message("Trying to take pdf from sci-hub. DOI={0}".format(DOI), 2)
+            settings.print_message("Getting PDF-file in Sci-Hub by DOI : {0}.".format(DOI), 2)
+            logger.debug("Getting PDF-file in ResearchGate by ID: {0}.".format(rg_paper_id))
+            #settings.print_message("Trying to take pdf from sci-hub. DOI={0}".format(DOI), 2)
             try:
                 if not scihub.get_pdf(DOI, pdf_file_name):
                     settings.print_message("PDF unavailable on sci-hub. DOI={0}".format(DOI), 2)
                     unavailable_files_counter += 1
                 else:
                     new_files_counter += 1
+                    SCI_PDF += 1
+                    settings.print_message("Complete!", 2)
+                    dbutils.update_pdf_transaction(id)
             except:
                 unavailable_files_counter += 1
                 logger.debug("Failed get_pdf from sci-hub for paper #{0}. DOI={0}".format(paper_index + 1, DOI))
                 settings.print_message("failed load PDF on sci-hub. DOI={0}".format(DOI), 2)
                 continue
+        else:
+            logger.debug("Failed get_pdf for paper #{0}.".format(paper_index + 1))
+            settings.print_message("Failed get_pdf for paper #{0}.".format(paper_index + 1), 2)
+            continue
 
+    settings.print_message("Proceed papers: {0}.".format(unavailable_files_counter + new_files_counter))
+    settings.print_message("PDF from ResearchGate: {0}.".format(RG_PDF))
+    settings.print_message("PDF from Sci-Hub: {0}.".format(SCI_PDF))
     result = (True, new_files_counter, unavailable_files_counter, unavailable_files_counter + new_files_counter)
     return result
 

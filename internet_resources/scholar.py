@@ -131,8 +131,17 @@ def _cluster_handler(cluster_id, papers_count):
         logger.debug("All {0} EndNote files merged in {1} (i.e. distinct versions in cluster: {1}):".format(file_counter, merged_counter))
         for counter, data in enumerate(EndNote_list): logger.debug("Merged EndNote file #%i:\n%s" % (counter + 1, data["EndNote"]))
     return tuple(EndNote_list)
-   
-    
+
+def _get_url_pdf(databox):
+    """ Функция поиска ссылки на pdf статьи"""
+    link_to_pdf = None
+    pdf = databox.find('div', class_='gs_or_ggsm')
+    if pdf:
+        pdf = pdf.a
+        if pdf.text.startswith('[PDF]'):
+            link_to_pdf = pdf['href']
+    return link_to_pdf
+
 def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     """retrieving data about an article in the resulting selection"""
     # Full info about paper include general and addition information
@@ -189,6 +198,14 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
                 full_info["different_information"] = different_information
                 settings.print_message("Versions in cluster: %i." % len(different_information), 3)
                 return full_info
+
+
+
+    # check: have paper link to pdf
+    # and take this link if exists
+    link_to_pdf = _get_url_pdf(paper_soup)
+    full_info['link_to_pdf'] = link_to_pdf
+
 
     # Paper not in cluster => get addition info for it
     if handling_cluster:

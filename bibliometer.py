@@ -20,6 +20,98 @@ import scihub
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOG_LEVEL)
 
+
+def get_papers_by_key_words_and_get_pdf_from_scihub():
+    logger.debug("Search papers from google.scholar.")
+    settings.print_message("Search papers from google.scholar.")
+    settings.PARAMS['google_clusters_handling'] = 'False'
+    paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(settings.PARAMS)
+    if paper_generator is None:
+        logger.debug("Soup from google.scholar is None. End command get_papers_by_key_words")
+        return (0, 0, 0, 0, 0)
+    logger.debug(about_res_count)
+    settings.print_message("Google: Found {0} papers.".format(about_res_count))
+    number_of_papers_compared = int(settings.PARAMS["max_researchgate_papers"])
+    if number_of_papers_compared <= 0: utils.skip_RG_stage_for_all()
+    new_papers = 0
+    new_auth = 0
+    max_papers_count = int(settings.PARAMS["max_google_papers"])
+    commit_iterations = int(settings.PARAMS["commit_iterations"])
+    papers_counter = 0
+    papers_without_pdf_url_counter = 0
+    succes_pdfs_loaded = 0
+    if max_papers_count > 0:
+        for paper_info in paper_generator:
+            max_papers_count -= 1
+            rg_query_page_cache = None
+            # Loop for different versions of paper
+            paper_versions = len(paper_info["different_information"])
+            if paper_versions == 0: settings.print_message(
+                "Not found information about paper #%i, skipped." % paper_versions, 1)
+            for paper_version_counter, paper_addition_information in enumerate(paper_info["different_information"]):
+                papers_counter += 1
+                if not utils.RG_stage_is_skipped_for_all(): utils.skip_RG_stage_reset()
+                # if papers_counter > max_papers_count: break;
+                if not "year" in paper_addition_information or not "author" in paper_addition_information:
+                    logger.debug("Skip paper #%i, empty year or authors fields." % papers_counter)
+                    continue
+                logger.debug("Process content of EndNote file #%i\n%s\n%s" % (
+                papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
+                # Create new paper entity
+                newpaper = paper.Paper()
+                # Fill data from google scholar
+                newpaper.get_info_from_sch(paper_info["general_information"], paper_addition_information,
+                                           paper_version_counter + 1)
+                if paper_versions > 1:
+                    if rg_query_page_cache == None:
+                        if not utils.RG_stage_is_skipped():
+                            settings.print_message("Search papers from researchgate.", 1)
+                            rg_query_page_cache = newpaper.get_rg_first_search_page()
+                        else:
+                            settings.print_message("Skip researchgate stage.", 1)
+                            logger.debug("Skip researchgate stage.")
+                    settings.print_message(
+                        "Handle paper version #%i (total %i)" % (paper_version_counter + 1, paper_versions), 1)
+                if newpaper.in_database():
+                    settings.print_message("This paper%s already exists, id = %i." % ((" version" if paper_versions > 1 else ""), newpaper.db_id), 1)
+                else:
+                    newpaper.add_to_database()
+                    settings.print_message(
+                        "Adding a paper%s to the database" % (" version" if paper_versions > 1 else ""),
+                        1)
+                new_papers += 1
+
+                # load pdf from scihub by paper url if exists
+                if not paper_info['link_to_pdf']:
+                    if not paper_info['general_information'].get('url'):
+                        continue
+                    settings.print_message("Try get pdf by paper url on scholar.", 1)
+                    papers_without_pdf_url_counter += 1
+                    url_for_download_from_sci_hub = paper_info['general_information']['url']
+                    settings.print_message(
+                        "Getting PDF-file in Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub), 2)
+                    logger.debug("Getting PDF-file in Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub))
+                    try:
+                        fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
+                        if not scihub.get_pdf(url_for_download_from_sci_hub, fn_pdf):
+                            settings.print_message(
+                                "PDF unavailable on sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
+                        else:
+                            succes_pdfs_loaded += 1
+                            settings.print_message("Complete!", 2)
+                    except:
+                        logger.debug("Failed get_pdf from sci-hub for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_sci_hub))
+                        settings.print_message("failed load PDF on sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
+                        continue
+
+                # Commit transaction each commit_iterations iterations
+                if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
+            # if papers_counter >= max_papers_count: break;
+    logger.debug("End processing. Changes in DB: %i." % (new_auth + new_papers))
+    settings.print_message("End processing. Changes in DB: %i." % (new_auth + new_papers))
+    return (new_papers, new_auth, papers_counter, papers_without_pdf_url_counter, succes_pdfs_loaded)
+
+
 def get_papers_by_key_words():
     """This function searches for articles according to the given parameters and downloads the information about them and authors into database"""
     logger.debug("Search papers from google.scholar.")
@@ -203,7 +295,6 @@ def get_PDFs():
     result = (True, new_files_counter, unavailable_files_counter, unavailable_files_counter + new_files_counter)
     return result
 
-
 def select_papers_for_citation_graph(tree_queue):
     """ This function selects articles from the database and checks the SQL. """
     logger.debug("Select papers from database.")
@@ -220,7 +311,6 @@ def select_papers_for_citation_graph(tree_queue):
         # Each tuple is (id of paper in the database, id of the paper on the researchgate, the level of the tree)
         tree_queue.put((db_paper[columns["id"]], db_paper[columns["rg_id"]], db_paper[columns["doi"]], 1))
     return 0
-
 
 def create_and_fill_paper_for_citation_graph(parent_paper_db_id, rg_new_paper_id, edge_type):
     """ This function creates a new instance of the paper and fills it with information. """
@@ -402,7 +492,6 @@ def get_cities():
             if  new_paper_counter >= MAX_CITED_PAPERS - 1: break
     return (papers_counter, papers_without_list, new_papers_count, getinfo_fails, new_authors_count)
 
-
 def print_to_log_http_statistic():
     """ This function print statistic of http requests in log. """
     logger.info('HTTP-requests: {0}({1} failed)'.format(utils.REQUEST_STATISTIC['count_requests'],
@@ -412,20 +501,32 @@ def print_to_log_http_statistic():
     if len(utils.REQUEST_STATISTIC['failed_requests']) > 0:
         logger.info('List failed HTTP-requests:\n{0}'.format("\n".join(utils.REQUEST_STATISTIC['failed_requests'])))
 
-
 def dispatch(command):
     result = None
     logger.debug("command %s.", command)
     start_time = datetime.now()
     try:
         for case in utils.Switch(command):
-            if case("getPapersByKeyWords"): 
+            if case('get_another_pdf_by_url'):
+                get_another_pdf_by_url()
+                break
+            if case("getPapersByKeyWords"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 # START COMMAND
                 result = get_papers_by_key_words()
                 logger.debug("Processing was successful. Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
                 settings.print_message("Processing was successful. Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
+                break
+            if case("get_papers_by_key_words_and_get_pdf_from_scihub"):
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
+                # START COMMAND
+                result = get_papers_by_key_words_and_get_pdf_from_scihub()
+                logger.debug("Processing was successful. Added new papers: %i. Added new authors: %i. "
+                             "Processed total papers: %i. Try load %i pdfs. Success load %i pdfs" % result)
+                settings.print_message("Processing was successful. Added new papers: %i. Added new authors: %i. "
+                                       "Processed total papers: %i. Try load %i pdfs. Success load %i pdfs" % result)
                 break
             if case("updateAuthors"): 
                 result = update_authors()
@@ -478,7 +579,6 @@ def dispatch(command):
     logger.debug("Run ended on {0}".format(end_time))
     logger.debug("Elapsed time was: {0}".format(end_time - start_time))
     print_to_log_http_statistic()
-
 
 def main():  
     dispatch(settings.PARAMS["command"])

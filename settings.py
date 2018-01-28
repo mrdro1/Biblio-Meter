@@ -63,6 +63,10 @@ TRANSACTION_MODE = 0
 MODE = TRANSACTION_MODE
 INFO_FILE = None
 
+# TOR
+using_TOR = False
+DEFAULT_TIMEOUT = 10  # for tor timeout
+
 LOG_LEVEL = logging.DEBUG
 
 RESULT = "SUCCESS"
@@ -91,7 +95,8 @@ CONTROL_KEYS = [
     "max_cited_papers",
     "commit_iterations",
     "http_contiguous_requests",
-    "limit_resp_for_one_code"
+    "limit_resp_for_one_code",
+    "using_TOR"
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
@@ -102,7 +107,8 @@ CONTROL_DEFAULT_VALUES = \
         "sci_hub_captcha_retry_by_proxy_count" : 0,
         "commit_iterations" : 1000000,
         "http_contiguous_requests" : 20,
-        "limit_resp_for_one_code": 20
+        "limit_resp_for_one_code": 20,
+        "using_TOR": False
     }
 
 
@@ -229,6 +235,11 @@ for key in PARAMS.keys():
     print_message(param_str)
     logger.debug(param_str)
 _SUCCESSFUL_START_FLAG = True
+
+# TOR
+if isinstance(PARAMS['using_TOR'], str):
+    PARAMS['using_TOR'] = True if PARAMS['using_TOR'].lower() == 'true' else False
+using_TOR = PARAMS['using_TOR']
 
 # Register current session
 set_program_transaction(PARAMS['command'], str(PARAMS))

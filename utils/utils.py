@@ -4,6 +4,8 @@ import datetime
 import itertools
 import pickle
 from random import shuffle
+import time
+import re
 #
 import sys, traceback, logging
 import browsercookie #
@@ -16,8 +18,7 @@ from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-import time
-import re
+
 import progressbar as pb
 import json
 import os
@@ -26,6 +27,7 @@ from urllib.parse import urlparse
 import CONST
 import settings
 import utils
+from torrequests import TorRequest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -150,7 +152,6 @@ def is_many_bad_status_code():
             dict_bad_status_code.clear()
             function_answer = True
     return function_answer
-
 
 
 def soup2file(soup, file_name):
@@ -303,6 +304,10 @@ def get_request(url, stream=False):
     host = urlparse(url).hostname
     count_try_for_captcha = 0
     bad_requests_counter = 0
+    # var for control count handled capthas, this help avoid inf cycle
+    capthas_handled = 0
+    MAX_CAPTCHAS_HANDLED = 1
+
     while(True):
         resp = None
         if bad_requests_counter >= settings.PARAMS["http_contiguous_requests"]:
@@ -312,8 +317,12 @@ def get_request(url, stream=False):
             REQUEST_STATISTIC['count_requests'] += 1
             return None
         try:
-            proxy = _PROXY_OBJ.get_cur_proxy(host)
-            resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)
+            if settings.using_TOR:
+                with TorRequest(tor_app=r"..\Tor\tor.exe") as tr:
+                    resp = tr.get(url=url, cookies=browsercookie.chrome(), timeout=settings.DEFAULT_TIMEOUT)
+            else:
+                proxy = _PROXY_OBJ.get_cur_proxy(host)
+                resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)
             #handle_captcha(resp)
             if 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
@@ -322,7 +331,11 @@ def get_request(url, stream=False):
                         _PROXY_OBJ.set_next_proxy(host)
                         continue
                     else:
-                        handle_captcha(resp)
+                        if capthas_handled<MAX_CAPTCHAS_HANDLED:
+                            handle_captcha(resp)
+                        else:
+                            return None
+                        capthas_handled += 1
                         continue
             if resp.status_code != 200:
                 bad_requests_counter += 1

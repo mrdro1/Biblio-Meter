@@ -507,9 +507,6 @@ def dispatch(command):
     start_time = datetime.now()
     try:
         for case in utils.Switch(command):
-            if case('get_another_pdf_by_url'):
-                get_another_pdf_by_url()
-                break
             if case("getPapersByKeyWords"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)

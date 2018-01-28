@@ -22,7 +22,7 @@ def get_pdf_url(DOI):
     url = _FULLURL.format(_HOST, DOI)
     soup = utils.get_soup(url)
     captcha = soup.find('img', id="captcha")
-    save_btn = soup.find('div', id = 'save')
+    save_btn = soup.find('div', id='save')
     user_answer = None
     if captcha != None:
         utils.handle_captcha(url)

@@ -3,5 +3,5 @@
 "max_google_papers":"10",
 "max_researchgate_papers":"100",
 "google_clusters_handling":"False",
-"using_TOR":"false"
+"using_TOR":"true"
 }

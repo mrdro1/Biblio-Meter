@@ -320,17 +320,13 @@ def get_request(url, stream=False):
             REQUEST_STATISTIC['count_requests'] += 1
             return None
         try:
-            if settings.using_TOR:
-<<<<<<< HEAD
-                with TorRequest(tor_app=r"Tor\tor.exe") as tr:
-                    resp = tr.get(url=url, cookies=browsercookie.chrome(), timeout=settings.DEFAULT_TIMEOUT)
-            elif host.endswith(CONST.SCIHUB_HOST_NAME):
+            if host.endswith(CONST.SCIHUB_HOST_NAME):
                 resp = SESSION.get(url, stream=stream)
-=======
-                with TorRequest(tor_app=r"..\Tor\tor.exe") as tr:
+            elif settings.using_TOR:
+                with TorRequest(tor_app=r"Tor\tor.exe") as tr:
                     resp = tr.get(url=url, cookies=SESSION.cookies, timeout=settings.DEFAULT_TIMEOUT)
                     SESSION.cookies = resp.cookies
->>>>>>> 113132a78f53c4a21352742e96e4da51958b7717
+
             else:
                 proxy = _PROXY_OBJ.get_cur_proxy(host)
                 resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)

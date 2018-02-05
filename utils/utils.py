@@ -319,7 +319,8 @@ def get_request(url, stream=False):
         try:
             if settings.using_TOR:
                 with TorRequest(tor_app=r"..\Tor\tor.exe") as tr:
-                    resp = tr.get(url=url, cookies=browsercookie.chrome(), timeout=settings.DEFAULT_TIMEOUT)
+                    resp = tr.get(url=url, cookies=SESSION.cookies, timeout=settings.DEFAULT_TIMEOUT)
+                    SESSION.cookies = resp.cookies
             else:
                 proxy = _PROXY_OBJ.get_cur_proxy(host)
                 resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)

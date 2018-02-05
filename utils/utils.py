@@ -36,6 +36,8 @@ REQUEST_STATISTIC = {'count_requests': 0, 'failed_requests':list()}
 dict_bad_status_code = collections.defaultdict(lambda: 0)
 
 
+
+
 class Switch(object):
     """SWITCHER"""
     def __init__(self, value):
@@ -120,6 +122,7 @@ class ProxyManager:
 
 # init proxy
 _PROXY_OBJ = ProxyManager()
+
 
 # Region for work with good cookies
 DONT_TOUCH_KEYS_IN_COOKIES = ['SSID', 'SID', 'HSID']
@@ -318,8 +321,10 @@ def get_request(url, stream=False):
             return None
         try:
             if settings.using_TOR:
-                with TorRequest(tor_app=r"..\Tor\tor.exe") as tr:
+                with TorRequest(tor_app=r"Tor\tor.exe") as tr:
                     resp = tr.get(url=url, cookies=browsercookie.chrome(), timeout=settings.DEFAULT_TIMEOUT)
+            elif host.endswith(CONST.SCIHUB_HOST_NAME):
+                resp = SESSION.get(url, stream=stream)
             else:
                 proxy = _PROXY_OBJ.get_cur_proxy(host)
                 resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)

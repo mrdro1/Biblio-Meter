@@ -39,7 +39,6 @@ def get_pdf_url(DOI):
 
 def get_pdf(DOI, filename):
     """Load pdf for paper with DOI and save to file filename"""
-    settings.print_message("PDF-file found in Sci-Hub.", 2)
     url = get_pdf_url(DOI)
     if url == None: return False
     try:

@@ -9,7 +9,7 @@ import CONST
 import utils
 import settings
 
-_HOST = r"https://{0}//".format(CONST.SCIHUB_HOST_NAME)
+_HOST = r"http://{0}//".format(CONST.SCIHUB_HOST_NAME)
 _FULLURL = r"{0}{1}"
 
 logger = logging.getLogger(__name__)

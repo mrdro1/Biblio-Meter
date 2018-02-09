@@ -218,7 +218,7 @@ def _get_cookies(domain=""):
     """Load cookie from default browser and filtering them by domain"""
     if settings.DEFAULT_BROWSER == settings.CHROME:
         logger.debug("Load cookie from chrome.")
-        return browsercookie.chrome()#domain_name=domain)
+        return browsercookie.chrome()  #domain_name=domain)
     if settings.DEFAULT_BROWSER == settings.FIREFOX:
         logger.debug("Load cookie from firefox.")
         return browsercookie.firefox()#domain_name=domain)
@@ -324,6 +324,7 @@ def get_request(url, stream=False):
                 resp = SESSION.get(url, stream=stream)
             elif settings.using_TOR:
                 with TorRequest(tor_app=r"Tor\tor.exe") as tr:
+                    print('I use tor')
                     resp = tr.get(url=url, cookies=SESSION.cookies, timeout=settings.DEFAULT_TIMEOUT)
                     SESSION.cookies = resp.cookies
             else:
@@ -349,6 +350,7 @@ def get_request(url, stream=False):
                 _PROXY_OBJ.set_next_proxy(host)
                 # if count resp with same code enough big than reload cookies
                 if is_many_bad_status_code():
+                    print('I del cookies')
                     del_gs_cookies()
                 continue
 

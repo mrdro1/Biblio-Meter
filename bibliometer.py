@@ -546,7 +546,8 @@ def dispatch(command):
                              "Processed total papers: %i. Try load %i scihub pdfs. Success load from scihub %i pdfs."
                              "Try load %i gs pdfs. Success load from gs %i pdfs. " % result)
                 settings.print_message("Processing was successful. Added new papers: %i. Added new authors: %i. "
-                                       "Processed total papers: %i. Try load %i pdfs. Success load %i pdfs" % result)
+                                       "Processed total papers: %i. Try load %i scihub pdfs. Success load from scihub %i pdfs."\
+                                       "Try load %i gs pdfs. Success load from gs %i pdfs. " % result)
                 break
             if case("updateAuthors"): 
                 result = update_authors()

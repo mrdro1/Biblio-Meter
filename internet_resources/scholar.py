@@ -12,7 +12,7 @@ import utils
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOG_LEVEL)
 
-_HOST = 'https://scholar.google.com'
+_HOST = 'https://scholar.google.ru'
 _DOMAIN = 'google.com'
 _AUTHSEARCH = '/citations?view_op=search_authors&hl=en&mauthors={0}'
 _CITATIONAUTH = '/citations?user={0}&hl=en'

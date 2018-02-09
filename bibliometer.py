@@ -39,7 +39,9 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
     commit_iterations = int(settings.PARAMS["commit_iterations"])
     papers_counter = 0
     papers_without_pdf_url_counter = 0
-    succes_pdfs_loaded = 0
+    succes_pdfs_loaded_sh = 0
+    papers_with_pdf_url_counter = 0
+    succes_pdfs_loaded_gs = 0
     if max_papers_count > 0:
         for paper_info in paper_generator:
             max_papers_count -= 1
@@ -81,7 +83,7 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                         1)
                 new_papers += 1
 
-                # load pdf from scihub by paper url if exists
+                # load pdf from scihub by paper url if does not exist
                 if not paper_info['link_to_pdf']:
                     if not paper_info['general_information'].get('url'):
                         continue
@@ -90,18 +92,35 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                     url_for_download_from_sci_hub = paper_info['general_information']['url']
                     settings.print_message(
                         "Getting PDF-file in Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub), 2)
-                    logger.debug("Getting PDF-file in Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub))
+                    logger.debug("Getting PDF-file on Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub))
                     try:
                         fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
                         if not scihub.get_pdf(url_for_download_from_sci_hub, fn_pdf):
                             settings.print_message(
                                 "PDF unavailable on sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
                         else:
-                            succes_pdfs_loaded += 1
+                            succes_pdfs_loaded_sh += 1
                             settings.print_message("Complete!", 2)
                     except:
                         logger.debug("Failed get_pdf from sci-hub for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_sci_hub))
                         settings.print_message("failed load PDF on sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
+                        continue
+                # load pdf from gs
+                else:
+                    settings.print_message("Try get pdf from Google Scholar.", 1)
+                    papers_with_pdf_url_counter += 1
+                    url_for_download_from_gs = paper_info['link_to_pdf']
+                    settings.print_message(
+                        "Getting PDF-file on Google Scholar by url : {0}.".format(url_for_download_from_gs), 2)
+                    logger.debug("Getting PDF-file on Google Scholar by url : {0}.".format(url_for_download_from_gs))
+                    try:
+                        fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
+                        scholar.get_pdf(url_for_download_from_gs, fn_pdf)
+                        succes_pdfs_loaded_gs += 1
+                        settings.print_message("Complete!", 2)
+                    except:
+                        logger.debug("Failed get_pdf from Google Scholar for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))
+                        settings.print_message("failed load PDF on Google Scholar. URL={0}".format(url_for_download_from_gs), 2)
                         continue
 
                 # Commit transaction each commit_iterations iterations
@@ -109,7 +128,10 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
             # if papers_counter >= max_papers_count: break;
     logger.debug("End processing. Changes in DB: %i." % (new_auth + new_papers))
     settings.print_message("End processing. Changes in DB: %i." % (new_auth + new_papers))
-    return (new_papers, new_auth, papers_counter, papers_without_pdf_url_counter, succes_pdfs_loaded)
+    print((new_papers, new_auth, papers_counter, papers_without_pdf_url_counter, succes_pdfs_loaded_sh,
+            papers_with_pdf_url_counter, succes_pdfs_loaded_gs))
+    return (new_papers, new_auth, papers_counter, papers_without_pdf_url_counter, succes_pdfs_loaded_sh,
+            papers_with_pdf_url_counter, succes_pdfs_loaded_gs)
 
 
 def get_papers_by_key_words():
@@ -521,7 +543,8 @@ def dispatch(command):
                 # START COMMAND
                 result = get_papers_by_key_words_and_get_pdf_from_scihub()
                 logger.debug("Processing was successful. Added new papers: %i. Added new authors: %i. "
-                             "Processed total papers: %i. Try load %i pdfs. Success load %i pdfs" % result)
+                             "Processed total papers: %i. Try load %i scihub pdfs. Success load from scihub %i pdfs."
+                             "Try load %i gs pdfs. Success load from gs %i pdfs. " % result)
                 settings.print_message("Processing was successful. Added new papers: %i. Added new authors: %i. "
                                        "Processed total papers: %i. Try load %i pdfs. Success load %i pdfs" % result)
                 break

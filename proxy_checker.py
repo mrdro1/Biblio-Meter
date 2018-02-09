@@ -17,7 +17,7 @@ THREADS = 20
 TEST_URLS = [
     "https://scholar.google.ru/",
     #"https://www.researchgate.net/search?q=test",
-    "https://{0}/".format(CONST.SCIHUB_HOST_NAME)
+    #"https://{0}/".format(CONST.SCIHUB_HOST_NAME)
     ]
 
 

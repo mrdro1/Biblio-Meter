@@ -142,6 +142,19 @@ def _get_url_pdf(databox):
             link_to_pdf = pdf['href']
     return link_to_pdf
 
+def get_pdf(url, filename):
+    """Load pdf for paper with DOI and save to file filename"""
+    settings.print_message("PDF-file found in Sci-Hub.", 2)
+    if url == None: return False
+    try:
+        settings.print_message("Download pdf...", 2)
+        return utils.download_file(url, filename)
+    except:
+        #logger.warn(traceback.format_exc())
+        #return False
+        raise
+    return True
+
 def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     """retrieving data about an article in the resulting selection"""
     # Full info about paper include general and addition information

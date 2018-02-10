@@ -12,7 +12,7 @@ import argparse
 #
 import CONST
 
-THREADS = 40
+THREADS = 60
 
 TEST_URLS = [
     "https://scholar.google.ru/",

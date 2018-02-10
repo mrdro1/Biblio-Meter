@@ -129,14 +129,17 @@ DONT_TOUCH_KEYS_IN_COOKIES = ['SSID', 'SID', 'HSID']
 def del_gs_cookies():
     """ Function del google scholar cookies """
     logger.debug("Start delete cookies for google.com and google scholar")
-    if SESSION.cookies._cookies.get('.scholar.google.com'):
-        del SESSION.cookies._cookies['.scholar.google.com']
-        logger.debug("Delete cookies for google scholar")
+    #if SESSION.cookies._cookies.get('.scholar.google.com'):
+    #    SESSION.cookies._cookies.pop('.scholar.google.com')
+    #    logger.debug("Delete cookies for google scholar")    
+    if SESSION.cookies._cookies.get('.googleusercontent.com'):
+        SESSION.cookies._cookies.pop('.googleusercontent.com')
+        logger.debug("Delete cookies for googleusercontent.com")
     if SESSION.cookies._cookies.get('.google.com'):
         google_cookies_keys = list(SESSION.cookies._cookies['.google.com']['/'].keys())
         for key in google_cookies_keys:
             if key not in DONT_TOUCH_KEYS_IN_COOKIES:
-                del SESSION.cookies._cookies['.google.com']['/'][key]
+                SESSION.cookies._cookies['.google.com']['/'].pop(key)
         logger.debug("Delete cookies for google.com")
     return SESSION.cookies
 
@@ -304,6 +307,7 @@ def handle_captcha(response):
 def get_request(url, stream=False):
     """Send get request [, catch errors, try again]* & return data"""
     global REQUEST_STATISTIC
+    #del_gs_cookies()
     host = urlparse(url).hostname
     count_try_for_captcha = 0
     bad_requests_counter = 0
@@ -321,7 +325,8 @@ def get_request(url, stream=False):
             return None
         try:
             if host.endswith(CONST.SCIHUB_HOST_NAME):
-                resp = SESSION.get(url, stream=stream)
+                resp = SESSION.get(url, stream=stream, timeout=5, verify=False)
+                settings.print_message("I use sci-hub")
             elif settings.using_TOR:
                 with TorRequest(tor_app=r"Tor\tor.exe") as tr:
                     print('I use tor')
@@ -344,6 +349,12 @@ def get_request(url, stream=False):
                             return None
                         capthas_handled += 1
                         continue
+            if resp.status_code == 404:
+                settings.print_message("Http error 404: Page '{}' not found".format(url))
+                # +1 bad requests
+                REQUEST_STATISTIC['failed_requests'].append(url)
+                REQUEST_STATISTIC['count_requests'] += 1
+                return None
             if resp.status_code != 200:
                 bad_requests_counter += 1
                 dict_bad_status_code[resp.status_code] += 1
@@ -353,7 +364,7 @@ def get_request(url, stream=False):
                     print('I del cookies')
                     del_gs_cookies()
                 continue
-
+            
             if resp.status_code == 200:
                 # +1 good requests
                 REQUEST_STATISTIC['count_requests'] += 1

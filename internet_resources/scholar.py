@@ -144,7 +144,7 @@ def _get_url_pdf(databox):
 
 def get_pdf(url, filename):
     """Load pdf for paper with DOI and save to file filename"""
-    settings.print_message("PDF-file found in Sci-Hub.", 2)
+    settings.print_message("PDF-file found in google scholar.", 2)
     if url == None: return False
     try:
         settings.print_message("Download pdf...", 2)
@@ -229,7 +229,8 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     different_information.append(dict())
     is_end_note = False
     for link in footer_links:
-        if 'EndNote' in link.text:
+        settings.print_message("{} | {}".format('endnote' in link.text.strip().lower(), link.text))
+        if 'endnote' in link.text.strip().lower():
             is_end_note = True
             end_note = get_info_from_EndNote(link['href'].strip(), True)
             if end_note != None:

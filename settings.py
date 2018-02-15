@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(_main_dir, 'entities\\'))
 sys.path.insert(0, os.path.join(_main_dir, 'internet_resources\\'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, close_connection
-
+from torrequest import TorRequest
 
 def build_version_string():
     """ This function read current version from version.txt and format version string """
@@ -106,7 +106,7 @@ CONTROL_KEYS = [
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
 CONTROL_DEFAULT_VALUES = \
     {
-        "google_captcha_retry_by_proxy_count" : 4,
+        "google_captcha_retry_by_proxy_count" : 1,
         "researchgate_captcha_retry_by_proxy_count" : 4,
         "sci_hub_captcha_retry_by_proxy_count" : 0,
         "commit_iterations" : 1000000,
@@ -115,15 +115,17 @@ CONTROL_DEFAULT_VALUES = \
         "using_TOR": False
     }
 
+TOR_PROCESS = None
 
 def CloseObjects():
     if _SUCCESSFUL_START_FLAG:
         # Register successfuly finish curent session
         close_program_transaction(RESULT)
-    if tor_process:
+    if TOR_PROCESS:
         # Close TOR
-        tor_process.kill()
-        tor_process.wait();
+        TOR_PROCESS.close()
+        #tor_process.kill()
+        #tor_process.wait()
     # Close db conn
     close_connection()
     # Close logbook file
@@ -252,9 +254,9 @@ TOR_PROXIES = {
                 'http': 'socks5://127.0.0.1:9050',
                 'https': 'socks5://127.0.0.1:9050',
               }
-tor_process = None
 if using_TOR:
-    tor_process = subprocess.Popen(PATH_TO_TOR, stdout = subprocess.PIPE, stdin = subprocess.PIPE, stderr = subprocess.PIPE)
+    TOR_PROCESS = TorRequest(tor_app=PATH_TO_TOR)
+    #tor_process = subprocess.Popen(PATH_TO_TOR, stdout = subprocess.PIPE, stdin = subprocess.PIPE, stderr = subprocess.PIPE)
 
 # Register current session
 set_program_transaction(PARAMS['command'], str(PARAMS))

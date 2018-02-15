@@ -229,7 +229,7 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     different_information.append(dict())
     is_end_note = False
     for link in footer_links:
-        settings.print_message("{} | {}".format('endnote' in link.text.strip().lower(), link.text))
+        #settings.print_message("{} | {}".format('endnote' in link.text.strip().lower(), link.text))
         if 'endnote' in link.text.strip().lower():
             is_end_note = True
             end_note = get_info_from_EndNote(link['href'].strip(), True)

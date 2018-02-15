@@ -296,6 +296,11 @@ def handle_captcha(response):
     cline = 'start chrome -proxy-server={1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
     os.popen(cline.format(response.request.url, 
         [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
+    try:
+        with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
+            f.write(response.text)
+    except:
+        pass
     input("Press Enter after entering to continue")
     logger.debug("Waiting for cookies to be updated.")
     settings.print_message("Waiting for cookies to be updated.")
@@ -321,6 +326,13 @@ def get_request(url, stream=False):
             # +1 bad requests
             REQUEST_STATISTIC['failed_requests'].append(url)
             REQUEST_STATISTIC['count_requests'] += 1
+            # save html for bad request
+            try:
+                with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
+                    f.write(resp.text)
+            except:
+                pass
+
             return None
         try:
             if host.endswith(CONST.SCIHUB_HOST_NAME):
@@ -346,6 +358,11 @@ def get_request(url, stream=False):
                         if capthas_handled<MAX_CAPTCHAS_HANDLED:
                             handle_captcha(resp)
                         else:
+                            try:
+                                with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
+                                    f.write(resp.text)
+                            except:
+                                pass
                             return None
                         capthas_handled += 1
                         continue
@@ -452,7 +469,12 @@ def download_file(url, output_filename):
     logger.warn("Download file (url='%s') and save (filename='%s')" % (url, output_filename))
     response = get_request(url, stream=True)
     if response == None: return False
-    content_length = int(response.headers['content-length'])
+    try:
+        content_length = int(response.headers['content-length'])
+    except:
+        logger.debug("Failed download file. Has not attribute 'content-length'")
+        settings.print_message("Failed download file. Has not attribute 'content-length'", 3)
+        logger.warn(traceback.format_exc())
 
     downloaded_size = 0
     chunk_size = 65536

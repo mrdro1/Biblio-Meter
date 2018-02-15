@@ -5,6 +5,7 @@ import os, logging, re, traceback, sys
 import json
 from datetime import datetime
 import re
+import subprocess
 #
 _main_dir = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(_main_dir, 'utils\\'))
@@ -41,6 +42,9 @@ _header = build_version_string()
 
 # Path to web driver
 PATH_TO_WEB_DRIVER = 'chromedriver.exe'
+
+# Path to TOR
+PATH_TO_TOR = os.path.join(_main_dir, 'Tor\\tor.exe')
 
 # Default browser
 CHROME = 0
@@ -116,6 +120,10 @@ def CloseObjects():
     if _SUCCESSFUL_START_FLAG:
         # Register successfuly finish curent session
         close_program_transaction(RESULT)
+    if tor_process:
+        # Close TOR
+        tor_process.kill()
+        tor_process.wait();
     # Close db conn
     close_connection()
     # Close logbook file
@@ -243,6 +251,13 @@ _SUCCESSFUL_START_FLAG = True
 if isinstance(PARAMS['using_TOR'], str):
     PARAMS['using_TOR'] = True if PARAMS['using_TOR'].lower() == 'true' else False
 using_TOR = PARAMS['using_TOR']
+TOR_PROXIES = {
+                'http': 'socks5://127.0.0.1:9050',
+                'https': 'socks5://127.0.0.1:9050',
+              }
+tor_process = None
+if using_TOR:
+    tor_process = subprocess.Popen(PATH_TO_TOR, stdout = subprocess.PIPE, stdin = subprocess.PIPE, stderr = subprocess.PIPE)
 
 # Register current session
 set_program_transaction(PARAMS['command'], str(PARAMS))

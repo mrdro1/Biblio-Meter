@@ -128,7 +128,10 @@ def CloseObjects():
 cfromat = "[{0}] {1}{2}"
 def print_message(message, level=0):
     level_indent = " " * level
-    print(cfromat.format(datetime.now(), level_indent, message))
+    try:
+        print(cfromat.format(datetime.now(), level_indent, message))
+    except:
+        print('programmers did not fix encoding))')
 #
 
 # Logging handlers

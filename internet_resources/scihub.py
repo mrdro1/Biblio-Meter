@@ -45,7 +45,7 @@ def get_pdf(DOI, filename):
         settings.print_message("Download pdf...", 2)
         return utils.download_file(url, filename)
     except:
-        #logger.warn(traceback.format_exc())
+        logger.warn(traceback.format_exc())
         #return False
         raise
     return True

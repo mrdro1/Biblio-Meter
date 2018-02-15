@@ -41,11 +41,11 @@ def _cluster_handler(cluster_id, papers_count):
     EndNote_list = list()
     file_counter = 0
     merged_counter = 0
-    
+
     # return true if EndNote_1 equal EndNote_2
     is_EndNote_equal = lambda EndNote_1, EndNote_2: \
                 EndNote_1["title"].lower() == EndNote_2["title"].lower() and \
-                ( 
+                (
                     not "year" in EndNote_1 or not "year" in EndNote_2 \
                     or EndNote_1["year"] == EndNote_2["year"]
                 ) \
@@ -69,7 +69,7 @@ def _cluster_handler(cluster_id, papers_count):
         logger.debug("Find EndNote links for each paper in cluster.")
         footer_links = [
             {
-                "EndNote" if "EndNote" in link.text else "citedby" 
+                "EndNote" if "EndNote" in link.text else "citedby"
                 :
                 link["href"].strip() if "EndNote" in link.text else int(re.findall(r'\d+', link.text)[0])
                 for link in paper_block.find("div", class_="gs_fl").find_all('a')
@@ -81,7 +81,7 @@ def _cluster_handler(cluster_id, papers_count):
         for links in footer_links:
             if links != {}:
                 file_counter += 1
-                logger.debug("EndNote file #%i (total %i)" % (file_counter, papers_count)) 
+                logger.debug("EndNote file #%i (total %i)" % (file_counter, papers_count))
                 if links.get("EndNote"):
                     paper_EndNote_data = get_info_from_EndNote(links["EndNote"], True)
                 else:
@@ -93,7 +93,7 @@ def _cluster_handler(cluster_id, papers_count):
                 if paper_EndNote_data == None:
                     logger.debug("Skip EndNote file #%i, could not upload file." % file_counter)
                     continue
-                if not "year" in paper_EndNote_data or not "author" in paper_EndNote_data: 
+                if not "year" in paper_EndNote_data or not "author" in paper_EndNote_data:
                     logger.debug("Skip EndNote file #%i, empty year or authors fields." % file_counter)
                 else:
                     similar_papers = intersect_papers(paper_EndNote_data, EndNote_list)
@@ -101,7 +101,7 @@ def _cluster_handler(cluster_id, papers_count):
                         merged_counter += 1
                         logger.debug("EndNote file #%i miss all EndNote files in merged array." % file_counter)
                         logger.debug("Add EndNote file #%i in merged array." % file_counter)
-                        paper_EndNote_data.update( 
+                        paper_EndNote_data.update(
                             {
                             "url_scholarbib" : links["EndNote"],
                             "citedby" : links["citedby"] if "citedby" in links else None
@@ -150,7 +150,7 @@ def get_pdf(url, filename):
         settings.print_message("Download pdf...", 2)
         return utils.download_file(url, filename)
     except:
-        #logger.warn(traceback.format_exc())
+        logger.warn(traceback.format_exc())
         #return False
         raise
     return True
@@ -190,7 +190,7 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     year = re.findall("[0-9]{4}", paperinfo.text)
 
     if len(year) != 0: general_information['year'] = int(year[0])
-    
+
     # Save general info
     full_info["general_information"] = general_information
     settings.print_message("Title: '%s'" % general_information['title'], 3)
@@ -229,7 +229,7 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     different_information.append(dict())
     is_end_note = False
     for link in footer_links:
-        settings.print_message("{} | {}".format('endnote' in link.text.strip().lower(), link.text))
+        #settings.print_message("{} | {}".format('endnote' in link.text.strip().lower(), link.text))
         if 'endnote' in link.text.strip().lower():
             is_end_note = True
             end_note = get_info_from_EndNote(link['href'].strip(), True)
@@ -243,7 +243,7 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
                                'Please change the display settings Google Scholar in English '
                                '(https://scholar.google.com/).')
         logger.debug('End work programme because did not find link to EndNote file.')
-        raise Exception('Did not find EndNote.')
+        #raise Exception('Did not find EndNote.')
     full_info["different_information"] = tuple(different_information)
     return full_info
 
@@ -256,7 +256,7 @@ def get_info_from_EndNote(file_url, return_source = False):
         return None
     EndNode_file = EndNode_file.replace("\r", "")
     logger.debug("EndNote file:\n%s" % EndNode_file)
-    EndNote_info = EndNote_parsing(EndNode_file)      
+    EndNote_info = EndNote_parsing(EndNode_file)
     if "pages" in EndNote_info:
         try:
             pages = EndNote_info["pages"].split("-")
@@ -347,7 +347,7 @@ def search_pubs_query_with_params(
     ):
     """Advanced search by scholar query and return a generator of Publication objects"""
     url = _PUBADVANCEDSEARCH.format(
-        requests.utils.quote(query), 
+        requests.utils.quote(query),
         requests.utils.quote(exact_phrase),
         requests.utils.quote(one_of_words if one_of_words is str else '+'.join(one_of_words)),
         requests.utils.quote(not_contained_words if not_contained_words is str else '+'.join(not_contained_words)),

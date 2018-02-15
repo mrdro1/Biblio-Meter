@@ -1,6 +1,7 @@
 *.pyproj 
 *.pyc 
 *.db3
+*.pyd
 *.log
 *.xml
 *.iml

@@ -349,7 +349,10 @@ def get_request(url, stream=False):
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
                     count_try_for_captcha += 1
                     if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
-                        _PROXY_OBJ.set_next_proxy(host)
+                        if not settings.using_TOR:
+                            _PROXY_OBJ.set_next_proxy(host)
+                        else:
+                            settings.TOR_PROCESS.reset_identity()
                         continue
                     else:
                         if capthas_handled<MAX_CAPTCHAS_HANDLED:
@@ -372,7 +375,10 @@ def get_request(url, stream=False):
             if resp.status_code != 200:
                 bad_requests_counter += 1
                 dict_bad_status_code[resp.status_code] += 1
-                _PROXY_OBJ.set_next_proxy(host)
+                if not settings.using_TOR:
+                    _PROXY_OBJ.set_next_proxy(host)
+                else:
+                    settings.TOR_PROCESS.reset_identity()
                 # if count resp with same code enough big than reload cookies
                 if is_many_bad_status_code():
                     print('I del cookies')

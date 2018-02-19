@@ -100,22 +100,21 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                     except:
                         utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
                         logger.debug("Failed get_pdf from Google Scholar for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))
-                        settings.print_message("failed load PDF on Google Scholar. URL={0}".format(url_for_download_from_gs), 2)
+                        settings.print_message("failed load PDF on Google Scholar.", 2)
                         #continue
                 # load pdf from scihub by paper url if does not exist
                 if not paper_info['general_information'].get('url'):
                     continue
-                settings.print_message("Try get pdf by paper url on scholar.", 1)
+                settings.print_message("Try get pdf from Sci-hub.", 1)
                 papers_without_pdf_url_counter += 1
                 url_for_download_from_sci_hub = paper_info['general_information']['url']
-                settings.print_message(
-                    "Getting PDF-file in Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub), 2)
-                logger.debug("Getting PDF-file on Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub))
+                settings.print_message("Getting PDF-file form Sci-hub by url : {0}.".format(url_for_download_from_sci_hub), 2)
+                logger.debug("Getting PDF-file from Sci-hub by url : {0}.".format(url_for_download_from_sci_hub))
                 try:
                     fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
                     if not scihub.get_pdf(url_for_download_from_sci_hub, fn_pdf):
                         settings.print_message(
-                            "PDF unavailable on sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
+                            "PDF unavailable on Sci-hub.", 2)
                     else:
                         succes_pdfs_loaded_sh += 1
                         settings.print_message("Complete!", 2)

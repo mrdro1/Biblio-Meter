@@ -13,7 +13,6 @@ sys.path.insert(0, os.path.join(_main_dir, 'entities\\'))
 sys.path.insert(0, os.path.join(_main_dir, 'internet_resources\\'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, close_connection
-from torrequest import TorRequest
 
 def build_version_string():
     """ This function read current version from version.txt and format version string """
@@ -43,9 +42,6 @@ _header = build_version_string()
 # Path to web driver
 PATH_TO_WEB_DRIVER = 'chromedriver.exe'
 
-# Path to TOR
-PATH_TO_TOR = os.path.join(_main_dir, 'Tor\\tor.exe')
-
 # Default browser
 CHROME = 0
 FIREFOX = 1
@@ -67,9 +63,7 @@ TRANSACTION_MODE = 0
 MODE = TRANSACTION_MODE
 INFO_FILE = None
 
-# TOR
-using_TOR = False
-DEFAULT_TIMEOUT = 10  # for tor timeout
+DEFAULT_TIMEOUT = 10
 
 LOG_LEVEL = logging.DEBUG
 
@@ -100,32 +94,23 @@ CONTROL_KEYS = [
     "commit_iterations",
     "http_contiguous_requests",
     "limit_resp_for_one_code",
-    "using_TOR"
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
 CONTROL_DEFAULT_VALUES = \
     {
-        "google_captcha_retry_by_proxy_count" : 1,
+        "google_captcha_retry_by_proxy_count" : 0,
         "researchgate_captcha_retry_by_proxy_count" : 4,
         "sci_hub_captcha_retry_by_proxy_count" : 0,
         "commit_iterations" : 1000000,
         "http_contiguous_requests" : 20,
         "limit_resp_for_one_code": 20,
-        "using_TOR": False
     }
-
-TOR_PROCESS = None
 
 def CloseObjects():
     if _SUCCESSFUL_START_FLAG:
         # Register successfuly finish curent session
         close_program_transaction(RESULT)
-    if TOR_PROCESS:
-        # Close TOR
-        TOR_PROCESS.close()
-        #tor_process.kill()
-        #tor_process.wait()
     # Close db conn
     close_connection()
     # Close logbook file
@@ -248,18 +233,6 @@ for key in PARAMS.keys():
     print_message(param_str)
     logger.debug(param_str)
 _SUCCESSFUL_START_FLAG = True
-
-# TOR
-if isinstance(PARAMS['using_TOR'], str):
-    PARAMS['using_TOR'] = True if PARAMS['using_TOR'].lower() == 'true' else False
-using_TOR = PARAMS['using_TOR']
-TOR_PROXIES = {
-                'http': 'socks5://127.0.0.1:9050',
-                'https': 'socks5://127.0.0.1:9050',
-              }
-if using_TOR:
-    TOR_PROCESS = TorRequest(tor_app=PATH_TO_TOR)
-    #tor_process = subprocess.Popen(PATH_TO_TOR, stdout = subprocess.PIPE, stdin = subprocess.PIPE, stderr = subprocess.PIPE)
 
 # Register current session
 set_program_transaction(PARAMS['command'], str(PARAMS))

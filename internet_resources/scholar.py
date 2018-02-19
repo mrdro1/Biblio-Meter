@@ -224,7 +224,7 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     if handling_cluster:
         settings.print_message("Cluster link not exists.", 3)
     else:
-        settings.print_message("Don't touch cluster info.", 3)
+        settings.print_message("Don't use google cluster.", 3)
     different_information = list()
     different_information.append(dict())
     is_end_note = False

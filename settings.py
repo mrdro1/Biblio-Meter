@@ -13,7 +13,10 @@ sys.path.insert(0, os.path.join(_main_dir, 'entities\\'))
 sys.path.insert(0, os.path.join(_main_dir, 'internet_resources\\'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, close_connection
-from torrequest import TorRequest
+<<<<<<< HEAD
+
+=======
+>>>>>>> 08f0c5e22818f7e03df590220287aecca587a4a6
 
 def build_version_string():
     """ This function read current version from version.txt and format version string """
@@ -43,9 +46,6 @@ _header = build_version_string()
 # Path to web driver
 PATH_TO_WEB_DRIVER = 'chromedriver.exe'
 
-# Path to TOR
-PATH_TO_TOR = os.path.join(_main_dir, 'Tor\\tor.exe')
-
 # Default browser
 CHROME = 0
 FIREFOX = 1
@@ -67,9 +67,7 @@ TRANSACTION_MODE = 0
 MODE = TRANSACTION_MODE
 INFO_FILE = None
 
-# TOR
-using_TOR = False
-DEFAULT_TIMEOUT = 10  # for tor timeout
+DEFAULT_TIMEOUT = 10
 
 LOG_LEVEL = logging.DEBUG
 
@@ -99,33 +97,35 @@ CONTROL_KEYS = [
     "max_cited_papers",
     "commit_iterations",
     "http_contiguous_requests",
-    "limit_resp_for_one_code",
-    "using_TOR"
+    "limit_resp_for_one_code"
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
 CONTROL_DEFAULT_VALUES = \
     {
-        "google_captcha_retry_by_proxy_count" : 1,
+        "google_captcha_retry_by_proxy_count" : 0,
         "researchgate_captcha_retry_by_proxy_count" : 4,
         "sci_hub_captcha_retry_by_proxy_count" : 0,
         "commit_iterations" : 1000000,
         "http_contiguous_requests" : 20,
         "limit_resp_for_one_code": 20,
-        "using_TOR": False
     }
 
-TOR_PROCESS = None
+<<<<<<< HEAD
 
+=======
+>>>>>>> 08f0c5e22818f7e03df590220287aecca587a4a6
 def CloseObjects():
     if _SUCCESSFUL_START_FLAG:
         # Register successfuly finish curent session
         close_program_transaction(RESULT)
-    if TOR_PROCESS:
+<<<<<<< HEAD
+    if tor_process:
         # Close TOR
-        TOR_PROCESS.close()
-        #tor_process.kill()
-        #tor_process.wait()
+        tor_process.kill()
+        tor_process.wait();
+=======
+>>>>>>> 08f0c5e22818f7e03df590220287aecca587a4a6
     # Close db conn
     close_connection()
     # Close logbook file
@@ -249,6 +249,7 @@ for key in PARAMS.keys():
     logger.debug(param_str)
 _SUCCESSFUL_START_FLAG = True
 
+<<<<<<< HEAD
 # TOR
 if isinstance(PARAMS['using_TOR'], str):
     PARAMS['using_TOR'] = True if PARAMS['using_TOR'].lower() == 'true' else False
@@ -257,10 +258,12 @@ TOR_PROXIES = {
                 'http': 'socks5://127.0.0.1:9050',
                 'https': 'socks5://127.0.0.1:9050',
               }
+tor_process = None
 if using_TOR:
-    TOR_PROCESS = TorRequest(tor_app=PATH_TO_TOR)
-    #tor_process = subprocess.Popen(PATH_TO_TOR, stdout = subprocess.PIPE, stdin = subprocess.PIPE, stderr = subprocess.PIPE)
+    tor_process = subprocess.Popen(PATH_TO_TOR, stdout = subprocess.PIPE, stdin = subprocess.PIPE, stderr = subprocess.PIPE)
 
+=======
+>>>>>>> 08f0c5e22818f7e03df590220287aecca587a4a6
 # Register current session
 set_program_transaction(PARAMS['command'], str(PARAMS))
 

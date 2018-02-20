@@ -18,7 +18,7 @@ from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-
+import shutil
 import progressbar as pb
 import json
 import os
@@ -27,6 +27,7 @@ from urllib.parse import urlparse
 import CONST
 import settings
 import utils
+from torrequests import TorRequest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -210,7 +211,7 @@ def _get_user_agent():
 
 _DEFAULT_HEADER = {
     'User-Agent' : _get_user_agent(),
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept': 'text/html,application/xhtml+xml,application/xml,application/pdf;q=0.9,image/webp,image/apng,*/*;q=0.8',
     'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
     'Accept-Encoding': 'gzip, deflate'
     }
@@ -308,7 +309,7 @@ def handle_captcha(response):
     return 0
 
 
-def get_request(url, stream=False):
+def get_request(url, stream=False, return_resp=False):
     """Send get request [, catch errors, try again]* & return data"""
     global REQUEST_STATISTIC
     #del_gs_cookies()
@@ -338,24 +339,23 @@ def get_request(url, stream=False):
             if host.endswith(CONST.SCIHUB_HOST_NAME):
                 resp = SESSION.get(url, stream=stream, timeout=5, verify=False)
                 settings.print_message("I use sci-hub")
+            elif settings.using_TOR:
+                with TorRequest(tor_app=r"Tor\tor.exe") as tr:
+                    print('I use tor')
+                    resp = tr.get(url=url, cookies=SESSION.cookies, timeout=settings.DEFAULT_TIMEOUT)
+                    SESSION.cookies = resp.cookies
             else:
-                if settings.using_TOR:
-                    proxy = settings.TOR_PROXIES
-                else:
-                    proxy = _PROXY_OBJ.get_cur_proxy(host)
+                proxy = _PROXY_OBJ.get_cur_proxy(host)
                 resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)
             #handle_captcha(resp)
             if 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
                     count_try_for_captcha += 1
                     if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
-                        if not settings.using_TOR:
-                            _PROXY_OBJ.set_next_proxy(host)
-                        else:
-                            settings.TOR_PROCESS.reset_identity()
+                        _PROXY_OBJ.set_next_proxy(host)
                         continue
                     else:
-                        if capthas_handled<MAX_CAPTCHAS_HANDLED:
+                        if capthas_handled < MAX_CAPTCHAS_HANDLED:
                             handle_captcha(resp)
                         else:
                             try:
@@ -375,10 +375,7 @@ def get_request(url, stream=False):
             if resp.status_code != 200:
                 bad_requests_counter += 1
                 dict_bad_status_code[resp.status_code] += 1
-                if not settings.using_TOR:
-                    _PROXY_OBJ.set_next_proxy(host)
-                else:
-                    settings.TOR_PROCESS.reset_identity()
+                _PROXY_OBJ.set_next_proxy(host)
                 # if count resp with same code enough big than reload cookies
                 if is_many_bad_status_code():
                     print('I del cookies')
@@ -388,7 +385,7 @@ def get_request(url, stream=False):
             if resp.status_code == 200:
                 # +1 good requests
                 REQUEST_STATISTIC['count_requests'] += 1
-                if stream:
+                if stream or return_resp:
                     return resp
                 else:
                     return resp.text  # OK
@@ -469,28 +466,54 @@ def download_file(url, output_filename):
     logger.warn("Download file (url='%s') and save (filename='%s')" % (url, output_filename))
     response = get_request(url, stream=True)
     if response == None: return False
-    try:
+    content_length = 0
+    
+    if 'content-length' in response.headers:
         content_length = int(response.headers['content-length'])
-    except:
-        logger.debug("Failed download file. Has not attribute 'content-length'")
-        settings.print_message("Failed download file. Has not attribute 'content-length'", 3)
-        logger.warn(traceback.format_exc())
+        logger.debug('Content-length={}'.format(content_length))
+    else:
+        if not ('application/pdf' in response.headers['content-type']) and not 'refresh' in response.headers:
+            logger.debug('Server do not give PDF.')
+            return False
 
+    if 'refresh' in response.headers:
+        logger.debug('Try get PDF from {}.'.format(response.headers['refresh'].split('url=')[1]))
+        return download_file(response.headers['refresh'].split('url=')[1], output_filename)
+
+    if content_length == 0 and 'application/pdf' in response.headers['content-type']:
+        logger.debug('Downloading the entire file.')
+        response = get_request(url, return_resp=True)
+    #try:
+        
+    #except:
+    #    logger.debug("Failed download file. Has not attribute 'content-length'")
+    #    settings.print_message("Failed download file. Has not attribute 'content-length'", 3)
+    #    logger.warn(traceback.format_exc())
+        
     downloaded_size = 0
     chunk_size = 65536
  
     with open(output_filename, 'bw') as outfile:
-        logger.debug('Create file {0}, start download.'.format(output_filename))
-        widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]
-        progress = pb.ProgressBar(maxval=content_length,
-                                  widgets=widgets).start()
-        for chunk in response.iter_content(chunk_size):
-            outfile.write(chunk)
-            downloaded_size += len(chunk)
-            progress.update(downloaded_size)
-        logger.debug('End download file {0}.'.format(output_filename))
+        download = False
+        if content_length > 0:
+            logger.debug('Create file {0}, start download.'.format(output_filename))
+            widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]
+            progress = pb.ProgressBar(maxval=content_length,
+                                        widgets=widgets).start()
+            for chunk in response.iter_content(chunk_size):
+                download = True
+                outfile.write(chunk)
+                downloaded_size += len(chunk)
+                progress.update(downloaded_size)
+            logger.debug('End download file {0}.'.format(output_filename))
+        else:
+            logger.debug('Save file {0}.'.format(output_filename))
+            outfile.write(response.content)
+            #response.raw.decode_content = True
+            #shutil.copyfileobj(response.raw, outfile)
+        
     #print("")
-    return True
+    return download
 
 
 def is_doi(DOI):

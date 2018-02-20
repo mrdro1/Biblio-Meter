@@ -13,10 +13,6 @@ sys.path.insert(0, os.path.join(_main_dir, 'entities\\'))
 sys.path.insert(0, os.path.join(_main_dir, 'internet_resources\\'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, close_connection
-<<<<<<< HEAD
-
-=======
->>>>>>> 08f0c5e22818f7e03df590220287aecca587a4a6
 
 def build_version_string():
     """ This function read current version from version.txt and format version string """
@@ -97,7 +93,8 @@ CONTROL_KEYS = [
     "max_cited_papers",
     "commit_iterations",
     "http_contiguous_requests",
-    "limit_resp_for_one_code"
+    "limit_resp_for_one_code",
+    "urls"
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
@@ -111,21 +108,10 @@ CONTROL_DEFAULT_VALUES = \
         "limit_resp_for_one_code": 20,
     }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 08f0c5e22818f7e03df590220287aecca587a4a6
 def CloseObjects():
     if _SUCCESSFUL_START_FLAG:
         # Register successfuly finish curent session
         close_program_transaction(RESULT)
-<<<<<<< HEAD
-    if tor_process:
-        # Close TOR
-        tor_process.kill()
-        tor_process.wait();
-=======
->>>>>>> 08f0c5e22818f7e03df590220287aecca587a4a6
     # Close db conn
     close_connection()
     # Close logbook file
@@ -249,21 +235,6 @@ for key in PARAMS.keys():
     logger.debug(param_str)
 _SUCCESSFUL_START_FLAG = True
 
-<<<<<<< HEAD
-# TOR
-if isinstance(PARAMS['using_TOR'], str):
-    PARAMS['using_TOR'] = True if PARAMS['using_TOR'].lower() == 'true' else False
-using_TOR = PARAMS['using_TOR']
-TOR_PROXIES = {
-                'http': 'socks5://127.0.0.1:9050',
-                'https': 'socks5://127.0.0.1:9050',
-              }
-tor_process = None
-if using_TOR:
-    tor_process = subprocess.Popen(PATH_TO_TOR, stdout = subprocess.PIPE, stdin = subprocess.PIPE, stderr = subprocess.PIPE)
-
-=======
->>>>>>> 08f0c5e22818f7e03df590220287aecca587a4a6
 # Register current session
 set_program_transaction(PARAMS['command'], str(PARAMS))
 

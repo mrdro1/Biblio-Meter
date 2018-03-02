@@ -94,6 +94,7 @@ CONTROL_KEYS = [
     "commit_iterations",
     "http_contiguous_requests",
     "limit_resp_for_one_code",
+    "urls"
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())

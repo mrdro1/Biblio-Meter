@@ -27,6 +27,7 @@ from urllib.parse import urlparse
 import CONST
 import settings
 import utils
+from torrequests import TorRequest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -338,6 +339,11 @@ def get_request(url, stream=False, return_resp=False):
             if host.endswith(CONST.SCIHUB_HOST_NAME):
                 resp = SESSION.get(url, stream=stream, timeout=5, verify=False)
                 settings.print_message("I use sci-hub")
+            elif settings.using_TOR:
+                with TorRequest(tor_app=r"Tor\tor.exe") as tr:
+                    print('I use tor')
+                    resp = tr.get(url=url, cookies=SESSION.cookies, timeout=settings.DEFAULT_TIMEOUT)
+                    SESSION.cookies = resp.cookies
             else:
                 proxy = _PROXY_OBJ.get_cur_proxy(host)
                 resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)

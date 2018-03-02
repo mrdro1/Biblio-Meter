@@ -20,6 +20,52 @@ import scihub
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOG_LEVEL)
 
+def get_pdf_by_list_url():
+    succes_pdfs_loaded_gs, succes_pdfs_loaded_sh = 0, 0
+    urls = settings.PARAMS['urls']
+    for i, url in enumerate(urls, 1):
+        settings.print_message("#{}".format(i), 0)
+        # load pdf from gs
+        settings.print_message("Try get pdf from Google Scholar.", 1)
+        settings.print_message(
+            "Getting PDF-file on Google Scholar by url : {0}.".format(url), 2)
+        logger.debug("Getting PDF-file on Google Scholar by url : {0}.".format(url))
+        try:
+            fn_pdf = 'PDF//{0}.pdf'.format(i)
+            if scholar.get_pdf(url, fn_pdf):
+                succes_pdfs_loaded_gs += 1
+                settings.print_message("Complete!", 2)
+                continue
+        except:
+            utils.REQUEST_STATISTIC['failed_requests'].append(url)
+            logger.debug("Failed get_pdf from Google Scholar for paper #{0}. URL={0}".format(i,
+                                                                                             url))
+            settings.print_message("failed load PDF on Google Scholar. URL={0}".format(url), 2)
+            # continue
+
+        # load pdf from scihub by paper url if does not exist
+        settings.print_message("Try get pdf by paper url on scholar.", 1)
+        settings.print_message(
+            "Getting PDF-file in Sci-Hub by url : {0}.".format(url), 2)
+        logger.debug("Getting PDF-file on Sci-Hub by url : {0}.".format(url))
+        try:
+            fn_pdf = 'PDF//{0}.pdf'.format(i)
+            if not scihub.get_pdf(url, fn_pdf):
+                settings.print_message(
+                    "PDF unavailable on sci-hub. URL={0}".format(url), 2)
+            else:
+                succes_pdfs_loaded_sh += 1
+                settings.print_message("Complete!", 2)
+        except:
+            utils.REQUEST_STATISTIC['failed_requests'].append(url)
+            logger.debug("Failed get_pdf from sci-hub for paper #{0}. URL={0}".format(i,
+                                                                                      url))
+            settings.print_message("failed load PDF on sci-hub. URL={0}".format(url),
+                                   2)
+            continue
+    print(len(urls), succes_pdfs_loaded_gs, succes_pdfs_loaded_sh)
+    return 0
+
 
 def get_papers_by_key_words_and_get_pdf_from_scihub():
     logger.debug("Search papers from google.scholar.")
@@ -100,21 +146,22 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                     except:
                         utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
                         logger.debug("Failed get_pdf from Google Scholar for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))
-                        settings.print_message("failed load PDF on Google Scholar.", 2)
+                        settings.print_message("failed load PDF on Google Scholar. URL={0}".format(url_for_download_from_gs), 2)
                         #continue
                 # load pdf from scihub by paper url if does not exist
                 if not paper_info['general_information'].get('url'):
                     continue
-                settings.print_message("Try get pdf from Sci-hub.", 1)
+                settings.print_message("Try get pdf by paper url on scholar.", 1)
                 papers_without_pdf_url_counter += 1
                 url_for_download_from_sci_hub = paper_info['general_information']['url']
-                settings.print_message("Getting PDF-file form Sci-hub by url : {0}.".format(url_for_download_from_sci_hub), 2)
-                logger.debug("Getting PDF-file from Sci-hub by url : {0}.".format(url_for_download_from_sci_hub))
+                settings.print_message(
+                    "Getting PDF-file in Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub), 2)
+                logger.debug("Getting PDF-file on Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub))
                 try:
                     fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
                     if not scihub.get_pdf(url_for_download_from_sci_hub, fn_pdf):
                         settings.print_message(
-                            "PDF unavailable on Sci-hub.", 2)
+                            "PDF unavailable on sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
                     else:
                         succes_pdfs_loaded_sh += 1
                         settings.print_message("Complete!", 2)
@@ -163,7 +210,7 @@ def get_papers_by_key_words():
                 papers_counter += 1
                 if not utils.RG_stage_is_skipped_for_all(): utils.skip_RG_stage_reset()
                 # if papers_counter > max_papers_count: break;
-                if not "year" in paper_addition_information or not "author" in paper_addition_information: 
+                if not "year" in paper_addition_information or not "author" in paper_addition_information:
                     logger.debug("Skip paper #%i, empty year or authors fields." % papers_counter)
                     continue
                 logger.debug("Process content of EndNote file #%i\n%s\n%s" % (papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)) )
@@ -171,9 +218,9 @@ def get_papers_by_key_words():
                 newpaper = paper.Paper()
                 # Fill data from google scholar
                 newpaper.get_info_from_sch(paper_info["general_information"], paper_addition_information, paper_version_counter + 1)
-                if paper_versions > 1: 
+                if paper_versions > 1:
                     if rg_query_page_cache == None:
-                        if not utils.RG_stage_is_skipped(): 
+                        if not utils.RG_stage_is_skipped():
                             settings.print_message("Search papers from researchgate.", 1)
                             rg_query_page_cache = newpaper.get_rg_first_search_page()
                         else:
@@ -189,7 +236,7 @@ def get_papers_by_key_words():
                     else:
                         settings.print_message("This paper%s not found." % (" version" if paper_versions > 1 else ""), 3)
                 logger.debug("Check exists paper and if not then insert into DB.")
-                if newpaper.in_database(): 
+                if newpaper.in_database():
                     settings.print_message("This paper%s already exists, id = %i." % ((" version" if paper_versions > 1 else ""), newpaper.db_id), 1)
                     continue
                 new_papers += 1
@@ -203,7 +250,7 @@ def get_papers_by_key_words():
                     # Create new author entity
                     newauthor = author.Author()
                     newauthor.get_base_info_from_sch(author_info)
-        
+
                     settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 4)
                     logger.debug("Check exists author and if not then insert into DB.")
                     if not newauthor.in_database():
@@ -242,7 +289,7 @@ def get_PDFs():
     settings.print_message("{0} papers selected.".format(len(papers)))
     # Get columns from query
     columns = dict()
-    for N, column in enumerate(dbutils.get_columns_names("papers")): 
+    for N, column in enumerate(dbutils.get_columns_names("papers")):
         columns[column.lower()] = N
     logger.debug("Create folder 'PDF_{0}' if not exists.".format(settings._DB_FILE))
     pdf_path = "%s\\%s\\" % (settings.DB_PATH, "PDF_{0}".format(settings._DB_FILE))
@@ -261,7 +308,7 @@ def get_PDFs():
         logger.debug("File name generation.")
         pdf_file_name = "{0}{1}.pdf".format(pdf_path, id)
         counter = 1
-        while os.path.exists(pdf_file_name): 
+        while os.path.exists(pdf_file_name):
             pdf_file_name = "{0}{1}_{2}.pdf".format(pdf_path, id, counter)
             counter += 1
         logger.debug("PDF file name=%s." % pdf_file_name)
@@ -328,10 +375,10 @@ def select_papers_for_citation_graph(tree_queue):
     settings.print_message("{0} papers selected.".format(len(papers)))
     # Get columns from query
     columns = dict()
-    for N, column in enumerate(dbutils.get_columns_names("papers")): 
+    for N, column in enumerate(dbutils.get_columns_names("papers")):
         columns[column.lower()] = N
     for db_paper in papers:
-        # The tree is in the queue in which the tuples are stored. 
+        # The tree is in the queue in which the tuples are stored.
         # Each tuple is (id of paper in the database, id of the paper on the researchgate, the level of the tree)
         tree_queue.put((db_paper[columns["id"]], db_paper[columns["rg_id"]], db_paper[columns["doi"]], 1))
     return 0
@@ -349,7 +396,7 @@ def create_and_fill_paper_for_citation_graph(parent_paper_db_id, rg_new_paper_id
         logger.debug("Failed to get information about the paper, skipped.")
         return None, new_papers_count, new_authors_count
     logger.debug("Check exists paper and if not then insert into DB.")
-    if newpaper.in_database(): 
+    if newpaper.in_database():
         settings.print_message("This paper already exists, id = {0}.".format(newpaper.db_id), 4)
     else:
         # Add new paper in DB
@@ -434,7 +481,7 @@ def get_references():
             settings.print_message("Handle new paper #{0} from references (total {1}).".format(new_paper_counter + 1, total_ref), 2)
             logger.debug("Handle new paper #{0} from references (total {1}).".format(new_paper_counter + 1, total_ref))
             filled_papers += 1
-            newpaper, _new_papers_count, _new_authors_count = create_and_fill_paper_for_citation_graph(parent_paper_db_id, 
+            newpaper, _new_papers_count, _new_authors_count = create_and_fill_paper_for_citation_graph(parent_paper_db_id,
                 researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "citied")
             if newpaper == None:
                 settings.print_message("Failed to get information about the paper #{0}, skipped.".format(new_paper_counter + 1), 2)
@@ -497,7 +544,7 @@ def get_cities():
             settings.print_message("Handle new paper #{0} from citations (total {1}).".format(new_paper_counter + 1, total_ref), 2)
             logger.debug("Handle new paper #{0} from citations (total {1}).".format(new_paper_counter + 1, total_ref))
             filled_papers += 1
-            newpaper, _new_papers_count, _new_authors_count = create_and_fill_paper_for_citation_graph(parent_paper_db_id, 
+            newpaper, _new_papers_count, _new_authors_count = create_and_fill_paper_for_citation_graph(parent_paper_db_id,
                 researchgate.get_rg_paper_id_from_url(ref_paper["publication"]["url"]), "citied")
             if newpaper == None:
                 settings.print_message("Failed to get information about the paper #{0}, skipped.".format(new_paper_counter + 1), 2)
@@ -531,6 +578,12 @@ def dispatch(command):
     start_time = datetime.now()
     try:
         for case in utils.Switch(command):
+
+            if case('get_pdf_by_list_url'):
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
+                # START COMMAND
+                result = get_pdf_by_list_url()
             if case("getPapersByKeyWords"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
@@ -551,32 +604,32 @@ def dispatch(command):
                                        "Processed total papers: %i. Try load %i scihub pdfs. Success load from scihub %i pdfs."\
                                        "Try load %i gs pdfs. Success load from gs %i pdfs. " % result)
                 break
-            if case("updateAuthors"): 
+            if case("updateAuthors"):
                 result = update_authors()
                 break
-            if case("getPapersOfAuthors"): 
+            if case("getPapersOfAuthors"):
                 result = get_papers_of_authors()
                 break
-            if case("getPDFs"): 
+            if case("getPDFs"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_PDFs()
                 settings.print_message("Processing was successful. Downloads files: %i. Not available pdf's: %i. Processed total: %i." % result[1:])
                 logger.debug("Processing was successful. Downloads files: %i. Not available pdf's: %i. Processed total: %i." % result[1:])
                 break
-            if case("getReferences"): 
+            if case("getReferences"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_references()
                 logger.debug("Processing was successful. Processed total papers: %i. Papers without references: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
-                settings.print_message("Processing was successful. Processed total papers: %i. Papers without references: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)      
+                settings.print_message("Processing was successful. Processed total papers: %i. Papers without references: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
                 break
-            if case("getCities"): 
+            if case("getCities"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_cities()
                 logger.debug("Processing was successful. Processed total papers: %i. Papers without citations: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
-                settings.print_message("Processing was successful. Processed total papers: %i. Papers without citations: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)       
+                settings.print_message("Processing was successful. Processed total papers: %i. Papers without citations: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
                 break
             if case(): # default
                 logger.warn("Unknown command: %s" % command)

@@ -292,8 +292,14 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers)
             yield _get_info_from_resulting_selection(paper, handling_cluster)
         if soup.find(class_='gs_ico gs_ico_nav_next') and counter < max_papers_count:
             url = soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip()
+            result = True
+            soup = None
             logger.debug("Load next page in resulting query selection.")
-            soup = utils.get_soup(_FULLURL.format(_HOST, url))
+            while result and soup is None:
+                soup = utils.get_soup(_FULLURL.format(_HOST, url))
+                if soup is None:
+                    result = input('введи код из сообщения от телеги: ') == ""
+
             if soup is None:
                 logger.debug("Soup from google.scholar is None. Break from paper generator loop.")
                 break

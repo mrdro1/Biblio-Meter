@@ -298,8 +298,7 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers)
             while result and soup is None:
                 soup = utils.get_soup(_FULLURL.format(_HOST, url))
                 if soup is None:
-                    result = input('введи код из сообщения от телеги: ') == ""
-
+                    result = input('Do not load new page on scholar. Try again? [Y/N]') == "Y"
             if soup is None:
                 logger.debug("Soup from google.scholar is None. Break from paper generator loop.")
                 break

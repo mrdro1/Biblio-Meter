@@ -93,10 +93,10 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                     logger.debug("Getting PDF-file on Google Scholar by url : {0}.".format(url_for_download_from_gs))
                     try:
                         fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
-                        if scholar.get_pdf(url_for_download_from_gs, fn_pdf)
-							succes_pdfs_loaded_gs += 1
-							settings.print_message("Complete!", 2)
-							continue
+                        if scholar.get_pdf(url_for_download_from_gs, fn_pdf):
+                            succes_pdfs_loaded_gs += 1
+                            settings.print_message("Complete!", 2)
+                            continue
                     except:
                         utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
                         logger.debug("Failed get_pdf from Google Scholar for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))

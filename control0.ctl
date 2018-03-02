@@ -1,6 +1,6 @@
 {"command":"get_papers_by_key_words_and_get_pdf_from_scihub",
-"query":"'Keep Your Friends Close and Your Facebook Friends Closer: A Multiplex Network Approach to the Analysis of Offline and Online Social Ties.'",
-"max_google_papers":"400",
+"query":"Using K-means cluster plagiarism detection",
+"max_google_papers":"50",
 "max_researchgate_papers":"100",
 "google_clusters_handling":"False",
 "patents":"false", 

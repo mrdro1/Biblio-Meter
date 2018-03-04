@@ -31,6 +31,38 @@ _SCHOLARPUBRE = r'cites=([\w-]*)'
 _SCHOLARCLUSTERRE = r'cluster=[0-9]*'
 
 
+def get_pdfs_link_from_cluster(cluster_id):
+    logger.debug("Handle papers from cluster %s." % (cluster_id))
+    url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
+    logger.debug("Get cluster page URL='{0}'.".format(url))
+    soup = utils.get_soup(url)
+    pdf_links = list()
+
+    # Loop on pages
+    while True:
+        if soup is None:
+            logger.debug("Soup for cluster page URL='{0}' is None.".format(url))
+            return None
+        # This list contains links to EndNote and cited by count for each paper in cluster
+        logger.debug("Find PDF links for each paper in cluster.")
+        pdf_links.extend([
+            _get_url_pdf(paper_block)
+            for paper_block in soup.find_all('div', class_='gs_r gs_or gs_scl')# gs_ggs gs_fl
+            if _get_url_pdf(paper_block)
+            ])
+        # NEXT button on html page
+        if soup.find(class_='gs_ico gs_ico_nav_next'):
+            url = soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip()
+            logger.debug("Load next page in resulting query selection.")
+            soup = utils.get_soup(_FULLURL.format(_HOST, url))
+        else:
+            break
+        logger.debug("Find {} links to PDFs.".format(len(pdf_links)))
+    if pdf_links == []:
+        return None
+    return tuple(pdf_links)
+
+
 def _cluster_handler(cluster_id, papers_count):
     logger.debug("Handle %i papers from cluster %s." % (papers_count, cluster_id))
     url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
@@ -197,28 +229,29 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
     # Get addition information (maybe paper in cluster then analysis cluster and get additional info for each unique paper in cluster)
     footer_links = databox.find('div', class_='gs_fl').find_all('a')
     settings.print_message("Get additional information.", 3)
-    # CLUSTER HANDLER
-    if handling_cluster:
-        for link in footer_links:
-            if 'versions' in link.text or 'версии статьи' in link.text:
-                count_sim_papers = int(re.findall(r'\d+', link.text.strip())[0])
-                logger.debug("In cluster %i papers." % count_sim_papers)
-                settings.print_message("In cluster %i similar papers." % count_sim_papers, 3)
-                settings.print_message("Cluster handling...", 3)
-                general_information["cluster"] = int(re.findall(r'\d+', link['href'].strip())[0])
-                different_information = _cluster_handler(general_information["cluster"], count_sim_papers)
-                if different_information == None: break
-                full_info["different_information"] = different_information
-                settings.print_message("Versions in cluster: %i." % len(different_information), 3)
-                return full_info
-
-
+  
+    count_sim_papers = 0
+    for link in footer_links:
+        if 'versions' in link.text or 'версии статьи' in link.text:
+            count_sim_papers = int(re.findall(r'\d+', link.text.strip())[0])
+            logger.debug("In cluster %i papers." % count_sim_papers)
+            general_information["cluster"] = int(re.findall(r'\d+', link['href'].strip())[0])
+            break
 
     # check: have paper link to pdf
     # and take this link if exists
     link_to_pdf = _get_url_pdf(paper_soup)
     full_info['link_to_pdf'] = link_to_pdf
 
+    # CLUSTER HANDLER
+    if handling_cluster and general_information["cluster"] is not None:
+        settings.print_message("In cluster %i similar papers." % count_sim_papers, 3)
+        settings.print_message("Cluster handling...", 3)
+        different_information = _cluster_handler(general_information["cluster"], count_sim_papers)
+        if different_information is not None:
+            full_info["different_information"] = different_information
+            settings.print_message("Versions in cluster: %i." % len(different_information), 3)
+            return full_info
 
     # Paper not in cluster => get addition info for it
     if handling_cluster:

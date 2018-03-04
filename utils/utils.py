@@ -1,32 +1,25 @@
 # -*- coding: utf-8 -*-
 import collections
-import datetime
 import itertools
-import pickle
 from random import shuffle
 import time
 import re
-#
 import sys, traceback, logging
-import browsercookie #
 import random
 import requests
 from requests.exceptions import ProxyError, ConnectTimeout, SSLError, ReadTimeout
-from bs4 import BeautifulSoup
-import webbrowser
-from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-import shutil
-import progressbar as pb
 import json
 import os
 from urllib.parse import urlparse
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+#
+import browsercookie #
+from bs4 import BeautifulSoup
+import shutil
+import progressbar as pb
 #
 import CONST
 import settings
-import utils
 from torrequest import TorRequest
 
 logger = logging.getLogger(__name__)
@@ -34,8 +27,7 @@ logger.setLevel(logging.DEBUG)
 REQUEST_STATISTIC = {'count_requests': 0, 'failed_requests':list()}
 # dict for save count response with same status code != 200
 dict_bad_status_code = collections.defaultdict(lambda: 0)
-
-
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 class Switch(object):
@@ -321,6 +313,7 @@ def get_request(url, stream=False, return_resp=False):
     MAX_CAPTCHAS_HANDLED = 1
 
     while(True):
+        TIMEOUT = 10
         resp = None
         if bad_requests_counter >= settings.PARAMS["http_contiguous_requests"]:
             settings.print_message("Failed {} times get requests from '{}'".format(settings.PARAMS["http_contiguous_requests"], url))
@@ -337,16 +330,15 @@ def get_request(url, stream=False, return_resp=False):
             return None
         try:
             if host.endswith(CONST.SCIHUB_HOST_NAME):
-                resp = SESSION.get(url, stream=stream, timeout=5, verify=False)
-                settings.print_message("I use sci-hub")
+                resp = SESSION.get(url, stream=stream, timeout=TIMEOUT, verify=False)
             #elif settings.using_TOR:
             #    with TorRequest(tor_app=r"Tor\tor.exe") as tr:
             #        print('I use tor')
             #        resp = tr.get(url=url, cookies=SESSION.cookies, timeout=settings.DEFAULT_TIMEOUT)
             #        SESSION.cookies = resp.cookies
-            #else:
-            proxy = _PROXY_OBJ.get_cur_proxy(host)
-            resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)
+            else:
+                proxy = _PROXY_OBJ.get_cur_proxy(host)
+                resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=TIMEOUT)
             #handle_captcha(resp)
             if 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
@@ -467,7 +459,8 @@ def download_file(url, output_filename):
     response = get_request(url, stream=True)
     if response == None: return False
     content_length = 0
-    
+    if response.headers.get('content-type') is None:
+        return False
     if 'content-length' in response.headers:
         content_length = int(response.headers['content-length'])
         logger.debug('Content-length={}'.format(content_length))
@@ -497,14 +490,16 @@ def download_file(url, output_filename):
         download = False
         if content_length > 0:
             logger.debug('Create file {0}, start download.'.format(output_filename))
-            widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]
-            progress = pb.ProgressBar(maxval=content_length,
-                                        widgets=widgets).start()
+            if content_length < 16200:
+                widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]
+                progress = pb.ProgressBar(maxval=content_length,
+                                            widgets=widgets).start()
             for chunk in response.iter_content(chunk_size):
                 download = True
                 outfile.write(chunk)
                 downloaded_size += len(chunk)
-                progress.update(downloaded_size)
+                if content_length < 16200:
+                    progress.update(downloaded_size)
             logger.debug('End download file {0}.'.format(output_filename))
         else:
             logger.debug('Save file {0}.'.format(output_filename))

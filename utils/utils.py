@@ -23,11 +23,11 @@ import progressbar as pb
 import json
 import os
 from urllib.parse import urlparse
+import user_agent
 #
 import CONST
 import settings
 import utils
-from torrequests import TorRequest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -297,11 +297,6 @@ def handle_captcha(response):
     cline = 'start chrome -proxy-server={1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
     os.popen(cline.format(response.request.url, 
         [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
-    try:
-        with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
-            f.write(response.text)
-    except:
-        pass
     input("Press Enter after entering to continue")
     logger.debug("Waiting for cookies to be updated.")
     settings.print_message("Waiting for cookies to be updated.")
@@ -339,11 +334,6 @@ def get_request(url, stream=False, return_resp=False):
             if host.endswith(CONST.SCIHUB_HOST_NAME):
                 resp = SESSION.get(url, stream=stream, timeout=5, verify=False)
                 settings.print_message("I use sci-hub")
-            elif settings.using_TOR:
-                with TorRequest(tor_app=r"Tor\tor.exe") as tr:
-                    print('I use tor')
-                    resp = tr.get(url=url, cookies=SESSION.cookies, timeout=settings.DEFAULT_TIMEOUT)
-                    SESSION.cookies = resp.cookies
             else:
                 proxy = _PROXY_OBJ.get_cur_proxy(host)
                 resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=5)
@@ -552,3 +542,8 @@ def RG_stage_is_skipped():
 def RG_stage_is_skipped_for_all():
     return _SKIP_RG_FOR_ALL
 #
+
+def check_exists_pdf(rel_fn):
+    """ Check: Does pdf-file exist in dir"""
+    is_pdf = int(os.path.isfile(rel_fn))
+    return is_pdf

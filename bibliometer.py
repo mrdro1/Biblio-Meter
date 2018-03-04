@@ -97,50 +97,16 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                         if scholar.get_pdf(url_for_download_from_gs, fn_pdf):
                             succes_pdfs_loaded_gs += 1
                             settings.print_message("Complete!", 2)
-<<<<<<< HEAD
                             is_pdf = utils.check_exists_pdf(fn_pdf)
-                            dbutils.update_is_pdf(newpaper.db_id, is_pdf)
-                            continue
-=======
-                            dbutils.update_pdf_transaction(newpaper.db_id)
+							dbutils.update_pdf_transaction(newpaper.db_id)
+							dbutils.update_is_pdf(newpaper.db_id, is_pdf)
                             success_download = True
->>>>>>> ef3899cd977d8f2150affb20d0cd5ddc12e6f683
                     except:
                         utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
                         logger.debug("Failed get pdf from Google Scholar for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))
                         settings.print_message("failed load PDF from Google Scholar.", 2)
 
                 # load pdf from scihub by paper url if does not exist
-<<<<<<< HEAD
-                if not paper_info['general_information'].get('url'):
-                    is_pdf = utils.check_exists_pdf(fn_pdf)
-                    dbutils.update_is_pdf(newpaper.db_id, is_pdf)
-                    continue
-                settings.print_message("Try get pdf by paper url on scholar.", 1)
-                papers_without_pdf_url_counter += 1
-                url_for_download_from_sci_hub = paper_info['general_information']['url']
-                settings.print_message(
-                    "Getting PDF-file in Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub), 2)
-                logger.debug("Getting PDF-file on Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub))
-                try:
-                    fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
-                    if not scihub.get_pdf(url_for_download_from_sci_hub, fn_pdf):
-                        settings.print_message(
-                            "PDF unavailable on sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
-                    else:
-                        succes_pdfs_loaded_sh += 1
-                        settings.print_message("Complete!", 2)
-                    is_pdf = utils.check_exists_pdf(fn_pdf)
-                    dbutils.update_is_pdf(newpaper.db_id, is_pdf)
-                except:
-                    utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_sci_hub)
-                    logger.debug("Failed get_pdf from sci-hub for paper #{0}. URL={0}".format(new_papers - 1,
-                                                                                              url_for_download_from_sci_hub))
-                    settings.print_message("failed load PDF on sci-hub. URL={0}".format(url_for_download_from_sci_hub),
-                                           2)
-
-                    continue
-=======
                 if paper_info['general_information'].get('url') and not success_download:
                     settings.print_message("Try get pdf by paper url on sci-hub.", 1)
                     papers_without_pdf_url_counter += 1
@@ -158,6 +124,8 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                             settings.print_message("Complete!", 2)
                             dbutils.update_pdf_transaction(newpaper.db_id)
                             success_download = True
+							is_pdf = utils.check_exists_pdf(fn_pdf)
+							dbutils.update_is_pdf(newpaper.db_id, is_pdf)
                     except:
                         utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_sci_hub)
                         logger.debug("Failed get pdf from sci-hub for paper #{0}. URL={0}".format(new_papers - 1,
@@ -186,7 +154,6 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                                 settings.print_message("failed load PDF from Google Scholar cluster.", 2)
                 if not success_download:
                     settings.print_message("Downolad PDF unavaliable.", 1)
->>>>>>> ef3899cd977d8f2150affb20d0cd5ddc12e6f683
                 # Commit transaction each commit_iterations iterations
                 if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
             # if papers_counter >= max_papers_count: break;

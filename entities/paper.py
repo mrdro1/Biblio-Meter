@@ -175,7 +175,8 @@ class Paper(object):
                 "rg_type":self.rg_type,
                 "EndNote":self.EndNote,
                 "RIS":self.RIS,
-                "authors":len(self.authors)
+                "authors":len(self.authors),
+                "is_pdf":0
             }
             )
 

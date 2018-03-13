@@ -91,6 +91,7 @@ def create_tables_if_not_exists():
          score integer,         
          ignore boolean not null,
          r_transaction integer not null,
+         is_pdf boolean,
          foreign key (r_transaction) references transactions(id)
         );
         ''',
@@ -210,11 +211,11 @@ def add_new_paper(params):
         INSERT INTO papers(
             title, year, publisher, start_page, end_page, pages, g_type,
             DOI, abstract, abstract_ru, rg_id, references_count, rg_type,
-            g_endnote, rg_ris, authors, r_transaction, ignore
+            g_endnote, rg_ris, authors, r_transaction, ignore, is_pdf
         ) VALUES(
             :title, :year, :publisher, :start_page, :end_page, :pages, :g_type,
             :DOI, :abstract, :abstract_ru, :rg_id, :references_count, :rg_type,
-            :EndNote, :RIS, :authors, :transaction, :ignore
+            :EndNote, :RIS, :authors, :transaction, :ignore, :is_pdf
         )
         """, **params)
 
@@ -355,4 +356,10 @@ def update_pdf_transaction(paper_id, source):
     sql_update_pdf_transaction = 'UPDATE papers SET source_pdf = "{1}" where id = {0}'
     logger.debug("Update pdf_transaction for paper id={0}.".format(paper_id))
     execute_sql(sql_update_pdf_transaction.format(paper_id, source))
+    return 0
+
+def update_is_pdf(paper_id, is_pdf):
+    sql_update_is_pdf = 'UPDATE papers SET is_pdf = {0} where id = {1}'
+    logger.debug("Update is_pdf on {} for paper id={}.".format(is_pdf, paper_id))
+    execute_sql(sql_update_is_pdf.format(is_pdf, paper_id))
     return 0

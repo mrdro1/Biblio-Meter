@@ -94,7 +94,8 @@ CONTROL_KEYS = [
     "commit_iterations",
     "http_contiguous_requests",
     "limit_resp_for_one_code",
-    "urls"
+    "urls",
+    "start_paper"
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
@@ -106,6 +107,7 @@ CONTROL_DEFAULT_VALUES = \
         "commit_iterations" : 1000000,
         "http_contiguous_requests" : 20,
         "limit_resp_for_one_code": 20,
+        "start_paper": 1
     }
 
 def CloseObjects():

@@ -86,9 +86,9 @@ def create_tables_if_not_exists():
          authors integer,
          g_endnote text,
          rg_ris text,
+         source_pdf varchar(1000),
          notes varchar(1000),
-         score integer,
-         pdf_transaction integer,
+         score integer,         
          ignore boolean not null,
          r_transaction integer not null,
          foreign key (r_transaction) references transactions(id)
@@ -351,8 +351,8 @@ def get_sql_columns(SQL):
     logger.info("Extracted columns: {0}".format(str(res)))
     return res
 
-def update_pdf_transaction(paper_id):
-    sql_update_pdf_transaction = 'UPDATE papers SET pdf_transaction = {0} where id = {1}'
+def update_pdf_transaction(paper_id, source):
+    sql_update_pdf_transaction = 'UPDATE papers SET source_pdf = "{1}" where id = {0}'
     logger.debug("Update pdf_transaction for paper id={0}.".format(paper_id))
-    execute_sql(sql_update_pdf_transaction.format(_CURRENT_PROGRAM_TRANSACTION_ID, paper_id))
+    execute_sql(sql_update_pdf_transaction.format(paper_id, source))
     return 0

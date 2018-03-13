@@ -3,3 +3,4 @@ mtranslate
 RISparser
 arrow
 progressbar2 # INSTALL CMD: conda install -c conda-forge progressbar2
+pypdf2

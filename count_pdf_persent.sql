@@ -1,19 +1,33 @@
+with t as (
+  select 
+   source_pdf as pdf
+  from 
+   papers
+   where id <= 200
+  )
 select 
  (
   select 
    count(*)
   from 
-   papers
+   t
   ) "All",
+  (
+  select 
+   count(*)
+  from 
+   t
+  where pdf is not null 
+  ) "good",
  count(*) "PDF's",
+ pdf,
  count(*) / (
   (
    select 
     count(*)
    from 
-    papers
+    t
    ) * 1.0) * 100 "Percent"
 from 
- papers
-where 
- pdf_transaction is not NULL
+ t
+group by pdf

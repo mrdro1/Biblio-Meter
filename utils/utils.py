@@ -17,6 +17,7 @@ import browsercookie #
 from bs4 import BeautifulSoup
 import shutil
 import progressbar as pb
+import PyPDF2
 #
 import CONST
 import settings
@@ -54,19 +55,24 @@ class ProxyManager:
 
     def __init__(self):
         self.MAX_REQUESTS = 1
+        self.MAX_REQUESTS_FOR_RELOAD_PROXIES = 250
+        self.reqests_counter = 1
         self.list_host_names = ['www.researchgate.net', 'scholar.google.com', CONST.SCIHUB_HOST_NAME, 'otherhost']
         self.file_name = settings.PROXY_FILE
         self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
         self.proxy_request_count = {host_name: 0 for host_name in self.list_host_names}
         # initialize current proxies for each host name
         self.proxy = dict()
+        self.bad_proxies = list()
         [self.set_next_proxy(host_name) for host_name in self.list_host_names]  # set self.proxy
+
 
     def load_proxies(self):
         """ load proxies from txt file to generator"""
         logger.debug("Load proxies list from '{0}'".format(self.file_name))
         with open(self.file_name, 'r') as f:
             proxies_list = f.readlines()
+            self.proxies_count = len(proxies_list)
             shuffle(proxies_list)
             proxies_list = itertools.cycle(proxies_list)
         return ({"https": proxy.strip()} for proxy in proxies_list)
@@ -76,11 +82,15 @@ class ProxyManager:
         host_name = self.update_host_name_for_resources(host_name)
         if not host_name in self.list_host_names:
             host_name = "otherhost"
-        self.proxy[host_name] = next(self.dict_gens_proxy[host_name])
+        while not self.proxy.get(host_name) or self.proxy[host_name] in self.bad_proxies:
+            self.proxy[host_name] = next(self.dict_gens_proxy[host_name])
         self.proxy_request_count[host_name] = 0
         logger.debug("Change proxy to {0} for {1}".format(self.proxy[host_name], host_name))
         return 0
 
+    def reload_proxies(self):
+        self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
+    
     def get_cur_proxy(self, host_name):
         """ get current proxy for specific host name """
         logger.debug("Get current proxy for {0}.".format(host_name))
@@ -88,6 +98,11 @@ class ProxyManager:
         if not host_name in self.list_host_names:
             host_name = "otherhost"
         logger.debug("Proxy: {0}".format(self.proxy[host_name]))
+        #if self.reqests_counter >= self.MAX_REQUESTS_FOR_RELOAD_PROXIES:
+        #    self.reload_proxies()
+        #    self.reqests_counter = 0
+        #else:
+        #    self.reqests_counter += 1
         if self.proxy_request_count[host_name] >= self.MAX_REQUESTS:
             self.set_next_proxy(host_name)
         else:
@@ -111,6 +126,16 @@ class ProxyManager:
             host_name = CONST.SCIHUB_HOST_NAME
         return host_name
 
+    def add_to_bad_proxies(self, bad_proxy):
+        """ """
+        if len(self.bad_proxies) >= self.proxies_count * 0.65: # > 65%
+            logger.debug("Too many bad proxies! Reload proxy list.")
+            input('Too many bad proxies! Press enter to reload proxies and continue.')
+            self.reload_proxies()
+            self.bad_proxies = []
+        else:
+            logger.debug("Add bad proxy: {}".format(bad_proxy))
+            self.bad_proxies.append(bad_proxy)
 
 # init proxy
 _PROXY_OBJ = ProxyManager()
@@ -277,6 +302,13 @@ SESSION.cookies = _get_cookies()
 
 def _check_captcha(soup):
     """Return true if ReCaptcha was found"""
+    try:
+        if soup.find('img', id="captcha"):
+            href = 'https://cyber.sci-hub.tw' + soup.find('img', id="captcha")['src']
+            download_file(href, 'captcha//' + href.split('/')[-1])
+    except:
+        settings.print_message('Can\'t load captcha image', 2)
+
     return soup.find('div', id='gs_captcha_ccl') != None or \
        soup.find('div', class_='g-recaptcha') != None or \
        soup.find('img', id="captcha") != None
@@ -286,9 +318,9 @@ def handle_captcha(response):
     """ Captcha handler """
     host = urlparse(response.request.url).hostname
     settings.print_message("CAPTCHA was found. To continue, you need to enter the captcha in your browser.")
-    cline = 'start chrome -proxy-server={1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
+    cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
     os.popen(cline.format(response.request.url, 
-        [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]))
+        "-proxy-server={0}".format([ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]) if not ("sci-hub" in host) else ""))
     try:
         with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
             f.write(response.text)
@@ -298,6 +330,7 @@ def handle_captcha(response):
     logger.debug("Waiting for cookies to be updated.")
     settings.print_message("Waiting for cookies to be updated.")
     SESSION.cookies = _get_cookies()
+    _PROXY_OBJ.get_cur_proxy("scholar")
     return 0
 
 
@@ -320,6 +353,7 @@ def get_request(url, stream=False, return_resp=False):
             # +1 bad requests
             REQUEST_STATISTIC['failed_requests'].append(url)
             REQUEST_STATISTIC['count_requests'] += 1
+            SESSION.cookies = _get_cookies()
             # save html for bad request
             try:
                 with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
@@ -340,24 +374,27 @@ def get_request(url, stream=False, return_resp=False):
                 proxy = _PROXY_OBJ.get_cur_proxy(host)
                 resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=TIMEOUT)
             #handle_captcha(resp)
-            if 'text/html' in resp.headers['Content-Type']:
+            if resp.headers.get('Content-Type') and 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
                     count_try_for_captcha += 1
-                    if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
-                        _PROXY_OBJ.set_next_proxy(host)
-                        continue
-                    else:
-                        if capthas_handled < MAX_CAPTCHAS_HANDLED:
-                            handle_captcha(resp)
+                    if _get_name_max_try_to_host(url):
+                        if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
+                            _PROXY_OBJ.set_next_proxy(host)
+                            continue
                         else:
-                            try:
-                                with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
-                                    f.write(resp.text)
-                            except:
-                                pass
-                            return None
-                        capthas_handled += 1
-                        continue
+                            if capthas_handled < MAX_CAPTCHAS_HANDLED:
+                                bad_proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)
+                                handle_captcha(resp)
+                            else:
+                                _PROXY_OBJ.add_to_bad_proxies(bad_proxy)
+                                try:
+                                    with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
+                                        f.write(resp.text)
+                                except:
+                                    pass
+                                return None
+                            capthas_handled += 1
+                            continue
             if resp.status_code == 404:
                 settings.print_message("Http error 404: Page '{}' not found".format(url))
                 # +1 bad requests
@@ -370,8 +407,8 @@ def get_request(url, stream=False, return_resp=False):
                 _PROXY_OBJ.set_next_proxy(host)
                 # if count resp with same code enough big than reload cookies
                 if is_many_bad_status_code():
-                    print('I del cookies')
                     del_gs_cookies()
+                    #_PROXY_OBJ.reload_proxies()
                 continue
             
             if resp.status_code == 200:
@@ -404,6 +441,7 @@ def _get_name_max_try_to_host(url):
         }
     host = urlparse(url).hostname
     host = _PROXY_OBJ.update_host_name_for_resources(host)
+    if dict_host_to_name.get(host) is None: return None
     name = dict_host_to_name[host]
     name_field_in_ctl_dict = name + '_captcha_retry_by_proxy_count'
     return name_field_in_ctl_dict
@@ -490,16 +528,16 @@ def download_file(url, output_filename):
         download = False
         if content_length > 0:
             logger.debug('Create file {0}, start download.'.format(output_filename))
-            if content_length < 16200:
-                widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]
-                progress = pb.ProgressBar(maxval=content_length,
-                                            widgets=widgets).start()
+            #if content_length < 16200:
+            #    widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]
+            #    progress = pb.ProgressBar(maxval=content_length,
+            #                                widgets=widgets).start()
             for chunk in response.iter_content(chunk_size):
                 download = True
                 outfile.write(chunk)
                 downloaded_size += len(chunk)
-                if content_length < 16200:
-                    progress.update(downloaded_size)
+                #if content_length < 16200:
+                #    progress.update(downloaded_size)
             logger.debug('End download file {0}.'.format(output_filename))
         else:
             logger.debug('Save file {0}.'.format(output_filename))
@@ -509,6 +547,22 @@ def download_file(url, output_filename):
         
     #print("")
     return download
+
+def check_pdf(filename):
+    try:
+        logger.debug('Check PDF "{}" on valid.'.format(filename))
+        if not os.path.exists(filename): 
+            logger.debug('PDF file "{}" is not exists.'.format(filename))
+            return False
+        with open(filename, "rb") as pdf:
+            PyPDF2.PdfFileReader(pdf)
+    except PyPDF2.utils.PdfReadError:
+        logger.debug('Invalid PDF file "{}".'.format(filename))
+        os.remove(filename)
+        return False
+    else:
+        logger.debug('PDF file "{}" is valid.'.format(filename))
+        return True
 
 
 def is_doi(DOI):

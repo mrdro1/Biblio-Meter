@@ -19,7 +19,8 @@ _CITATIONAUTH = '/citations?user={0}&hl=en'
 _CITATIONPUB = '/citations?view_op=view_citation&citation_for_view={0}'
 _KEYWORDSEARCH = '/citations?view_op=search_authors&hl=en&mauthors=label:{0}'
 _PUBSEARCH = '/scholar?q={0}'
-_PUBADVANCEDSEARCH = '/scholar?as_q={0}&as_epq={1}&as_oq={2}&as_eq={3}&as_occt={4}&as_sauthors={5}&as_publication={6}&as_ylo={7}&as_yhi={8}&btnG=&hl=en&as_sdt={9}%2C5&as_vis={10}'
+#_PUBADVANCEDSEARCH = '/scholar?as_q={0}&as_epq={1}&as_oq={2}&as_eq={3}&as_occt={4}&as_sauthors={5}&as_publication={6}&as_ylo={7}&as_yhi={8}&btnG=&hl=en&as_sdt={9}%2C5&as_vis={10}'
+_PUBADVANCEDSEARCH = '/scholar?start={11}&q={0}&as_epq={1}&as_oq={2}&as_eq={3}&as_occt={4}&as_sauthors={5}&as_publication={6}&as_ylo={7}&as_yhi={8}&btnG=&hl=en&as_sdt={9}%2C5&as_vis={10}'
 _SCHOLARPUB = '/scholar?oi=bibs&hl=en&cites={0}'
 _SCHOLARCLUSTER = '/scholar?cluster={0}&hl=en&as_sdt=1,5&as_vis=1'
 _FULLURL = r'{0}{1}'
@@ -35,11 +36,20 @@ def get_pdfs_link_from_cluster(cluster_id):
     logger.debug("Handle papers from cluster %s." % (cluster_id))
     url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
     logger.debug("Get cluster page URL='{0}'.".format(url))
-    soup = utils.get_soup(url)
     pdf_links = list()
 
     # Loop on pages
-    while True:
+    while True:           
+        result = True
+        soup = None
+        while result and soup is None:
+            soup = utils.get_soup(url)
+            if soup is None:
+                result = None
+                while result is None:
+                    result = input('Do not load cluster page on scholar. Try again? [Y/N]').lower()
+                    if result == "y": result = True
+                    elif result == "n": result = False
         if soup is None:
             logger.debug("Soup for cluster page URL='{0}' is None.".format(url))
             return None
@@ -52,9 +62,9 @@ def get_pdfs_link_from_cluster(cluster_id):
             ])
         # NEXT button on html page
         if soup.find(class_='gs_ico gs_ico_nav_next'):
-            url = soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip()
+            url = _FULLURL.format(_HOST, soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip())
             logger.debug("Load next page in resulting query selection.")
-            soup = utils.get_soup(_FULLURL.format(_HOST, url))
+            #soup = utils.get_soup(_FULLURL.format(_HOST, url))
         else:
             break
         logger.debug("Find {} links to PDFs.".format(len(pdf_links)))
@@ -180,7 +190,8 @@ def get_pdf(url, filename):
     if url == None: return False
     try:
         settings.print_message("Download pdf...", 2)
-        return utils.download_file(url, filename)
+        utils.download_file(url, filename)
+        return utils.check_pdf(filename)
     except:
         logger.warn(traceback.format_exc())
         #return False
@@ -276,6 +287,8 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
                                'Please change the display settings Google Scholar in English '
                                '(https://scholar.google.com/).')
         logger.debug('End work programme because did not find link to EndNote file.')
+        input('Press enter to continue')
+        
         #raise Exception('Did not find EndNote.')
     full_info["different_information"] = tuple(different_information)
     return full_info
@@ -283,9 +296,18 @@ def _get_info_from_resulting_selection(paper_soup, handling_cluster = False):
 
 def get_info_from_EndNote(file_url, return_source = False):
     """Populate the Publication with information from its profile"""
-    EndNode_file = utils.get_text_data(file_url)
-    if EndNode_file == None:
-        logger.debug("Upload empty EndNote file.")
+    result = True
+    EndNode_file = None
+    while result and EndNode_file is None:
+        EndNode_file = utils.get_text_data(file_url)
+        if EndNode_file is None:
+            result = None
+            while result is None:
+                result = input('Do not load EndNote file from scholar. Try again? [Y/N]').lower()
+                if result == "y": result = True
+                elif result == "n": result = False
+    if EndNode_file is None:
+        logger.debug("Download empty EndNote file.")
         return None
     EndNode_file = EndNode_file.replace("\r", "")
     logger.debug("EndNote file:\n%s" % EndNode_file)
@@ -307,7 +329,7 @@ def get_info_from_EndNote(file_url, return_source = False):
     return EndNote_info
 
 
-def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers):
+def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers, start_paper):
     """Generator that returns pub information dictionaries from the search page"""
     page_num = 1
     counter = 0
@@ -331,7 +353,11 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers)
             while result and soup is None:
                 soup = utils.get_soup(_FULLURL.format(_HOST, url))
                 if soup is None:
-                    result = input('Do not load new page on scholar. Try again? [Y/N]') == "Y"
+                    result = None
+                    while result is None:
+                        result = input('Do not load new page on scholar. Try again? [Y/N]').lower()
+                        if result == "y": result = True
+                        elif result == "n": result = False
             if soup is None:
                 logger.debug("Soup from google.scholar is None. Break from paper generator loop.")
                 break
@@ -374,14 +400,15 @@ def search_pubs_query_with_control_params(params):
         (True if params['patents'] == 'true' else False) if 'patents' in params else True,
         (True if params['citations'] == 'true' else False) if 'citations' in params else True,
         params["google_clusters_handling"].lower() == "true" if "google_clusters_handling" in params else False,
-        int(params["max_google_papers"]) if "max_google_papers" in params else float("inf") if "max_google_papers" in params else float("inf")
+        int(params["max_google_papers"]) if "max_google_papers" in params else float("inf") if "max_google_papers" in params else float("inf"),
+        params['start_paper'] if 'start_paper' in params else 1,
     )
 
 
 def search_pubs_query_with_params(
         query, date_from, date_to, authored, published,
         exact_phrase, one_of_words, not_contained_words, words_in_body,
-        patents, citations, handling_cluster = False, max_iter = float("inf")
+        patents, citations, handling_cluster = False, max_iter = float("inf"), start_paper = 1
     ):
     """Advanced search by scholar query and return a generator of Publication objects"""
     url = _PUBADVANCEDSEARCH.format(
@@ -396,11 +423,13 @@ def search_pubs_query_with_params(
         date_to,
         '0' if patents else '1',
         '0' if citations else '1',
+        start_paper
     )
-    return search_pubs_custom_url(url, handling_cluster, max_iter)
+    print(url)
+    return search_pubs_custom_url(url, handling_cluster, max_iter, start_paper)
 
 
-def search_pubs_custom_url(url, handling_cluster, max_iter):
+def search_pubs_custom_url(url, handling_cluster, max_iter, start_paper):
     """Search by custom URL and return a generator of Publication objects
     URL should be of the form '/scholar?q=...'"""
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, url))
@@ -409,7 +438,7 @@ def search_pubs_custom_url(url, handling_cluster, max_iter):
         logger.debug("Soup for generator publication page URL='{0}' is None.".format(url))
         return None, None
     about = get_about_count_results(soup)
-    return (_search_scholar_soup(soup, handling_cluster, max_iter, about), about)
+    return (_search_scholar_soup(soup, handling_cluster, max_iter, about, start_paper), about)
 
 
 def get_info_from_author_page(author_id): 

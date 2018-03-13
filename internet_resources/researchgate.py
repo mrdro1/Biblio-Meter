@@ -356,7 +356,8 @@ def get_pdf(rg_paper_id, filename):
     if url == None: return False
     try:
         settings.print_message("Download pdf...", 2)
-        return utils.download_file(url, filename)
+        utils.download_file(url, filename)
+        return utils.check_pdf(filename)
     except:
         raise
     return True

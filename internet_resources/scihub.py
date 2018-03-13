@@ -27,9 +27,18 @@ def get_pdf_url(DOI):
     if captcha != None:
         utils.handle_captcha(url)
         return get_pdf_url(DOI)
-    if save_btn == None or user_answer != None: 
+    '''if save_btn == None or user_answer != None:
+        logger.debug("PDF for this paper is anavailable.")
+        return None'''
+
+
+    if user_answer != None:
         logger.debug("PDF for this paper is anavailable.")
         return None
+    if save_btn == None:
+        return url
+
+
     PDF_url = save_btn.find("a")["onclick"].split("href='")[1].strip("'")
     if PDF_url.startswith("//"):
         PDF_url = PDF_url.replace("//", "https://")
@@ -43,7 +52,8 @@ def get_pdf(DOI, filename):
     if url == None: return False
     try:
         settings.print_message("Download pdf...", 2)
-        return utils.download_file(url, filename)
+        utils.download_file(url, filename) 
+        return utils.check_pdf(filename)
     except:
         logger.warn(traceback.format_exc())
         #return False

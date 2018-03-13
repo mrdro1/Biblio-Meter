@@ -12,10 +12,10 @@ import argparse
 #
 import CONST
 
-THREADS = 60
+THREADS = 80
 
 TEST_URLS = [
-    "https://scholar.google.ru/",
+    "https://scholar.google.com/",
     #"https://www.researchgate.net/search?q=test",
     #"https://{0}/".format(CONST.SCIHUB_HOST_NAME)
     ]
@@ -64,7 +64,8 @@ REFILTERING_COUNT = DEFAULT_REFILTERING_COUNT if command_args.REFILTERING_COUNT 
 def get_request(url, proxy):
     """Send get request & return data"""
     try:
-        resp = requests.get(url, proxies=proxy, timeout=5)
+        session = requests.Session()
+        resp = session.get(url, proxies=proxy, timeout=5)
     except Exception as error:
         return False
     if resp.status_code != 200:

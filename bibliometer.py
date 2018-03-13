@@ -142,7 +142,7 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                         if scholar.get_pdf(url_for_download_from_gs, fn_pdf):
                             succes_pdfs_loaded_gs += 1
                             settings.print_message("Complete!", 2)
-                            dbutils.update_pdf_transaction(newpaper.db_id)
+                            dbutils.update_pdf_transaction(newpaper.db_id, "Scholar")
                             success_download = True
                     except:
                         utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
@@ -165,13 +165,13 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                         else:
                             succes_pdfs_loaded_sh += 1
                             settings.print_message("Complete!", 2)
-                            dbutils.update_pdf_transaction(newpaper.db_id)
+                            dbutils.update_pdf_transaction(newpaper.db_id, "Sci-hub")
                             success_download = True
                     except:
                         utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_sci_hub)
                         logger.debug("Failed get pdf from sci-hub for paper #{0}. URL={0}".format(new_papers - 1,
                                                                                                   url_for_download_from_sci_hub))
-                        settings.print_message("xailed load PDF from sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
+                        settings.print_message("failed load PDF from sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
                         #continue
                 if not success_download and paper_info['general_information'].get("cluster"):
                     cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(paper_info['general_information']["cluster"])
@@ -186,7 +186,7 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                                 if scholar.get_pdf(url_for_download_from_gs, fn_pdf):
                                     succes_pdfs_loaded_gs += 1
                                     settings.print_message("Complete!", 2)
-                                    dbutils.update_pdf_transaction(newpaper.db_id)
+                                    dbutils.update_pdf_transaction(newpaper.db_id, "Cluster")
                                     success_download = True
                                     break
                             except:
@@ -343,7 +343,7 @@ def get_PDFs():
                     new_files_counter += 1
                     RG_PDF += 1
                     settings.print_message("Complete!", 2)
-                    dbutils.update_pdf_transaction(id)
+                    dbutils.update_pdf_transaction(id, "Researchgate")
                     continue
             except:
                 logger.debug("Failed get_pdf from Researchgate for paper #{0}.".format(paper_index + 1))
@@ -372,7 +372,7 @@ def get_PDFs():
                     new_files_counter += 1
                     SCI_PDF += 1
                     settings.print_message("Complete!", 2)
-                    dbutils.update_pdf_transaction(id)
+                    dbutils.update_pdf_transaction(id, "Sci-hub")
             except:
                 unavailable_files_counter += 1
                 logger.debug("Failed get_pdf from sci-hub for paper #{0}. DOI={0}".format(paper_index + 1, DOI))

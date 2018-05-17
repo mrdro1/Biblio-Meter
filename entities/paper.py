@@ -8,7 +8,7 @@ import scholar
 import researchgate
 import settings
 import dbutils
-
+import grobid
 
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOG_LEVEL)
@@ -40,12 +40,16 @@ class Paper(object):
         self.EndNote = None
         self.paper_version = None
         self.RIS = None
+        self.paper_URL = None,
+        self.PDF_URL = None
 
-    def get_info_from_sch(self, general_information, additional_information, paper_version = 1):
+    def get_info_from_sch(self, general_information, additional_information, paper_version=1, pdf_url=None):
         # General
         if "title" in general_information: self.title = general_information["title"]
         if "year" in general_information: self.year = general_information["year"]
         if "cluster" in general_information: self.cluster = general_information["cluster"]
+        if "url" in general_information: self.paper_URL = general_information["url"]
+        self.PDF_URL = pdf_url
         # Addition
         self.paper_version = paper_version
         if "title" in additional_information: self.title = additional_information["title"]
@@ -157,6 +161,28 @@ class Paper(object):
         if "RIS" in rg_info: self.RIS = rg_info["RIS"]
         return True
 
+    def get_data_from_grobid(self, pdf_filename):
+        try:
+            pdf_info = grobid.processHeaderDocument(pdf_filename)
+        except:
+            logger.error(traceback.format_exc()) 
+            logger.debug("Failed to load paper information") 
+            return False
+        logger.debug("Save info about paper (or its version)")
+        self.DOI = pdf_info["DOI"]
+        self.abstract = pdf_info["abstract"].strip()
+        self.abstract_ru = pdf_info["abstract_ru"].strip()
+        dbutils.update_paper(
+            {
+                "DOI":self.DOI,
+                "abstract":self.abstract,
+                "abstract_ru":self.abstract_ru,
+                "id":self.db_id
+            }, True
+            ) 
+        return True
+
+
     def add_to_database(self):
         self.db_id = dbutils.add_new_paper(
             {
@@ -176,7 +202,9 @@ class Paper(object):
                 "EndNote":self.EndNote,
                 "RIS":self.RIS,
                 "authors":len(self.authors),
-                "is_pdf":0
+                "is_pdf":0,
+                "google_url":self.paper_URL,
+                "google_file_url":self.PDF_URL,
             }
             )
 
@@ -210,7 +238,9 @@ class Paper(object):
                 "EndNote":self.EndNote,
                 "RIS":self.RIS,
                 "authors":len(self.authors),
-                "id":self.db_id
+                "id":self.db_id,
+                "google_url":self.paper_URL,
+                "google_file_url":self.PDF_URL,
             }
             ) 
 

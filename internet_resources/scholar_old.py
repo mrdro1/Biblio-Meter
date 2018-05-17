@@ -46,10 +46,10 @@ def get_pdfs_link_from_cluster(cluster_id):
             soup = utils.get_soup(url)
             if soup is None:
                 result = None
-                #while result is None:
-                #    result = input('Do not load cluster page on scholar. Try again? [Y/N/A]').lower()
-                #    if result == "y": result = True
-                #    elif result == "n": result = False
+                while result is None:
+                    result = input('Do not load cluster page on scholar. Try again? [Y/N]').lower()
+                    if result == "y": result = True
+                    elif result == "n": result = False
         if soup is None:
             logger.debug("Soup for cluster page URL='{0}' is None.".format(url))
             return None
@@ -302,10 +302,10 @@ def get_info_from_EndNote(file_url, return_source = False):
         EndNode_file = utils.get_text_data(file_url)
         if EndNode_file is None:
             result = None
-            #while result is None:
-            #    result = input('Do not load EndNote file from scholar. Try again? [Y/N]').lower()
-            #    if result == "y": result = True
-            #    elif result == "n": result = False
+            while result is None:
+                result = input('Do not load EndNote file from scholar. Try again? [Y/N]').lower()
+                if result == "y": result = True
+                elif result == "n": result = False
     if EndNode_file is None:
         logger.debug("Download empty EndNote file.")
         return None
@@ -354,10 +354,10 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers,
                 soup = utils.get_soup(_FULLURL.format(_HOST, url))
                 if soup is None:
                     result = None
-                #    while result is None:
-                #        result = input('Do not load new page on scholar. Try again? [Y/N]').lower()
-                #        if result == "y": result = True
-                #        elif result == "n": result = False
+                    while result is None:
+                        result = input('Do not load new page on scholar. Try again? [Y/N]').lower()
+                        if result == "y": result = True
+                        elif result == "n": result = False
             if soup is None:
                 logger.debug("Soup from google.scholar is None. Break from paper generator loop.")
                 break

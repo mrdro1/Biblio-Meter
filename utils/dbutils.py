@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(_LOG_LEVEL)
 
 DB_CONNECTION = None
+DB_CHROME_CONNECTION = None
 
 _CURRENT_PROGRAM_TRANSACTION_ID = -1
 
@@ -79,6 +80,8 @@ def create_tables_if_not_exists():
          rg_id varchar(1000),
          references_count integer,
          g_type varchar(1000),
+         google_url varchar(1000),
+         google_file_url varchar(1000),
          rg_type varchar(1000),
          pages integer,
          start_page integer,
@@ -91,6 +94,7 @@ def create_tables_if_not_exists():
          score integer,         
          ignore boolean not null,
          r_transaction integer not null,
+         r_file_transaction integer,
          is_pdf boolean,
          foreign key (r_transaction) references transactions(id)
         );
@@ -211,11 +215,13 @@ def add_new_paper(params):
         INSERT INTO papers(
             title, year, publisher, start_page, end_page, pages, g_type,
             DOI, abstract, abstract_ru, rg_id, references_count, rg_type,
-            g_endnote, rg_ris, authors, r_transaction, ignore, is_pdf
+            g_endnote, rg_ris, authors, r_transaction, ignore, is_pdf,
+            google_url, google_file_url
         ) VALUES(
             :title, :year, :publisher, :start_page, :end_page, :pages, :g_type,
             :DOI, :abstract, :abstract_ru, :rg_id, :references_count, :rg_type,
-            :EndNote, :RIS, :authors, :transaction, :ignore, :is_pdf
+            :EndNote, :RIS, :authors, :transaction, :ignore, :is_pdf, :google_url,
+            :google_file_url
         )
         """, **params)
 
@@ -256,28 +262,39 @@ def add_paper_paper_edge(IDPaper1, IDPaper2, Type):
     VALUES(?, ?, ?, ?)
     """, *(IDPaper1, IDPaper2, Type, _CURRENT_PROGRAM_TRANSACTION_ID))
 
-def update_paper(params):
+def update_paper(params, update_addition_info=False):
     logger.debug("Update paper id={0}.".format(params["id"]))
-    execute_sql("""
-        UPDATE papers 
-        SET title=:title,
-            year=:year,
-            publisher=:publisher,
-            start_page=:start_page,
-            end_page=:end_page,
-            pages=:pages,
-            g_type=:g_type,
-            DOI=:DOI,
-            abstract=:abstract,
-            abstract_ru=:abstract_ru,
-            rg_id=:rg_id,
-            references_count=:references_count,
-            rg_type=:rg_type,
-            g_endnote=:EndNote,
-            rg_ris=:RIS
-            authors=:authors
-        WHERE id = :id
-        """, **params)
+    if update_addition_info:
+        execute_sql("""
+            UPDATE papers 
+            SET DOI=:DOI,
+                abstract=:abstract,
+                abstract_ru=:abstract_ru                
+            WHERE id = :id
+            """, **params)
+    else:
+        execute_sql("""
+            UPDATE papers 
+            SET title=:title,
+                year=:year,
+                publisher=:publisher,
+                start_page=:start_page,
+                end_page=:end_page,
+                pages=:pages,
+                g_type=:g_type,
+                DOI=:DOI,
+                abstract=:abstract,
+                abstract_ru=:abstract_ru,
+                rg_id=:rg_id,
+                references_count=:references_count,
+                rg_type=:rg_type,
+                g_endnote=:EndNote,
+                rg_ris=:RIS,
+                authors=:authors,
+                google_url=:google_url,
+                google_file_url=:google_file_url
+            WHERE id = :id
+            """, **params)
 
 
 def execute_sql(SQL, *args, **options):
@@ -336,10 +353,19 @@ def connect(DBPath):
     DB_CONNECTION = sqlite3.connect(DBPath)
     create_tables_if_not_exists()
 
+def connect_to_cookies_database(DBPath):
+    global DB_CHROME_CONNECTION
+    logger.info("Initializing connection to sqlite chrome database, version: %i.%i.%i." % sqlite3.version_info)
+    DB_CHROME_CONNECTION = sqlite3.connect(DBPath)
+
 
 def close_connection():
     logger.info("Close database.")
     if DB_CONNECTION: DB_CONNECTION.close()
+
+def close_connection_to_cookies_database():
+    logger.info("Close database.")
+    if DB_CHROME_CONNECTION: DB_CHROME_CONNECTION.close()
 
 
 def get_sql_columns(SQL):
@@ -353,13 +379,38 @@ def get_sql_columns(SQL):
     return res
 
 def update_pdf_transaction(paper_id, source):
-    sql_update_pdf_transaction = 'UPDATE papers SET source_pdf = "{1}" where id = {0}'
     logger.debug("Update pdf_transaction for paper id={0}.".format(paper_id))
-    execute_sql(sql_update_pdf_transaction.format(paper_id, source))
+    execute_sql("""
+        UPDATE papers 
+        SET r_file_transaction=:r_file_transaction,
+            source_pdf=:source_pdf
+        WHERE id = :id
+        """, **{"r_file_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "source_pdf":source, "id":paper_id})
     return 0
 
 def update_is_pdf(paper_id, is_pdf):
     sql_update_is_pdf = 'UPDATE papers SET is_pdf = {0} where id = {1}'
     logger.debug("Update is_pdf on {} for paper id={}.".format(is_pdf, paper_id))
     execute_sql(sql_update_is_pdf.format(is_pdf, paper_id))
+    return 0
+
+def delete_cookie_from_chrome_db():
+    logger.debug("Delete cookie from scholar cookie database")
+    sql = """
+        DELETE FROM cookies 
+        WHERE
+           --(
+           --   host_key LIKE "%accounts%" 
+           --OR host_key LIKE "%google%"
+           --) 
+           --AND 
+            name not in ('SSID', 'SID', 'HSID', 'GSP')
+          """
+    logger.debug("Execute sql: \n{}".format(sql))
+    cur = DB_CHROME_CONNECTION.cursor()
+    cur.execute(sql)
+    try:
+        DB_CHROME_CONNECTION.commit()
+    except sqlite3.OperationalError:
+        return -2
     return 0

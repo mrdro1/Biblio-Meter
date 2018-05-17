@@ -23,10 +23,10 @@ import shutil
 import progressbar as pb
 import PyPDF2
 #
+import CONST
 import settings
 from torrequest import TorRequest
 import dbutils
-import scihub
 
 
 logger = logging.getLogger(__name__)
@@ -55,13 +55,15 @@ class Switch(object):
             return True
         return False
 
+
 class ProxyManager:
     """ Class for manage with proxies for each host name: load, get current, set next from inf list """
+
     def __init__(self):
         self.MAX_REQUESTS = 0
         self.MAX_REQUESTS_FOR_RELOAD_PROXIES = 250
         self.reqests_counter = 1
-        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', scihub.SCIHUB_HOST_NAME, 'otherhost']
+        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', CONST.SCIHUB_HOST_NAME, 'otherhost']
         self.file_name = settings.PROXY_FILE
         self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
         self.proxy_request_count = {host_name: 0 for host_name in self.list_host_names}
@@ -69,6 +71,7 @@ class ProxyManager:
         self.proxy = dict()
         self.bad_proxies = list()
         [self.set_next_proxy(host_name) for host_name in self.list_host_names]  # set self.proxy
+
 
     def load_proxies(self):
         """ load proxies from txt file to generator"""
@@ -92,6 +95,9 @@ class ProxyManager:
         logger.debug("Change proxy to {0} for {1}".format(self.proxy[host_name], host_name))
         return 0
 
+    def reload_proxies(self):
+        self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
+    
     def get_cur_proxy(self, host_name):
         """ get current proxy for specific host name """
         logger.debug("Get current proxy for {0}.".format(host_name))
@@ -99,6 +105,11 @@ class ProxyManager:
         if not host_name in self.list_host_names:
             host_name = "otherhost"
         logger.debug("Proxy: {0}".format(self.proxy[host_name]))
+        #if self.reqests_counter >= self.MAX_REQUESTS_FOR_RELOAD_PROXIES:
+        #    self.reload_proxies()
+        #    self.reqests_counter = 0
+        #else:
+        #    self.reqests_counter += 1
         if self.proxy_request_count[host_name] >= self.MAX_REQUESTS:
             self.set_next_proxy(host_name)
         else:
@@ -118,13 +129,58 @@ class ProxyManager:
         """  """
         if host_name.startswith('scholar'):
             host_name = 'scholar.google.com'
-        if host_name.endswith(scihub.SCIHUB_HOST_NAME):
-            host_name = scihub.SCIHUB_HOST_NAME
+        if host_name.endswith(CONST.SCIHUB_HOST_NAME):
+            host_name = CONST.SCIHUB_HOST_NAME
         return host_name
+
+    def add_to_bad_proxies(self, bad_proxy):
+        """ """
+        if len(self.bad_proxies) >= self.proxies_count * 0.85: # > 65%
+            logger.debug("Too many bad proxies! Reload proxy list.")
+            input('Too many bad proxies! Press enter to reload proxies and continue.')
+            self.reload_proxies()
+            self.bad_proxies = []
+        else:
+            logger.debug("Add bad proxy: {}".format(bad_proxy))
+            self.bad_proxies.append(bad_proxy)
 
 # init proxy
 _PROXY_OBJ = ProxyManager()
 
+
+def set_cookie(driver, cookies):
+    for cookie in cookies:
+        cookie_dict = {'domain': None, 'name': cookie.name, 'value': cookie.value, 'secure': cookie.secure}
+        if cookie.expires:
+            cookie_dict['expiry'] = cookie.expires
+        if cookie.path_specified:
+            cookie_dict['path'] = cookie.path
+        driver.add_cookie(cookie_dict)
+
+
+def open_browser_and_update_cookie(url, session, proxy_ip):
+    logger.debug("Init. browser")
+    chrome_options = ChromeOptions()
+    chrome_options.add_argument("-proxy-server={0}".format(proxy_ip))
+    driver = webdriver.Chrome(settings.PATH_TO_WEB_DRIVER, chrome_options=chrome_options)
+    logger.debug("Open browser")
+    driver.get(url)
+    logger.debug("Upload cookies")
+    driver.delete_cookie("GSP")
+    set_cookie(driver, session.cookies)
+    logger.debug("Refresh page")
+    driver.get(url)
+    url = driver.current_url
+    logger.debug("Wait change URL...")
+    wait = webdriver.support.ui.WebDriverWait(driver, 60 * 2)
+    element = wait.until(ec.url_changes(url))
+    logger.debug("Get cookies")
+    cookies = driver.get_cookies()
+    driver.close()
+    logger.debug("Update cookies for session")
+    session.cookies.clear_session_cookies()
+    for cookie in cookies:
+        session.cookies.set(cookie['name'], cookie['value'])
 
 def create_new_session():
     session = requests.session()
@@ -140,14 +196,27 @@ def create_new_session():
     cookie = {"domain":".scholar.google.com", "expires" : time.time() + 60 * 60, "name" : "GSP", "value":'ID={}:CF=3'.format(google_id), "httpOnly":False}
     logger.debug("New cookies: {}".format(json.dumps(cookie)))
     session.cookies.set(cookie['name'], cookie['value'])
-    session.HTTP_requests = 0
     return session
+
+
 
 # Region for work with good cookies
 DONT_TOUCH_KEYS_IN_COOKIES = ['SSID', 'SID', 'HSID']
 def del_gs_cookies():
     """ Function del google scholar cookies """
     logger.debug("Start delete cookies for google.com and google scholar")
+    ##if SESSION.cookies._cookies.get('.scholar.google.com'):
+    ##    SESSION.cookies._cookies.pop('.scholar.google.com')
+    ##    logger.debug("Delete cookies for google scholar")    
+    #if SESSION.cookies._cookies.get('.googleusercontent.com'):
+    #    SESSION.cookies._cookies.pop('.googleusercontent.com')
+    #    logger.debug("Delete cookies for googleusercontent.com")
+    #if SESSION.cookies._cookies.get('.google.com'):
+    #    google_cookies_keys = list(SESSION.cookies._cookies['.google.com']['/'].keys())
+    #    for key in google_cookies_keys:
+    #        if key not in DONT_TOUCH_KEYS_IN_COOKIES:
+    #            SESSION.cookies._cookies['.google.com']['/'].pop(key)
+    #    logger.debug("Delete cookies for google.com")
     res = dbutils.delete_cookie_from_chrome_db()
     if res == -2:
         logger.debug("DB Cookie '{}' is busy! Close Crhome!".format(settings.CHROME_COOKIES_PATH))
@@ -166,7 +235,7 @@ def is_many_bad_status_code():
     if dict_bad_status_code:
         list_status = dict_bad_status_code.items()
         code_with_biggest_value, biggest_appearance_count = sorted(list_status, key=lambda x: x[1])[-1]
-        if biggest_appearance_count >= int(settings.PARAMS['limit_resp_for_one_code']):
+        if biggest_appearance_count > int(settings.PARAMS['limit_resp_for_one_code']):
             logger.debug("Status code {0} has {1} appearance. Cookies will reload.".format(code_with_biggest_value,
                                                                                            biggest_appearance_count))
             dict_bad_status_code.clear()
@@ -247,12 +316,62 @@ SESSION.cookies = _get_cookies()
 
 SESSION_ = {}
 
+#def _load_cookie_from_dict(data_dict):
+#        """ Creates a cookie from the dict """
+#        COOKIE_DEFAULT_VALUES = collections.defaultdict(lambda: str())
+#        COOKIE_DEFAULT_VALUES = \
+#            {
+#                "version" : 0,
+#                "name" : None,
+#                "value" : None,
+#                "port" : 0,
+#                "port_specified" : False,
+#                "domain" : None,
+#                "domain_specified" : False,
+#                "domain_initial_dot" : False,
+#                "path" : '/',
+#                "path_specified" : True,
+#                "secure" : False,
+#                "expires" : None,
+#                "discard" : False,
+#                "comment" : None,
+#                "comment_url" : None,
+#                "rest" : {},
+#                "rfc2109" : False
+#            }
+#        cookie_params = dict( [(str(t[0]), t[1]) for t in data_dict.items() if t[0] in list(COOKIE_DEFAULT_VALUES)])
+#        for key in COOKIE_DEFAULT_VALUES.keys():
+#            cookie_params.setdefault(key, COOKIE_DEFAULT_VALUES[key])
+#        if "httpOnly" in data_dict:
+#            cookie_params["rest"] = {"HttpOnly":data_dict["httpOnly"]}
+#        return requests.cookies.cookielib.Cookie(**cookie_params)
+
+
+#def cl2cj(cookies_list):
+#    """ Convert list with cookies in dictionary to cookie jar """
+#    cj = requests.cookies.cookielib.CookieJar()
+#    for x in cookies_list:
+#         cj.set_cookie(_load_cookie_from_dict(x))
+#    return cj
+
+
+#def _update_cookie_jar(cjar, cookie_list):
+#    """ Insert or update cookies in cookie jar """
+#    cj = cl2cj(cookie_list)
+#    res_cj = requests.cookies.cookielib.CookieJar()
+#    for old_cookie in cjar:
+#        if [cookie for cookie in cj 
+#            if old_cookie.name == cookie.name 
+#            and old_cookie.domain == cookie.domain] == []:
+#                res_cj.set_cookie(old_cookie)
+#    _ = [res_cj.set_cookie(new_cookie) for new_cookie in cj]
+#    return res_cj
 
 def _check_captcha(soup):
     """Return true if ReCaptcha was found"""
     try:
         if soup.find('img', id="captcha"):
-            href = 'http://dabamirror.sci-hub.tw' + soup.find('img', id="captcha")['src']
+            href = 'https://cyber.sci-hub.tw' + soup.find('img', id="captcha")['src']
             download_file(href, 'captcha//' + href.split('/')[-1])
     except:
         settings.print_message('Can\'t load captcha image', 2)
@@ -261,43 +380,47 @@ def _check_captcha(soup):
        soup.find('div', class_='g-recaptcha') != None or \
        soup.find('img', id="captcha") != None
 
+
 def handle_captcha(response):
     """ Captcha handler """
     host = urlparse(response.request.url).hostname
-    if "sci-hub" in host:
-        try:
-            with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
-                f.write(response.text)
-        except:
-            pass
-        cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
-        os.popen(cline.format(response.request.url, ""))
-        input("Press Enter after entering to continue")
-        logger.debug("Waiting for cookies to be updated.")
-        #settings.print_message("Waiting for cookies to be updated.")
-        SESSION.cookies = _get_cookies()
-    else:
-        ip = [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]
-        if SESSION_.get(ip) is not None:
-            SESSION_[ip].HTTP_requests = 0
-        ip = [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy("scholar").values()][0]
-        if SESSION_.get(ip) is None:
-            logger.debug("Create new session for proxy {}".format(ip))
-            SESSION_[ip] = create_new_session()
-        number = [i for i, proxy_ in enumerate(SESSION_.keys()) if proxy_ == ip][0]
-        logger.debug("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, len(SESSION_.values()), ip))
-        settings.print_message("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, len(SESSION_.values()), ip))
+    settings.print_message("CAPTCHA was found.")
+    ##cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
+    ##os.popen(cline.format(response.request.url, 
+    ##    "-proxy-server={0}".format([ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]) if not ("sci-hub" in host) else ""))
+    ##try:
+    ##    with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
+    ##        f.write(response.text)
+    ##except:
+    ##    pass
+    ##input("Press Enter after entering to continue")
+    ##logger.debug("Waiting for cookies to be updated.")
+    ##settings.print_message("Waiting for cookies to be updated.")
+    ##SESSION.cookies = _get_cookies()
+    
+    proxy = [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]
+    # ВАРИАНТ С ОТКРЫВАНИЕМ БРАУЗЕРА
+    # open_browser_and_update_cookie(response.request.url, SESSION_[proxy], proxy)
+    # ВАРИАНТ С ЧЕРНЫМ СПИСКОМ
+    settings.print_message("Add proxy to blacklist {} (total {})".format(proxy, len(_PROXY_OBJ.bad_proxies) + 1))
+    _PROXY_OBJ.add_to_bad_proxies(_PROXY_OBJ.get_cur_proxy_without_changing(host))
+    # ВАРИАНТ С ГЕНЕРАЦИЕЙ НОВОЙ СЕССИИ
+    # SESSION_[proxy] = create_new_session()
+    _PROXY_OBJ.get_cur_proxy("scholar")
     return 0
 
-def get_request(url, stream=False, return_resp=False, POST=False, att_file=None):
+
+
+def get_request(url, stream=False, return_resp=False):
     """Send get request [, catch errors, try again]* & return data"""
     global REQUEST_STATISTIC
+    ##del_gs_cookies()
     host = urlparse(url).hostname
     count_try_for_captcha = 0
     bad_requests_counter = 0
     # var for control count handled capthas, this help avoid inf cycle
     capthas_handled = 0
-    MAX_CAPTCHAS_HANDLED = _PROXY_OBJ.proxies_count
+    MAX_CAPTCHAS_HANDLED = 1
 
     while(True):
         TIMEOUT = 10
@@ -317,38 +440,39 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None)
 
             return None
         try:
-            ip = None
-            if POST:
-                resp = SESSION.post(url=url, files=att_file, stream=stream, timeout=TIMEOUT, verify=False)
-            elif host.endswith(scihub.SCIHUB_HOST_NAME):
+            if host.endswith(CONST.SCIHUB_HOST_NAME):
                 resp = SESSION.get(url, stream=stream, timeout=TIMEOUT, verify=False)
+            #elif settings.using_TOR:
+            #    with TorRequest(tor_app=r"Tor\tor.exe") as tr:
+            #        print('I use tor')
+            #        resp = tr.get(url=url, cookies=SESSION.cookies, timeout=settings.DEFAULT_TIMEOUT)
+            #        SESSION.cookies = resp.cookies
             else:
-                proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)#_PROXY_OBJ.get_cur_proxy(host)
+                proxy = _PROXY_OBJ.get_cur_proxy(host)
+
 
                 ip = [ip_port for ip_port in proxy.values()][0]
                 if SESSION_.get(ip) is None:
                     logger.debug("Create new session for proxy {}".format(ip))
                     SESSION_[ip] = create_new_session()
-
-                number = [i for i, proxy_ in enumerate(SESSION_.keys()) if proxy_ == ip][0]   
-                logger.debug("Use proxy #{} (total {}): {}. Successfull HTTP requests: {}".format(number + 1, _PROXY_OBJ.proxies_count, proxy, SESSION_[ip].HTTP_requests))
-                #settings.print_message("Use proxy #{} (total {}): {}. Successfull HTTP requests: {}".format(number + 1, _PROXY_OBJ.proxies_count, ip, SESSION_[ip].HTTP_requests), 3)
                 resp = SESSION_[ip].get(url, proxies=proxy, stream=stream, timeout=TIMEOUT)
+
+
+                #resp = SESSION.get(url, proxies=proxy, stream=stream, timeout=TIMEOUT)
+            #handle_captcha(resp)
             if resp.headers.get('Content-Type') and 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
                     count_try_for_captcha += 1
                     if _get_name_max_try_to_host(url):
-                        
-                        if count_try_for_captcha < settings.PARAMS[_get_name_max_try_to_host(url)]:
-                            settings.print_message("CAPTCHA was found, try get request again. Try count: {} (total{}) Current proxy #{} (total {}): {}.".format(count_try_for_captcha, settings.PARAMS[_get_name_max_try_to_host(url)], number + 1, _PROXY_OBJ.proxies_count, ip, SESSION_[ip].HTTP_requests), 3)
-                            logger.debug("CAPTCHA was found, try get request again. Try count: {} (total{}) Current proxy #{} (total {}): {}.".format(count_try_for_captcha, settings.PARAMS[_get_name_max_try_to_host(url)], number + 1, _PROXY_OBJ.proxies_count, ip, SESSION_[ip].HTTP_requests))
+                        if count_try_for_captcha <= settings.PARAMS[_get_name_max_try_to_host(url)]:
+                            _PROXY_OBJ.set_next_proxy(host)
                             continue
                         else:
                             if capthas_handled < MAX_CAPTCHAS_HANDLED:
                                 bad_proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)
                                 handle_captcha(resp)
-                                count_try_for_captcha = 0
                             else:
+                                _PROXY_OBJ.add_to_bad_proxies(bad_proxy)
                                 try:
                                     with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
                                         f.write(resp.text)
@@ -362,38 +486,33 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None)
                 # +1 bad requests
                 REQUEST_STATISTIC['failed_requests'].append(url)
                 REQUEST_STATISTIC['count_requests'] += 1
-                if ip: SESSION_[ip].HTTP_requests = 0
                 return None
             if resp.status_code != 200:
                 bad_requests_counter += 1
                 dict_bad_status_code[resp.status_code] += 1
-                if ip: SESSION_[ip].HTTP_requests = 0
-                #_PROXY_OBJ.set_next_proxy(host)
-                logger.debug("HTTP ERROR: Status code {}".format(resp.status_code))
-                #settings.print_message("HTTP ERROR")
+                _PROXY_OBJ.set_next_proxy(host)
                 # if count resp with same code enough big than reload cookies
                 if is_many_bad_status_code():
-                    settings.print_message("Many HTTP errors, change proxy.")
+                    del_gs_cookies()
                     #_PROXY_OBJ.reload_proxies()
-                    _PROXY_OBJ.set_next_proxy(host)
                 continue
-
+            
             if resp.status_code == 200:
                 # +1 good requests
-                if ip: SESSION_[ip].HTTP_requests += 1
                 REQUEST_STATISTIC['count_requests'] += 1
                 if stream or return_resp:
                     return resp
                 else:
                     return resp.text  # OK
+        #except(ProxyError, ConnectTimeout, SSLError, ReadTimeout):
+        #    bad_requests_counter += 1
+        #    logger.warn(traceback.format_exc())
+        #    _PROXY_OBJ.set_next_proxy(host)
+        #    continue
         except Exception as error:
-            dict_bad_status_code[-1] += 1
             logger.warn(traceback.format_exc())
             bad_requests_counter += 1
-            #settings.print_message("HTTP ERROR")
-            if is_many_bad_status_code():
-                settings.print_message("Many HTTP errors, change proxy.")
-                _PROXY_OBJ.set_next_proxy(host)
+            _PROXY_OBJ.set_next_proxy(host)
             continue
     raise Exception(resp.status_code, resp.reason)
 
@@ -404,7 +523,7 @@ def _get_name_max_try_to_host(url):
         {
             'www.researchgate.net': 'researchgate',
             'scholar.google.com': 'google',
-            scihub.SCIHUB_HOST_NAME: 'sci_hub'
+            CONST.SCIHUB_HOST_NAME: 'sci_hub'
         }
     host = urlparse(url).hostname
     host = _PROXY_OBJ.update_host_name_for_resources(host)
@@ -423,6 +542,7 @@ def get_soup(url):
         soup = BeautifulSoup(request, 'html.parser')
         return soup
     except Exception as error:
+        #logger.warn(traceback.format_exc())
         raise
     return None
 
@@ -433,6 +553,7 @@ def get_text_data(url, ignore_errors = False, repeat_until_captcha = False):
         data = get_request(url)
         return data
     except Exception as error:
+        #logger.warn(traceback.format_exc())
         raise
     return None
 
@@ -450,6 +571,7 @@ def get_json_data(url):
         logger.debug("Parse host answer from json.")
         json_data = json.loads(resp)
     except Exception as error:
+        #logger.warn(traceback.format_exc())
         raise
     SESSION.headers.update({"Accept" : tmp_accept})
     return json_data
@@ -478,22 +600,38 @@ def download_file(url, output_filename):
     if content_length == 0 and 'application/pdf' in response.headers['content-type']:
         logger.debug('Downloading the entire file.')
         response = get_request(url, return_resp=True)
-
+    #try:
+        
+    #except:
+    #    logger.debug("Failed download file. Has not attribute 'content-length'")
+    #    settings.print_message("Failed download file. Has not attribute 'content-length'", 3)
+    #    logger.warn(traceback.format_exc())
+        
     downloaded_size = 0
     chunk_size = 65536
-
+ 
     with open(output_filename, 'bw') as outfile:
         download = False
         if content_length > 0:
             logger.debug('Create file {0}, start download.'.format(output_filename))
+            #if content_length < 16200:
+            #    widgets = [pb.Percentage(), pb.Bar(), pb.ETA()]
+            #    progress = pb.ProgressBar(maxval=content_length,
+            #                                widgets=widgets).start()
             for chunk in response.iter_content(chunk_size):
                 download = True
                 outfile.write(chunk)
                 downloaded_size += len(chunk)
+                #if content_length < 16200:
+                #    progress.update(downloaded_size)
             logger.debug('End download file {0}.'.format(output_filename))
         else:
             logger.debug('Save file {0}.'.format(output_filename))
             outfile.write(response.content)
+            #response.raw.decode_content = True
+            #shutil.copyfileobj(response.raw, outfile)
+        
+    #print("")
     return download
 
 def check_pdf(filename):
@@ -521,7 +659,7 @@ def is_doi(DOI):
     logger.debug("DOI '%s' is %s" % (DOI, "correct" if res else "not correct"))
     return res
 
-
+#
 _SKIP_RG = False
 _SKIP_RG_FOR_ALL = False
 
@@ -548,24 +686,4 @@ def RG_stage_is_skipped():
 
 def RG_stage_is_skipped_for_all():
     return _SKIP_RG_FOR_ALL
-
-def rename_file(old_name, new_name):
-    """ Check exists file new_name and if not exists file
-        old_name rename to new_name else rename file 
-        old_name to new_name(N + 1). N is count of file versions.
-    """
-    logger.debug("Rename file '{}' -> '{}'.".format(old_name, new_name))
-    fname, ext = os.path.splitext(new_name)
-    tmp = fname.split("_")
-    version = 1
-    if len(tmp) > 1:
-        str_version = tmp[::-1][0]
-        if str_version.isnumeric():
-            fname = tmp[:-1][0]
-            version = int(str_version) + 1
-    file_name = new_name
-    while os.path.exists(file_name):
-        file_name = "{0}_{1}{2}".format(fname, version, ext)
-        version += 1
-    os.rename(old_name, file_name)
-    return file_name
+#

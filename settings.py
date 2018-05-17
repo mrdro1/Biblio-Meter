@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.join(_main_dir, 'utils\\'))
 sys.path.insert(0, os.path.join(_main_dir, 'entities\\'))
 sys.path.insert(0, os.path.join(_main_dir, 'internet_resources\\'))
 #
-from dbutils import set_program_transaction, close_program_transaction, connect, close_connection
+from dbutils import set_program_transaction, close_program_transaction, connect, \
+                    close_connection, close_connection_to_cookies_database, connect_to_cookies_database
 
 def build_version_string():
     """ This function read current version from version.txt and format version string """
@@ -41,6 +42,7 @@ _header = build_version_string()
 
 # Path to web driver
 PATH_TO_WEB_DRIVER = 'chromedriver.exe'
+CHROME_COOKIES_PATH = os.path.join(os.getenv('LOCALAPPDATA'), "Google\\Chrome\\User Data\\Default\\Cookies")
 
 # Default browser
 CHROME = 0
@@ -95,7 +97,10 @@ CONTROL_KEYS = [
     "http_contiguous_requests",
     "limit_resp_for_one_code",
     "urls",
-    "start_paper"
+    "start_paper",
+    "google_sci_hub_files",
+    "google_get_files",
+    "google_cluster_files",
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
@@ -106,8 +111,11 @@ CONTROL_DEFAULT_VALUES = \
         "sci_hub_captcha_retry_by_proxy_count" : 0,
         "commit_iterations" : 1000000,
         "http_contiguous_requests" : 20,
-        "limit_resp_for_one_code": 20,
-        "start_paper": 1
+        "limit_resp_for_one_code" : 20,
+        "start_paper" : 1,
+        "google_sci_hub_files" : True,
+        "google_get_files" : True,
+        "google_cluster_files" : True,
     }
 
 def CloseObjects():
@@ -116,6 +124,7 @@ def CloseObjects():
         close_program_transaction(RESULT)
     # Close db conn
     close_connection()
+    close_connection_to_cookies_database()
     # Close logbook file
     logger.info("Close logbook")
     _LOG_F_HANDLER.close()
@@ -196,6 +205,7 @@ _LOG_F_HANDLER.setFormatter(_LOG_F_FORMATTER)
 # Database
 try:
     connect(_DB_FILE)
+    connect_to_cookies_database(CHROME_COOKIES_PATH)
 except:
     logger.error(traceback.format_exc())
     CloseObjects()

@@ -7,6 +7,7 @@ import queue
 import json
 from datetime import datetime
 import random
+import time
 #
 import settings
 import dbutils
@@ -16,24 +17,26 @@ import author
 import scholar
 import researchgate
 import scihub
+import grobid
 
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOG_LEVEL)
 
 
-
-def get_papers_by_key_words_and_get_pdf_from_scihub():
+def get_papers_by_key_words():
     logger.debug("Search papers from google.scholar.")
     settings.print_message("Search papers from google.scholar.")
     #settings.PARAMS['google_clusters_handling'] = 'False'
     paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(settings.PARAMS)
+    
     if paper_generator is None:
         logger.debug("Soup from google.scholar is None. End command get_papers_by_key_words")
-        return (0, 0, 0, 0, 0)
+        return (0, 0, 0, 0, 0, 0, 0)
+
     logger.debug(about_res_count)
     settings.print_message("Google: Found {0} papers.".format(about_res_count))
-    number_of_papers_compared = int(settings.PARAMS["max_researchgate_papers"])
-    if number_of_papers_compared <= 0: utils.skip_RG_stage_for_all()
+    #number_of_papers_compared = int(settings.PARAMS["max_researchgate_papers"])
+    #if number_of_papers_compared <= 0: utils.skip_RG_stage_for_all()
     new_papers = 0
     new_auth = 0
     max_papers_count = int(settings.PARAMS["max_google_papers"])
@@ -64,17 +67,17 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                 newpaper = paper.Paper()
                 # Fill data from google scholar
                 newpaper.get_info_from_sch(paper_info["general_information"], paper_addition_information,
-                                           paper_version_counter + 1)
-                if paper_versions > 1:
-                    if rg_query_page_cache == None:
-                        if not utils.RG_stage_is_skipped():
-                            settings.print_message("Search papers from researchgate.", 1)
-                            rg_query_page_cache = newpaper.get_rg_first_search_page()
-                        else:
-                            settings.print_message("Skip researchgate stage.", 1)
-                            logger.debug("Skip researchgate stage.")
-                    settings.print_message(
-                        "Handle paper version #%i (total %i)" % (paper_version_counter + 1, paper_versions), 1)
+                                           paper_version_counter + 1, paper_info['link_to_pdf'])
+                #if paper_versions > 1:
+                #    if rg_query_page_cache == None:
+                #        if not utils.RG_stage_is_skipped():
+                #            settings.print_message("Search papers from researchgate.", 1)
+                #            rg_query_page_cache = newpaper.get_rg_first_search_page()
+                #        else:
+                #            settings.print_message("Skip researchgate stage.", 1)
+                #            logger.debug("Skip researchgate stage.")
+                #    settings.print_message(
+                #        "Handle paper version #%i (total %i)" % (paper_version_counter + 1, paper_versions), 1)
                 if newpaper.in_database():
                     settings.print_message("This paper%s already exists, id = %i." % ((" version" if paper_versions > 1 else ""), newpaper.db_id), 1)
                 else:
@@ -82,76 +85,99 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
                     settings.print_message(
                         "Adding a paper%s to the database" % (" version" if paper_versions > 1 else ""),
                         1)
-                new_papers += 1
-                success_download = False
-                # load pdf from gs
-                if paper_info['link_to_pdf']:
-                    settings.print_message("Try get pdf from Google Scholar.", 1)
-                    papers_with_pdf_url_counter += 1
-                    url_for_download_from_gs = paper_info['link_to_pdf']
-                    settings.print_message(
-                        "Getting PDF-file from Google Scholar by url : {0}.".format(url_for_download_from_gs), 2)
-                    logger.debug("Getting PDF-file from Google Scholar by url : {0}.".format(url_for_download_from_gs))
-                    try:
-                        fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
-                        if scholar.get_pdf(url_for_download_from_gs, fn_pdf):
-                            succes_pdfs_loaded_gs += 1
-                            settings.print_message("Complete!", 2)
-                            dbutils.update_pdf_transaction(newpaper.db_id, "Scholar")
-                            success_download = True
-                    except:
-                        utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
-                        logger.debug("Failed get pdf from Google Scholar for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))
-                        settings.print_message("failed load PDF from Google Scholar.", 2)
 
-                # load pdf from scihub by paper url if does not exist
-                if paper_info['general_information'].get('url') and not success_download:
-                    settings.print_message("Try get pdf by paper url on sci-hub.", 1)
-                    papers_without_pdf_url_counter += 1
-                    url_for_download_from_sci_hub = paper_info['general_information']['url']
-                    settings.print_message(
-                        "Getting PDF-file from Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub), 2)
-                    logger.debug("Getting PDF-file on Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub))
-                    try:
-                        fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
-                        if not scihub.get_pdf(url_for_download_from_sci_hub, fn_pdf):
-                            settings.print_message(
-                                "PDF unavailable on sci-hub.", 2)
+                    # Get and insert in database info about author
+                    settings.print_message("Authors:", 2)
+                    for author_info in newpaper.authors:
+                        # Create new author entity
+                        newauthor = author.Author()
+                        newauthor.get_base_info_from_sch(author_info)
+
+                        settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 4)
+                        logger.debug("Check exists author and if not then insert into DB.")
+                        if not newauthor.in_database():
+                            newauthor.get_info_from_sch()
+                            # Insert new author into DB
+                            settings.print_message("Adding author to the database", 4)
+                            newauthor.save_to_database()
+                            new_auth += 1
                         else:
-                            succes_pdfs_loaded_sh += 1
-                            settings.print_message("Complete!", 2)
-                            dbutils.update_pdf_transaction(newpaper.db_id, "Sci-hub")
-                            success_download = True
-							is_pdf = utils.check_exists_pdf(fn_pdf)
-							dbutils.update_is_pdf(newpaper.db_id, is_pdf)
-                    except:
-                        utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_sci_hub)
-                        logger.debug("Failed get pdf from sci-hub for paper #{0}. URL={0}".format(new_papers - 1,
-                                                                                                  url_for_download_from_sci_hub))
-                        settings.print_message("failed load PDF from sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
-                        #continue
-                if not success_download and paper_info['general_information'].get("cluster"):
-                    cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(paper_info['general_information']["cluster"])
-                    if cluster_pdfs_links is not None:
-                        settings.print_message("Try get pdf from Google Scholar cluster {}.".format(paper_info['general_information']["cluster"]), 1)
-                        for url_for_download_from_gs in cluster_pdfs_links:
-                            settings.print_message(
-                                "Getting PDF-file from cluster Google Scholar by url : {0}.".format(url_for_download_from_gs), 2)
-                            logger.debug("Getting PDF-file from cluster Google Scholar by url : {0}.".format(url_for_download_from_gs))
-                            try:
-                                fn_pdf = 'PDF//{0}.pdf'.format(newpaper.db_id)
-                                if scholar.get_pdf(url_for_download_from_gs, fn_pdf):
-                                    succes_pdfs_loaded_gs += 1
-                                    settings.print_message("Complete!", 2)
-                                    dbutils.update_pdf_transaction(newpaper.db_id, "Cluster")
-                                    success_download = True
-                                    break
-                            except:
-                                utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
-                                logger.debug("Failed get pdf from Google Scholar cluster for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))
-                                settings.print_message("failed load PDF from Google Scholar cluster.", 2)
-                if not success_download:
-                    settings.print_message("Downolad PDF unavaliable.", 1)
+                            settings.print_message("This author already exists, id = %i." % newauthor.db_id, 4)
+                        # Insert into DB reference
+                        dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
+
+                new_papers += 1
+                if settings.PARAMS["google_get_files"]:
+                    success_download = False
+                    fn_tmp_pdf = 'PDF\\tmp_{0}.pdf'.format(newpaper.db_id)
+                    fn_pdf = 'PDF\\{0}.pdf'.format(newpaper.db_id)
+                    # load pdf from gs
+                    if paper_info['link_to_pdf']:
+                        settings.print_message("Try get pdf from Google Scholar.", 1)
+                        papers_with_pdf_url_counter += 1
+                        url_for_download_from_gs = paper_info['link_to_pdf']
+                        settings.print_message(
+                            "Getting PDF-file from Google Scholar by url : {0}.".format(url_for_download_from_gs), 2)
+                        logger.debug("Getting PDF-file from Google Scholar by url : {0}.".format(url_for_download_from_gs))
+                        try:
+                            if scholar.get_pdf(url_for_download_from_gs, fn_tmp_pdf):
+                                succes_pdfs_loaded_gs += 1
+                                settings.print_message("Complete!", 2)
+                                dbutils.update_pdf_transaction(newpaper.db_id, "Scholar")
+                                utils.rename_file(fn_tmp_pdf, fn_pdf)
+                                success_download = True
+                        except:
+                            settings.print_message(traceback.format_exc())
+                            utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
+                            logger.debug("Failed get pdf from Google Scholar for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))
+                            settings.print_message("failed load PDF from Google Scholar.", 2)
+
+                    # load pdf from scihub by paper url if does not exist
+                    if paper_info['general_information'].get('url') and not success_download and settings.PARAMS["google_sci_hub_files"]:
+                        settings.print_message("Try get pdf by paper url on sci-hub.", 1)
+                        papers_without_pdf_url_counter += 1
+                        url_for_download_from_sci_hub = paper_info['general_information']['url']
+                        settings.print_message(
+                            "Getting PDF-file from Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub), 2)
+                        logger.debug("Getting PDF-file on Sci-Hub by url : {0}.".format(url_for_download_from_sci_hub))
+                        try:
+                            if not scihub.get_pdf(url_for_download_from_sci_hub, fn_tmp_pdf):
+                                settings.print_message(
+                                    "PDF unavailable on sci-hub.", 2)
+                            else:
+                                succes_pdfs_loaded_sh += 1
+                                settings.print_message("Complete!", 2)
+                                dbutils.update_pdf_transaction(newpaper.db_id, "Sci-hub")
+                                utils.rename_file(fn_tmp_pdf, fn_pdf)
+                                success_download = True
+                        except:
+                            utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_sci_hub)
+                            logger.debug("Failed get pdf from sci-hub for paper #{0}. URL={0}".format(new_papers - 1,
+                                                                                         url_for_download_from_sci_hub))
+                            settings.print_message("failed load PDF from sci-hub. URL={0}".format(url_for_download_from_sci_hub), 2)
+                            #continue
+                    if not success_download and paper_info['general_information'].get("cluster") and settings.PARAMS["google_cluster_files"]:
+                        cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(paper_info['general_information']["cluster"])
+                        if cluster_pdfs_links is not None:
+                            settings.print_message("Try get pdf from Google Scholar cluster {}.".format(paper_info['general_information']["cluster"]), 1)
+                            for url_for_download_from_gs in cluster_pdfs_links:
+                                settings.print_message(
+                                    "Getting PDF-file from cluster Google Scholar by url: {0}.".format(url_for_download_from_gs), 2)
+                                logger.debug("Getting PDF-file from cluster Google Scholar by url: {0}.".format(url_for_download_from_gs))
+                                try:
+                                    if scholar.get_pdf(url_for_download_from_gs, fn_tmp_pdf):
+                                        succes_pdfs_loaded_gs += 1
+                                        settings.print_message("Complete!", 2)
+                                        dbutils.update_pdf_transaction(newpaper.db_id, "Cluster")
+                                        utils.rename_file(fn_tmp_pdf, fn_pdf)
+                                        success_download = True
+                                        break
+                                except:
+                                    utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
+                                    logger.debug("Failed get pdf from Google Scholar cluster for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))
+                                    settings.print_message("failed load PDF from Google Scholar cluster.", 2)
+                    if not success_download:
+                        settings.print_message("Downolad PDF unavaliable.", 1)
                 # Commit transaction each commit_iterations iterations
                 if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
             # if papers_counter >= max_papers_count: break;
@@ -162,94 +188,6 @@ def get_papers_by_key_words_and_get_pdf_from_scihub():
     return (new_papers, new_auth, papers_counter, papers_without_pdf_url_counter, succes_pdfs_loaded_sh,
             papers_with_pdf_url_counter, succes_pdfs_loaded_gs)
 
-
-def get_papers_by_key_words():
-    """This function searches for articles according to the given parameters and downloads the information about them and authors into database"""
-    logger.debug("Search papers from google.scholar.")
-    settings.print_message("Search papers from google.scholar.")
-    paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(settings.PARAMS)
-    if paper_generator is None:
-        logger.debug("Soup from google.scholar is None. End command get_papers_by_key_words")
-        return (0, 0, 0)
-    logger.debug(about_res_count)
-    settings.print_message("Google: Found {0} papers.".format(about_res_count))
-    number_of_papers_compared = int(settings.PARAMS["max_researchgate_papers"])
-    if number_of_papers_compared <= 0: utils.skip_RG_stage_for_all()
-    new_papers = 0
-    new_auth = 0
-    max_papers_count = int(settings.PARAMS["max_google_papers"])
-    commit_iterations = int(settings.PARAMS["commit_iterations"])
-    papers_counter = 0
-    if max_papers_count > 0:
-        for paper_info in paper_generator:
-            rg_query_page_cache = None
-            # Loop for different versions of paper
-            paper_versions = len(paper_info["different_information"])
-            if paper_versions == 0: settings.print_message("Not found information about paper #%i, skipped." % paper_versions, 1)
-            for paper_version_counter, paper_addition_information in enumerate(paper_info["different_information"]):
-                papers_counter += 1
-                if not utils.RG_stage_is_skipped_for_all(): utils.skip_RG_stage_reset()
-                # if papers_counter > max_papers_count: break;
-                if not "year" in paper_addition_information or not "author" in paper_addition_information:
-                    logger.debug("Skip paper #%i, empty year or authors fields." % papers_counter)
-                    continue
-                logger.debug("Process content of EndNote file #%i\n%s\n%s" % (papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)) )
-                # Create new paper entity
-                newpaper = paper.Paper()
-                # Fill data from google scholar
-                newpaper.get_info_from_sch(paper_info["general_information"], paper_addition_information, paper_version_counter + 1)
-                if paper_versions > 1:
-                    if rg_query_page_cache == None:
-                        if not utils.RG_stage_is_skipped():
-                            settings.print_message("Search papers from researchgate.", 1)
-                            rg_query_page_cache = newpaper.get_rg_first_search_page()
-                        else:
-                            settings.print_message("Skip researchgate stage.", 1)
-                            logger.debug("Skip researchgate stage.")
-                    settings.print_message("Handle paper version #%i (total %i)" % (paper_version_counter + 1, paper_versions), 1)
-                # Fill data from researchgate
-                if not utils.RG_stage_is_skipped():
-                    settings.print_message("Researchgate:", 2)
-                    settings.print_message("Filling in information about the paper%s." % (" version" if paper_versions > 1 else ""), 3)
-                    if newpaper.get_data_from_rg(rg_query_page_cache, number_of_papers_compared) == True:
-                        settings.print_message("This paper%s was identified and filled." % (" version" if paper_versions > 1 else ""), 3)
-                    else:
-                        settings.print_message("This paper%s not found." % (" version" if paper_versions > 1 else ""), 3)
-                logger.debug("Check exists paper and if not then insert into DB.")
-                if newpaper.in_database():
-                    settings.print_message("This paper%s already exists, id = %i." % ((" version" if paper_versions > 1 else ""), newpaper.db_id), 1)
-                    continue
-                new_papers += 1
-                # insert paper into DB
-                newpaper.add_to_database()
-                settings.print_message("Adding a paper%s to the database" % (" version" if paper_versions > 1 else ""), 1)
-
-                # Get and insert in database info about author
-                settings.print_message("Authors:", 2)
-                for author_info in newpaper.authors:
-                    # Create new author entity
-                    newauthor = author.Author()
-                    newauthor.get_base_info_from_sch(author_info)
-
-                    settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 4)
-                    logger.debug("Check exists author and if not then insert into DB.")
-                    if not newauthor.in_database():
-                        newauthor.get_info_from_sch()
-                        # Insert new author into DB
-                        settings.print_message("Adding author to the database", 4)
-                        newauthor.save_to_database()
-                        new_auth += 1
-                    else:
-                        settings.print_message("This author already exists, id = %i." % newauthor.db_id, 4)
-                    # Insert into DB reference
-                    dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
-
-                # Commit transaction each commit_iterations iterations
-                if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
-            # if papers_counter >= max_papers_count: break;
-    logger.debug("End processing. Changes in DB: %i." % (new_auth + new_papers))
-    settings.print_message("End processing. Changes in DB: %i." % (new_auth + new_papers))
-    return (new_papers, new_auth, papers_counter)
 
 def update_authors():
     pass
@@ -543,6 +481,48 @@ def get_cities():
             if  new_paper_counter >= MAX_CITED_PAPERS - 1: break
     return (papers_counter, papers_without_list, new_papers_count, getinfo_fails, new_authors_count)
 
+
+def get_info_from_PDFs():
+    """ This function get info from PDFs by GROBID """
+    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else 1000000
+    # statistic
+    papers_counter = 0
+    bad_papers = 0
+    bad_pdfs = 0
+    #
+    logger.debug("Select papers from database.")
+    settings.print_message("Select papers from database.")
+    PAPERS_SQL = settings.PARAMS["papers"]
+    papers = dbutils.execute_sql(PAPERS_SQL)
+    settings.print_message("{0} papers selected.".format(len(papers)), 2)
+    # Get columns from query
+    columns = dict()
+    for N, column in enumerate(dbutils.get_columns_names("papers")):
+        columns[column.lower()] = N
+    unavailable_files_counter = 0
+    for paper_index, paper_info in enumerate(papers):
+        settings.print_message("Handle paper #{0} (total {1}).".format(paper_index + 1, len(papers)))
+        id = paper_info[columns["id"]]
+        file_name = "PDF\\{}.pdf".format(id)
+        if not os.path.exists(file_name):
+            settings.print_message('PDF "{}" not found, skip this paper.'.format(file_name), 2)
+            logger.debug('PDF "{}" not found, skip this paper.'.format(file_name))
+            bad_pdfs += 1
+            continue
+        cur_paper = paper.Paper()
+        cur_paper.db_id = id
+        if not cur_paper.get_data_from_grobid(file_name):
+            settings.print_message('Process PFD "{}" is failed, skip.'.format(file_name), 2)
+            logger.debug('Process PFD "{}" is failed, skip.'.format(file_name))
+            bad_papers += 1
+            continue
+        papers_counter += 1
+        settings.print_message('Success processed PFD "{}".'.format(file_name), 2)
+        logger.debug('Success processed PFD "{}".'.format(file_name))
+        if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
+    return (papers_counter, bad_pdfs, bad_papers, len(papers))
+
+
 def print_to_log_http_statistic():
     """ This function print statistic of http requests in log. """
     logger.info('HTTP-requests: {0}({1} failed)'.format(utils.REQUEST_STATISTIC['count_requests'],
@@ -558,25 +538,17 @@ def dispatch(command):
     start_time = datetime.now()
     try:
         for case in utils.Switch(command):
-
-            if case('get_pdf_by_list_url'):
+            if case('processFiles'):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
-                # START COMMAND
-                result = get_pdf_by_list_url()
+                result = get_info_from_PDFs()
+                logger.debug("Processing was successful. Success updated: %i. Bad PDFs: %i. Failed processing: %i. Total papers: %i " % result)
+                settings.print_message("Processing was successful. Success updated: %i. Bad PDFs: %i. Failed processing: %i. Total papers: %i " % result)
+                break
             if case("getPapersByKeyWords"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
-                # START COMMAND
                 result = get_papers_by_key_words()
-                logger.debug("Processing was successful. Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
-                settings.print_message("Processing was successful. Added new papers: %i. Added new authors: %i. Processed total papers: %i." % result)
-                break
-            if case("get_papers_by_key_words_and_get_pdf_from_scihub"):
-                logger.debug("Processing command '%s'." % command)
-                settings.print_message("Processing command '%s'." % command)
-                # START COMMAND
-                result = get_papers_by_key_words_and_get_pdf_from_scihub()
                 logger.debug("Processing was successful. Added new papers: %i. Added new authors: %i. "
                              "Processed total papers: %i. Try load %i scihub pdfs. Success load from scihub %i pdfs."
                              "Try load %i gs pdfs. Success load from gs %i pdfs. " % result)

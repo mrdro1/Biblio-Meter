@@ -1,14 +1,17 @@
-# python proxy_finder.py -q "163.121.187.100:8080" -c 1 -o proxies.txt
+# python proxy_finder.py -q "q" -c 1 -o proxies.txt
 
 import argparse
 from datetime import datetime
+import os
 import random
 import re
 import time
-import traceback
+
 import browsercookie
 import requests
 from bs4 import BeautifulSoup
+import docx2txt
+
 
 
 cfromat = "[{0}] {1}{2}"
@@ -75,7 +78,7 @@ SESSION = requests.Session()
 SESSION.headers = _DEFAULT_HEADER
 SESSION.cookies = _get_cookies()
 
-SEARCH_GOOGLE_TMPL_HREF = 'https://www.google.ru/search?q="{}"'
+SEARCH_GOOGLE_TMPL_HREF = 'https://www.google.ru/search?q="{}"&start=30'
 GOOGLE_TMPL_HREF = 'https://www.google.ru/{}'
 
 DEFAULT_ATEEMPTS_COUNT = 5
@@ -87,70 +90,112 @@ def get_request(url):
 def ProxyExtracter(href):
     try:
         resp = get_request(href)
-        text = resp.text
-        proxies = re.findall(
-            r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)[:|\s| ]+[1-9][0-9]+",
-            text)
-        return set(proxies)
-    except Exception as e:
-        print_message(traceback.format_exc())
-        return set()
+    except:
+        return []
+    text = resp.text
+    proxies = re.findall(
+                r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)[:|\s| ]+[1-9][0-9]+",
+                text)
+    if len(set(proxies)) == 0 and resp._content:
+        try:
+            open('temp.doc', 'wb').write(resp._content)
+            text = docx2txt.process("temp.doc")
+            proxies = re.findall(
+                r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)[:|\s| ]+[1-9][0-9]+",
+                text)
+        except:
+            proxies = []
+    print(len(set(proxies)))
+    return set(proxies)
 
-        
+
 def get_all_proxy(q, max_page):
-    resp = get_request(SEARCH_GOOGLE_TMPL_HREF.format(q))
-    open('fail.html', 'w', encoding='UTF-8').write(resp.text)
+    '''from selenium import webdriver
+    driver = webdriver.Chrome()
+    driver.get(q)
+    driver.find_element_by_css_selector('.button .c_button .s_button').click()'''
+
+    resp = get_request(q)
+    #open('fail.html', 'w', encoding='UTF-8').write(resp.text)
     google_soup = BeautifulSoup(resp.text, 'html.parser')
+    try:
+        count_res = google_soup.find_all("div", {"id": "resultStats"})[0].text
+        count_res = count_res.replace('Результатов', 'Count results').replace('примерно', '').replace('сек.', 'sec')
+        print_message(count_res)
+    except:
+        pass
     page_counter = 0
+    a_from_prev_page = []
     while True:
         print_message('Current page: {}'.format(page_counter+1))
-        for h3 in google_soup.find_all('h3', 'r'):
-            site_url = h3.a['href']
+        a_from_current_page = []
+        #e = [google_soup.find_all('span')[0] for _ in google_soup.find_all('a') if _.find_all('span')]
+        #s = [e.text for _ in e]
+        for a in google_soup.find_all('a'):
+            try:
+                site_url = a['href']
+            except:
+                continue
+
+            if 'google' in site_url or site_url in ['#', '/'] or 'youtube' in site_url \
+                    or site_url.startswith('/') or site_url in a_from_prev_page:
+                continue
             if site_url.startswith('/url'):
                 site_url = re.findall('q=([^&]*)&', site_url)[0]
             print_message('Go to {}'.format(site_url))
+            a_from_current_page.append(site_url)
             for proxy in ProxyExtracter(site_url):
                 yield proxy
         page_counter += 1
+        if len(a_from_current_page) == 0:
+            print_message('Not found new site on this page')
+            break
+        a_from_prev_page = a_from_current_page.copy()
+        a_from_current_page = []
         if page_counter == max_page:
             break
         else:
-            url_next_page = google_soup.find_all('a', 'pn')
-            if len(url_next_page) == 2 or (len(url_next_page) == 1 and page_counter == 1):
-                url_next_page = url_next_page[-1]['href']
-                resp = get_request(GOOGLE_TMPL_HREF.format(url_next_page))
-                google_soup = BeautifulSoup(resp.text, 'html.parser')
+            resp = get_request(q + '&start={}'.format(10*page_counter))
+            google_soup = BeautifulSoup(resp.text, 'html.parser')
 
 def save_to_file(proxies, fn=''):
     with open(fn, 'w') as f_out:
-        f_out.write("\n".join(proxies))
+        for pr in proxies:
+            f_out.writelines(pr + '\n')
     return 0
 
 # Command line parser
 parser = argparse.ArgumentParser()
-parser.add_argument("-q", "--query", action="store", dest="QUERY", help="Query for search proxies in Google", type=str)
+parser.add_argument("-q", "--input", action="store", dest="INPUT_PROXIES_FILE_NAME",
+                    help="Input file with query for search proxies in Google", type=str)
 parser.add_argument("-o", "--output", action="store", dest="OUTPUT_PROXIES_FILE_NAME", help="File with extracted proxy servers", type=str)
 parser.add_argument("-c", "--count", action="store", dest="ATTEMPTS_COUNT", help="Number of page", type=int)
 command_args = parser.parse_args()
 
-
+if command_args.INPUT_PROXIES_FILE_NAME == None:
+    print_message("USAGE: python %s -i <input file name> [-o <output file name>] [-c <number of attempts>]" % __file__)
+    exit()
+INPUT_FILE = command_args.INPUT_PROXIES_FILE_NAME
 OUTPUT_FILE = command_args.OUTPUT_PROXIES_FILE_NAME
 if OUTPUT_FILE == None:
-    OUTPUT_FILE = 'proxies_extracted.txt'
+    input_directory = os.path.dirname(INPUT_FILE)
+    full_file_name = os.path.basename(INPUT_FILE)
+    file_name, file_ext = os.path.splitext(full_file_name)
+    OUTPUT_FILE = os.path.join(input_directory, "proxies_extracted{}".format(file_ext))
 ATTEMPTS_COUNT = DEFAULT_ATEEMPTS_COUNT if command_args.ATTEMPTS_COUNT == None else command_args.ATTEMPTS_COUNT
-QUERY = DEFAULT_QUERY if command_args.QUERY == None else command_args.QUERY
 
 
 
 if __name__ == '__main__':
-    start_time = time.time()
+    start_time, start_date = time.time(), datetime.now()
     print_message("Start finding")
+    QUERY = open(INPUT_FILE, 'r').read()
     proxies = get_all_proxy(QUERY, ATTEMPTS_COUNT)
     proxies = set([proxy for proxy in proxies])
     len_list_proxies = len(proxies)
     save_to_file(proxies, fn=OUTPUT_FILE)
     end_time = datetime.now()
     print_message('Finish list: {} proxies.'.format(len_list_proxies))
-    print_message("Run began on {0}".format(start_time))
+    print_message("Run began on {0}".format(start_date))
     print_message("Run ended on {0}".format(end_time))
-    print_message("Elapsed time was: {0}".format(time.time() - start_time))
+    print_message("Elapsed time was: {0} sec".format(time.time() - start_time))

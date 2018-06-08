@@ -101,6 +101,7 @@ CONTROL_KEYS = [
     "google_sci_hub_files",
     "google_get_files",
     "google_cluster_files",
+    "download_scihub_captcha"
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
@@ -184,6 +185,18 @@ _LOGBOOK_NAME = _command_args.LOG_FILE_NAME
 _CONTROL_FILE = _command_args.CONTROL_FILE_NAME
 PROXY_FILE = _command_args.PROXIES_FILE
 MODE = INFORMATION_MODE if _command_args.InformationMode else TRANSACTION_MODE
+
+# DEFINE PDF CATALOG AND CREATE IF NOT EXISTS
+logger.debug("Check catalog for PDFs.")
+PDF_CATALOG = os.path.splitext(os.path.split(_DB_FILE)[-1])[0] + "_PDF\\"
+try:
+    if not os.path.exists(PDF_CATALOG):
+            logger.debug("Create folder {}.".format(PDF_CATALOG))
+            os.mkdir(PDF_CATALOG)
+except:
+    logger.error(traceback.format_exc())
+    CloseObjects()
+    exit()
 
 logger.info("Initializing logbook.")
 

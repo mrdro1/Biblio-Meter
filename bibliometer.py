@@ -107,10 +107,11 @@ def get_papers_by_key_words():
                         dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
 
                 new_papers += 1
-                if settings.PARAMS["google_get_files"]:
+                # Download pdf for first paper
+                if settings.PARAMS["google_get_files"] and paper_version_counter == 0:
                     success_download = False
-                    fn_tmp_pdf = 'PDF\\tmp_{0}.pdf'.format(newpaper.db_id)
-                    fn_pdf = 'PDF\\{0}.pdf'.format(newpaper.db_id)
+                    fn_tmp_pdf = '{0}tmp_{1}.pdf'.format(settings.PDF_CATALOG, newpaper.db_id)
+                    fn_pdf = '{0}{1}.pdf'.format(settings.PDF_CATALOG, newpaper.db_id)
                     # load pdf from gs
                     if paper_info['link_to_pdf']:
                         settings.print_message("Try get pdf from Google Scholar.", 1)
@@ -503,7 +504,7 @@ def get_info_from_PDFs():
     for paper_index, paper_info in enumerate(papers):
         settings.print_message("Handle paper #{0} (total {1}).".format(paper_index + 1, len(papers)))
         id = paper_info[columns["id"]]
-        file_name = "PDF\\{}.pdf".format(id)
+        file_name = "{0}{1}.pdf".format(settings.PDF_CATALOG, id)
         if not os.path.exists(file_name):
             settings.print_message('PDF "{}" not found, skip this paper.'.format(file_name), 2)
             logger.debug('PDF "{}" not found, skip this paper.'.format(file_name))

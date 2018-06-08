@@ -18,6 +18,7 @@ from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver import ChromeOptions
 #
 import browsercookie #
+
 from bs4 import BeautifulSoup
 import shutil
 import progressbar as pb
@@ -250,13 +251,15 @@ SESSION_ = {}
 
 def _check_captcha(soup):
     """Return true if ReCaptcha was found"""
-    try:
-        if soup.find('img', id="captcha"):
-            href = 'http://dabamirror.sci-hub.tw' + soup.find('img', id="captcha")['src']
-            download_file(href, 'captcha//' + href.split('/')[-1])
-    except:
-        settings.print_message('Can\'t load captcha image', 2)
-
+    if settings.PARAMS.get('download_scihub_captcha'):
+        try:
+            if soup.find('img', id="captcha"):
+                href = 'http://dacemirror.sci-hub.tw' + soup.find('img', id="captcha")['src']
+                if not os.path.exists('captcha//'):
+                    os.mkdir('captcha//')
+                download_file(href, 'captcha//' + href.split('/')[-1])
+        except:
+            settings.print_message('Can\'t load captcha image', 2)
     return soup.find('div', id='gs_captcha_ccl') != None or \
        soup.find('div', class_='g-recaptcha') != None or \
        soup.find('img', id="captcha") != None
@@ -285,11 +288,11 @@ def handle_captcha(response):
             logger.debug("Create new session for proxy {}".format(ip))
             SESSION_[ip] = create_new_session()
         number = [i for i, proxy_ in enumerate(SESSION_.keys()) if proxy_ == ip][0]
-        logger.debug("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, len(SESSION_.values()), ip))
-        settings.print_message("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, len(SESSION_.values()), ip))
+        logger.debug("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, _PROXY_OBJ.proxies_count, ip)) #len(SESSION_.values())
+        settings.print_message("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, _PROXY_OBJ.proxies_count, ip)) #len(SESSION_.values())
     return 0
 
-def get_request(url, stream=False, return_resp=False, POST=False, att_file=None):
+def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False):
     """Send get request [, catch errors, try again]* & return data"""
     global REQUEST_STATISTIC
     host = urlparse(url).hostname
@@ -320,7 +323,7 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None)
             ip = None
             if POST:
                 resp = SESSION.post(url=url, files=att_file, stream=stream, timeout=TIMEOUT, verify=False)
-            elif host.endswith(scihub.SCIHUB_HOST_NAME):
+            elif host.endswith(scihub.SCIHUB_HOST_NAME) or for_download:
                 resp = SESSION.get(url, stream=stream, timeout=TIMEOUT, verify=False)
             else:
                 proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)#_PROXY_OBJ.get_cur_proxy(host)
@@ -458,7 +461,7 @@ def get_json_data(url):
 def download_file(url, output_filename):
     """Download file from url"""
     logger.warn("Download file (url='%s') and save (filename='%s')" % (url, output_filename))
-    response = get_request(url, stream=True)
+    response = get_request(url, stream=True, for_download=True)
     if response == None: return False
     content_length = 0
     if response.headers.get('content-type') is None:
@@ -477,7 +480,7 @@ def download_file(url, output_filename):
 
     if content_length == 0 and 'application/pdf' in response.headers['content-type']:
         logger.debug('Downloading the entire file.')
-        response = get_request(url, return_resp=True)
+        response = get_request(url, return_resp=True, for_download=True)
 
     downloaded_size = 0
     chunk_size = 65536

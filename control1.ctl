@@ -10,5 +10,6 @@
 "commit_iterations" : 10,
 "google_clusters_handling":"False",
 "google_get_files":"True",
-"google_sci_hub_files":"True"
+"google_sci_hub_files":"True",
+"limit_resp_for_one_code" : 1
 }

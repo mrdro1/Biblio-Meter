@@ -9,7 +9,7 @@ import utils
 import settings
 
 SCIHUB_HOST_NAME = 'sci-hub.tw'
-_HOST = r"http://{0}//".format(SCIHUB_HOST_NAME)
+_HOST = r"http://{0}/".format(SCIHUB_HOST_NAME)
 _FULLURL = r"{0}{1}"
 
 logger = logging.getLogger(__name__)

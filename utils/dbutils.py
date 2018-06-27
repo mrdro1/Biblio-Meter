@@ -95,7 +95,6 @@ def create_tables_if_not_exists():
          ignore boolean not null,
          r_transaction integer not null,
          r_file_transaction integer,
-         is_pdf boolean,
          foreign key (r_transaction) references transactions(id)
         );
         ''',
@@ -215,12 +214,12 @@ def add_new_paper(params):
         INSERT INTO papers(
             title, year, publisher, start_page, end_page, pages, g_type,
             DOI, abstract, abstract_ru, rg_id, references_count, rg_type,
-            g_endnote, rg_ris, authors, r_transaction, ignore, is_pdf,
+            g_endnote, rg_ris, authors, r_transaction, ignore,
             google_url, google_file_url
         ) VALUES(
             :title, :year, :publisher, :start_page, :end_page, :pages, :g_type,
             :DOI, :abstract, :abstract_ru, :rg_id, :references_count, :rg_type,
-            :EndNote, :RIS, :authors, :transaction, :ignore, :is_pdf, :google_url,
+            :EndNote, :RIS, :authors, :transaction, :ignore, :google_url,
             :google_file_url
         )
         """, **params)
@@ -353,6 +352,7 @@ def connect(DBPath):
     DB_CONNECTION = sqlite3.connect(DBPath)
     create_tables_if_not_exists()
 
+
 def connect_to_cookies_database(DBPath):
     global DB_CHROME_CONNECTION
     logger.info("Initializing connection to sqlite chrome database, version: %i.%i.%i." % sqlite3.version_info)
@@ -362,6 +362,7 @@ def connect_to_cookies_database(DBPath):
 def close_connection():
     logger.info("Close database.")
     if DB_CONNECTION: DB_CONNECTION.close()
+
 
 def close_connection_to_cookies_database():
     logger.info("Close database.")
@@ -378,6 +379,7 @@ def get_sql_columns(SQL):
     logger.info("Extracted columns: {0}".format(str(res)))
     return res
 
+
 def update_pdf_transaction(paper_id, source):
     logger.debug("Update pdf_transaction for paper id={0}.".format(paper_id))
     execute_sql("""
@@ -388,11 +390,6 @@ def update_pdf_transaction(paper_id, source):
         """, **{"r_file_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "source_pdf":source, "id":paper_id})
     return 0
 
-def update_is_pdf(paper_id, is_pdf):
-    sql_update_is_pdf = 'UPDATE papers SET is_pdf = {0} where id = {1}'
-    logger.debug("Update is_pdf on {} for paper id={}.".format(is_pdf, paper_id))
-    execute_sql(sql_update_is_pdf.format(is_pdf, paper_id))
-    return 0
 
 def delete_cookie_from_chrome_db():
     logger.debug("Delete cookie from scholar cookie database")

@@ -146,19 +146,8 @@ def create_new_session():
 
 # Region for work with good cookies
 DONT_TOUCH_KEYS_IN_COOKIES = ['SSID', 'SID', 'HSID']
-def del_gs_cookies():
-    """ Function del google scholar cookies """
-    logger.debug("Start delete cookies for google.com and google scholar")
-    res = dbutils.delete_cookie_from_chrome_db()
-    if res == -2:
-        logger.debug("DB Cookie '{}' is busy! Close Crhome!".format(settings.CHROME_COOKIES_PATH))
-        settings.print_message("Pls, close chrome for delete cookies. Press Enter to continue.")
-        input()
-    SESSION.cookies.clear()
-    SESSION.cookies = _get_cookies()
-    return SESSION.cookies
 
-def is_many_bad_status_code():
+def process_many_bad_status_code(host, change_proxy=True):
     """ Function for check count response with same status code.
         If count for some status is big (parameter in control file),
         than reload cookies."""
@@ -168,8 +157,21 @@ def is_many_bad_status_code():
         list_status = dict_bad_status_code.items()
         code_with_biggest_value, biggest_appearance_count = sorted(list_status, key=lambda x: x[1])[-1]
         if biggest_appearance_count >= int(settings.PARAMS['limit_resp_for_one_code']):
-            logger.debug("Status code {0} has {1} appearance. Cookies will reload.".format(code_with_biggest_value,
+            logger.debug("Status code {0} has {1} appearance.".format(code_with_biggest_value,
                                                                                            biggest_appearance_count))
+            if change_proxy:
+                ip = [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]
+                if SESSIONS.get(ip) is not None:
+                    SESSIONS[ip].HTTP_requests = 0
+                ip = [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy(host).values()][0]
+                if SESSIONS.get(ip) is None:
+                    logger.debug("Create new session for proxy {}".format(ip))
+                    SESSIONS[ip] = create_new_session()
+                number = [i for i, proxy_ in enumerate(SESSIONS.keys()) if proxy_ == ip][0]
+                logger.debug("HTTP ERROR {}. Change proxy to #{} (total {}): {}".format(code_with_biggest_value, 
+                                                                                         number + 1, _PROXY_OBJ.proxies_count, ip))
+                settings.print_message("HTTP ERROR {}. Change proxy to #{} (total {}): {}".format(code_with_biggest_value, 
+                                                                                                  number + 1, _PROXY_OBJ.proxies_count, ip))
             dict_bad_status_code.clear()
             function_answer = True
     return function_answer
@@ -242,12 +244,10 @@ def _get_cookies(domain=""):
         return browsercookie.firefox()#domain_name=domain)
     return None
 
-SESSION = requests.Session()
-SESSION.headers = _DEFAULT_HEADER
-SESSION.cookies = _get_cookies()
-
-SESSION_ = {}
-
+SESSIONS = {}
+SESSIONS["localhost"] = requests.Session()
+SESSIONS["localhost"].headers = _DEFAULT_HEADER
+SESSIONS["localhost"].cookies = _get_cookies()
 
 def _check_captcha(soup):
     """Return true if ReCaptcha was found"""
@@ -278,19 +278,20 @@ def handle_captcha(response):
         input("Press Enter after entering to continue")
         logger.debug("Waiting for cookies to be updated.")
         #settings.print_message("Waiting for cookies to be updated.")
-        SESSION.cookies = _get_cookies()
+        SESSIONS["localhost"].cookies = _get_cookies()
     else:
         ip = [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]
-        if SESSION_.get(ip) is not None:
-            SESSION_[ip].HTTP_requests = 0
+        if SESSIONS.get(ip) is not None:
+            SESSIONS[ip].HTTP_requests = 0
         ip = [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy("scholar").values()][0]
-        if SESSION_.get(ip) is None:
+        if SESSIONS.get(ip) is None:
             logger.debug("Create new session for proxy {}".format(ip))
-            SESSION_[ip] = create_new_session()
-        number = [i for i, proxy_ in enumerate(SESSION_.keys()) if proxy_ == ip][0]
-        logger.debug("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, _PROXY_OBJ.proxies_count, ip)) #len(SESSION_.values())
-        settings.print_message("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, _PROXY_OBJ.proxies_count, ip)) #len(SESSION_.values())
+            SESSIONS[ip] = create_new_session()
+        number = [i for i, proxy_ in enumerate(SESSIONS.keys()) if proxy_ == ip][0]
+        logger.debug("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, _PROXY_OBJ.proxies_count, ip)) #len(SESSIONS.values())
+        settings.print_message("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(number + 1, _PROXY_OBJ.proxies_count, ip)) #len(SESSIONS.values())
     return 0
+
 
 def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False):
     """Send get request [, catch errors, try again]* & return data"""
@@ -301,52 +302,38 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
     # var for control count handled capthas, this help avoid inf cycle
     capthas_handled = 0
     MAX_CAPTCHAS_HANDLED = _PROXY_OBJ.proxies_count
-
-    while(True):
+    use_proxy = not (POST or host.endswith(scihub.SCIHUB_HOST_NAME) or for_download)
+    while bad_requests_counter < settings.PARAMS["http_contiguous_requests"]:
         TIMEOUT = 10
         resp = None
-        if bad_requests_counter >= settings.PARAMS["http_contiguous_requests"]:
-            settings.print_message("Failed {} times get requests from '{}'".format(settings.PARAMS["http_contiguous_requests"], url))
-            # +1 bad requests
-            REQUEST_STATISTIC['failed_requests'].append(url)
-            REQUEST_STATISTIC['count_requests'] += 1
-            SESSION.cookies = _get_cookies()
-            # save html for bad request
-            try:
-                with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
-                    f.write(resp.text)
-            except:
-                pass
-
-            return None
         try:
             ip = None
             if POST:
-                resp = SESSION.post(url=url, files=att_file, stream=stream, timeout=TIMEOUT, verify=False)
+                resp = SESSIONS["localhost"].post(url=url, files=att_file, stream=stream, timeout=TIMEOUT, verify=False)
             elif host.endswith(scihub.SCIHUB_HOST_NAME) or for_download:
-                resp = SESSION.get(url, stream=stream, timeout=TIMEOUT, verify=False)
+                resp = SESSIONS["localhost"].get(url, stream=stream, timeout=TIMEOUT, verify=False)
             else:
-                proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)#_PROXY_OBJ.get_cur_proxy(host)
+                proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)
 
                 ip = [ip_port for ip_port in proxy.values()][0]
-                if SESSION_.get(ip) is None:
+                if SESSIONS.get(ip) is None:
                     logger.debug("Create new session for proxy {}".format(ip))
-                    SESSION_[ip] = create_new_session()
+                    SESSIONS[ip] = create_new_session()
 
-                number = [i for i, proxy_ in enumerate(SESSION_.keys()) if proxy_ == ip][0]   
-                logger.debug("Use proxy #{} (total {}): {}. Successfull HTTP requests: {}".format(number + 1, _PROXY_OBJ.proxies_count, proxy, SESSION_[ip].HTTP_requests))
-                #settings.print_message("Use proxy #{} (total {}): {}. Successfull HTTP requests: {}".format(number + 1, _PROXY_OBJ.proxies_count, ip, SESSION_[ip].HTTP_requests), 3)
-                resp = SESSION_[ip].get(url, proxies=proxy, stream=stream, timeout=TIMEOUT)
+                number = [i for i, proxy_ in enumerate(SESSIONS.keys()) if proxy_ == ip][0]   
+                logger.debug("Use proxy #{} (total {}): {}. Successfull HTTP requests: {}".format(number + 1, _PROXY_OBJ.proxies_count, proxy, SESSIONS[ip].HTTP_requests))
+                resp = SESSIONS[ip].get(url, proxies=proxy, stream=stream, timeout=TIMEOUT)
             if resp.headers.get('Content-Type') and 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
-                    count_try_for_captcha += 1
-                    if _get_name_max_try_to_host(url):
-                        
-                        if count_try_for_captcha < settings.PARAMS[_get_name_max_try_to_host(url)]:
-                            settings.print_message("CAPTCHA was found, try get request again. Try count: {} (total{}) Current proxy #{} (total {}): {}.".format(count_try_for_captcha, settings.PARAMS[_get_name_max_try_to_host(url)], number + 1, _PROXY_OBJ.proxies_count, ip, SESSION_[ip].HTTP_requests), 3)
-                            logger.debug("CAPTCHA was found, try get request again. Try count: {} (total{}) Current proxy #{} (total {}): {}.".format(count_try_for_captcha, settings.PARAMS[_get_name_max_try_to_host(url)], number + 1, _PROXY_OBJ.proxies_count, ip, SESSION_[ip].HTTP_requests))
-                            continue
-                        else:
+                    #count_try_for_captcha += 1
+                    #if _get_name_max_try_to_host(url):
+                        #if count_try_for_captcha < settings.PARAMS[_get_name_max_try_to_host(url)]:
+                        #    settings.print_message("CAPTCHA was found, try get request again. Try count: {} (total{}) Current proxy #{} (total {}): {}.".format(count_try_for_captcha, 
+                        #                                        settings.PARAMS[_get_name_max_try_to_host(url)], number + 1, _PROXY_OBJ.proxies_count, ip, SESSIONS[ip].HTTP_requests), 3)
+                        #    logger.debug("CAPTCHA was found, try get request again. Try count: {} (total{}) Current proxy #{} (total {}): {}.".format(count_try_for_captcha, 
+                        #                                        settings.PARAMS[_get_name_max_try_to_host(url)], number + 1, _PROXY_OBJ.proxies_count, ip, SESSIONS[ip].HTTP_requests))
+                        #    continue
+                        #else:
                             if capthas_handled < MAX_CAPTCHAS_HANDLED:
                                 bad_proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)
                                 handle_captcha(resp)
@@ -365,25 +352,20 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
                 # +1 bad requests
                 REQUEST_STATISTIC['failed_requests'].append(url)
                 REQUEST_STATISTIC['count_requests'] += 1
-                if ip: SESSION_[ip].HTTP_requests = 0
+                if ip: SESSIONS[ip].HTTP_requests = 0
                 return None
             if resp.status_code != 200:
                 bad_requests_counter += 1
                 dict_bad_status_code[resp.status_code] += 1
-                if ip: SESSION_[ip].HTTP_requests = 0
+                if ip: SESSIONS[ip].HTTP_requests = 0
                 #_PROXY_OBJ.set_next_proxy(host)
                 logger.debug("HTTP ERROR: Status code {}".format(resp.status_code))
-                #settings.print_message("HTTP ERROR")
-                # if count resp with same code enough big than reload cookies
-                if is_many_bad_status_code():
-                    settings.print_message("Many HTTP errors, change proxy.")
-                    #_PROXY_OBJ.reload_proxies()
-                    _PROXY_OBJ.set_next_proxy(host)
+                process_many_bad_status_code(host, use_proxy)
                 continue
 
             if resp.status_code == 200:
                 # +1 good requests
-                if ip: SESSION_[ip].HTTP_requests += 1
+                if ip: SESSIONS[ip].HTTP_requests += 1
                 REQUEST_STATISTIC['count_requests'] += 1
                 if stream or return_resp:
                     return resp
@@ -393,12 +375,20 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
             dict_bad_status_code[-1] += 1
             logger.warn(traceback.format_exc())
             bad_requests_counter += 1
-            #settings.print_message("HTTP ERROR")
-            if is_many_bad_status_code():
-                settings.print_message("Many HTTP errors, change proxy.")
-                _PROXY_OBJ.set_next_proxy(host)
+            process_many_bad_status_code(host, use_proxy)
             continue
-    raise Exception(resp.status_code, resp.reason)
+    settings.print_message("Failed {} times get requests from '{}'".format(settings.PARAMS["http_contiguous_requests"], url))
+    # +1 bad requests
+    REQUEST_STATISTIC['failed_requests'].append(url)
+    REQUEST_STATISTIC['count_requests'] += 1
+    SESSIONS["localhost"].cookies = _get_cookies()
+    # save html for bad request
+    try:
+        with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
+            f.write(resp.text)
+    except:
+        pass
+    return None
 
 
 def _get_name_max_try_to_host(url):
@@ -442,8 +432,8 @@ def get_text_data(url, ignore_errors = False, repeat_until_captcha = False):
 
 def get_json_data(url):
     """Send get request to URL and get data in JSON format"""
-    tmp_accept = SESSION.headers["Accept"]
-    SESSION.headers.update({"Accept" : "application/json"})
+    tmp_accept = SESSIONS["localhost"].headers["Accept"]
+    SESSIONS["localhost"].headers.update({"Accept" : "application/json"})
     json_data = None
     try:
         resp = get_request(url)
@@ -454,7 +444,7 @@ def get_json_data(url):
         json_data = json.loads(resp)
     except Exception as error:
         raise
-    SESSION.headers.update({"Accept" : tmp_accept})
+    SESSIONS["localhost"].headers.update({"Accept" : tmp_accept})
     return json_data
 
 

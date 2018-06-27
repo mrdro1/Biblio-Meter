@@ -107,7 +107,7 @@ def get_papers_by_key_words():
                         dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
 
                 new_papers += 1
-                # Download pdf for first paper
+                # Download pdf for paper (first paper if use google cluster)
                 if settings.PARAMS["google_get_files"] and paper_version_counter == 0:
                     success_download = False
                     fn_tmp_pdf = '{0}tmp_{1}.pdf'.format(settings.PDF_CATALOG, newpaper.db_id)
@@ -134,7 +134,7 @@ def get_papers_by_key_words():
                             settings.print_message("failed load PDF from Google Scholar.", 2)
 
                     # load pdf from scihub by paper url if does not exist
-                    if paper_info['general_information'].get('url') and not success_download and settings.PARAMS["google_sci_hub_files"]:
+                    if paper_info['general_information'].get('url') and not success_download and settings.PARAMS["sci_hub_files"]:
                         settings.print_message("Try get pdf by paper url on sci-hub.", 1)
                         papers_without_pdf_url_counter += 1
                         url_for_download_from_sci_hub = paper_info['general_information']['url']
@@ -177,6 +177,9 @@ def get_papers_by_key_words():
                                     utils.REQUEST_STATISTIC['failed_requests'].append(url_for_download_from_gs)
                                     logger.debug("Failed get pdf from Google Scholar cluster for paper #{0}. URL={0}".format(new_papers - 1, url_for_download_from_gs))
                                     settings.print_message("failed load PDF from Google Scholar cluster.", 2)
+                        else:
+                            logger.debug("Failed get pdf from Google Scholar cluster for paper #{0}. Cluster hasn't links to PDFs.".format(new_papers - 1))
+                            settings.print_message("failed load PDF from Google Scholar cluster. Cluster hasn't links to PDFs.", 2)
                     if not success_download:
                         settings.print_message("Downolad PDF unavaliable.", 1)
                 # Commit transaction each commit_iterations iterations

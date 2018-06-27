@@ -202,7 +202,6 @@ class Paper(object):
                 "EndNote":self.EndNote,
                 "RIS":self.RIS,
                 "authors":len(self.authors),
-                "is_pdf":0,
                 "google_url":self.paper_URL,
                 "google_file_url":self.PDF_URL,
             }

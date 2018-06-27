@@ -39,7 +39,9 @@ def get_pdfs_link_from_cluster(cluster_id):
     pdf_links = list()
 
     # Loop on pages
-    while True:           
+    MAX_PAGES = 15
+    links_count = 0
+    for page in range(1, MAX_PAGES + 1):           
         result = True
         soup = None
         while result and soup is None:
@@ -54,12 +56,14 @@ def get_pdfs_link_from_cluster(cluster_id):
             logger.debug("Soup for cluster page URL='{0}' is None.".format(url))
             return None
         # This list contains links to EndNote and cited by count for each paper in cluster
-        logger.debug("Find PDF links for each paper in cluster.")
+        logger.debug("Find PDF links on page #{}.".format(page))
         pdf_links.extend([
             _get_url_pdf(paper_block)
             for paper_block in soup.find_all('div', class_='gs_r gs_or gs_scl')# gs_ggs gs_fl
             if _get_url_pdf(paper_block)
             ])
+        logger.debug("Found {} links on page #{}.".format(len(pdf_links) - links_count, page))
+        links_count = len(pdf_links)
         # NEXT button on html page
         if soup.find(class_='gs_ico gs_ico_nav_next'):
             url = _FULLURL.format(_HOST, soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip())
@@ -67,8 +71,9 @@ def get_pdfs_link_from_cluster(cluster_id):
             #soup = utils.get_soup(_FULLURL.format(_HOST, url))
         else:
             break
-        logger.debug("Find {} links to PDFs.".format(len(pdf_links)))
-    if pdf_links == []:
+    logger.debug("Found {} links to PDFs in cluster {}.".format(links_count, cluster_id))
+    logger.debug("URLS: {}".format("\n".join(pdf_links)))
+    if links_count == 0:
         return None
     return tuple(pdf_links)
 
@@ -396,10 +401,10 @@ def search_pubs_query_with_control_params(params):
         params['exact_phrase'] if 'exact_phrase' in params else '',
         params['one_of_words'] if 'one_of_words' in params else '',
         params['not_contained_words'] if 'not_contained_words' in params else '',
-        (True if params['words_in_body'] == 'true' else False) if 'words_in_body' in params else True,
-        (True if params['patents'] == 'true' else False) if 'patents' in params else True,
-        (True if params['citations'] == 'true' else False) if 'citations' in params else True,
-        params["google_clusters_handling"].lower() == "true" if "google_clusters_handling" in params else False,
+        params['words_in_body'] if 'words_in_body' in params else True,
+        params['patents'] if 'patents' in params else True,
+        params['citations'] if 'citations' in params else True,
+        params["google_clusters_handling"],
         int(params["max_google_papers"]) if "max_google_papers" in params else float("inf") if "max_google_papers" in params else float("inf"),
         params['start_paper'] if 'start_paper' in params else 1,
     )

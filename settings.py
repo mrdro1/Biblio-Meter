@@ -88,35 +88,33 @@ CONTROL_KEYS = [
     "max_researchgate_papers",
     "google_clusters_handling",
     "papers",
-    "google_captcha_retry_by_proxy_count",
-    "researchgate_captcha_retry_by_proxy_count",
-    "sci_hub_captcha_retry_by_proxy_count",
     "max_tree_level",
     "max_cited_papers",
     "commit_iterations",
     "http_contiguous_requests",
     "limit_resp_for_one_code",
-    "urls",
     "start_paper",
-    "google_sci_hub_files",
+    "sci_hub_files",
     "google_get_files",
     "google_cluster_files",
-    "download_scihub_captcha"
+    "download_scihub_captcha",
+    #"sci_hub_captcha_retry_by_proxy_count",
+    #"google_captcha_retry_by_proxy_count",
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
 CONTROL_DEFAULT_VALUES = \
     {
-        "google_captcha_retry_by_proxy_count" : 0,
-        "researchgate_captcha_retry_by_proxy_count" : 4,
-        "sci_hub_captcha_retry_by_proxy_count" : 0,
-        "commit_iterations" : 1000000,
+        "commit_iterations" : 30,
         "http_contiguous_requests" : 20,
-        "limit_resp_for_one_code" : 20,
+        "limit_resp_for_one_code" : 1,
         "start_paper" : 1,
-        "google_sci_hub_files" : True,
+        "google_clusters_handling" : False,
+        "sci_hub_files" : True,
         "google_get_files" : True,
         "google_cluster_files" : True,
+        #"sci_hub_captcha_retry_by_proxy_count" : 5,
+        #"google_captcha_retry_by_proxy_count" : 10,
     }
 
 def CloseObjects():

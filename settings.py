@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(_main_dir, 'entities\\'))
 sys.path.insert(0, os.path.join(_main_dir, 'internet_resources\\'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, \
-                    close_connection, close_connection_to_cookies_database, connect_to_cookies_database
+                    close_connection
 
 def build_version_string():
     """ This function read current version from version.txt and format version string """
@@ -123,7 +123,6 @@ def CloseObjects():
         close_program_transaction(RESULT)
     # Close db conn
     close_connection()
-    close_connection_to_cookies_database()
     # Close logbook file
     logger.info("Close logbook")
     _LOG_F_HANDLER.close()
@@ -213,23 +212,6 @@ for record in IN_MEMORY_LOG:
 _LOG_F_FORMATTER = logging.Formatter(_LOG_FORMAT)
 _LOG_F_HANDLER.setFormatter(_LOG_F_FORMATTER)
 
-# Database
-try:
-    connect(_DB_FILE)
-    connect_to_cookies_database(CHROME_COOKIES_PATH)
-except:
-    logger.error(traceback.format_exc())
-    CloseObjects()
-    exit()
-else:
-    logger.info("DB connection initialized.")
-if MODE == INFORMATION_MODE:
-    INFO_FILE = InfoFile("{0}.{1}".format(os.path.splitext(_DB_FILE)[0], 'txt'))
-
-DB_PATH = _main_dir
-if os.path.split(_DB_FILE)[0] != "":
-    DB_PATH = os.path.split(_DB_FILE)[0]
-
 # Control file
 logger.info("Parsing the control file.")
 PARAMS = None
@@ -242,6 +224,8 @@ try:
     # check all params, if null then set default
     for key in CONTROL_DEFAULT_VALUES.keys():
         PARAMS.setdefault(key, CONTROL_DEFAULT_VALUES[key]) 
+    if not [key for key in PARAMS.keys() if key.lower() == "command"]:
+        raise Exception("Command is empty!")
 except:
     print_message("Invalid file control. Check the syntax.")
     logger.error("Invalid file control. Check the syntax.")
@@ -256,8 +240,27 @@ for key in PARAMS.keys():
     param_str = "  {0} = '{1}'".format(key, PARAMS[key])
     print_message(param_str)
     logger.debug(param_str)
-_SUCCESSFUL_START_FLAG = True
 
+# Database
+try:
+    if PARAMS["command"] != "getPapersByKeyWords" and not os.path.isfile(_DB_FILE):
+        raise Exception("Database '{}' not found.".format(_DB_FILE))
+    connect(_DB_FILE)
+except:
+    print_message("Database '{}' is invalid, for more information see log.".format(_DB_FILE))
+    logger.error(traceback.format_exc())
+    CloseObjects()
+    exit()
+else:
+    logger.info("DB connection initialized.")
+if MODE == INFORMATION_MODE:
+    INFO_FILE = InfoFile("{0}.{1}".format(os.path.splitext(_DB_FILE)[0], 'txt'))
+
+DB_PATH = _main_dir
+if os.path.split(_DB_FILE)[0] != "":
+    DB_PATH = os.path.split(_DB_FILE)[0]
+
+_SUCCESSFUL_START_FLAG = True
 # Register current session
 set_program_transaction(PARAMS['command'], str(PARAMS))
 

@@ -1,0 +1,1 @@
+delete from cookies where(host_key LIKE "%accounts%" or host_key LIKE "%google%" ) and name not in ('SSID', 'SID', 'HSID', 'GSP');

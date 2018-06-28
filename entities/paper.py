@@ -170,8 +170,8 @@ class Paper(object):
             return False
         logger.debug("Save info about paper (or its version)")
         self.DOI = pdf_info["DOI"]
-        self.abstract = pdf_info["abstract"].strip()
-        self.abstract_ru = pdf_info["abstract_ru"].strip()
+        self.abstract = pdf_info["abstract"]
+        self.abstract_ru = pdf_info["abstract_ru"]
         dbutils.update_paper(
             {
                 "DOI":self.DOI,

@@ -12,6 +12,7 @@ from mtranslate import translate
 import tei2dict
 import settings
 import utils
+import traceback
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -56,10 +57,11 @@ def processHeaderDocument(pdf_file_name):
     logger.debug("Translate abstract.")
     settings.print_message("Translate abstract.", 2)
     dictData["abstract_ru"] = None
-    try:
-        dictData["abstract_ru"] = translate(dictData["abstract"], 'ru')
-    except Exception as error:
-        logger.warn(traceback.format_exc())
+    if dictData["abstract"]:
+        try:
+            dictData["abstract_ru"] = translate(dictData["abstract"], 'ru')
+        except Exception as error:
+            logger.warn(traceback.format_exc())
     #settings.print_message(msg, 2)
     logger.debug(msg)
     return dictData

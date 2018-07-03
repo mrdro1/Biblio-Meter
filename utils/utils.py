@@ -25,7 +25,6 @@ import progressbar as pb
 import PyPDF2
 #
 import settings
-from torrequest import TorRequest
 import dbutils
 import scihub
 
@@ -62,7 +61,7 @@ class ProxyManager:
         self.MAX_REQUESTS = 0
         self.MAX_REQUESTS_FOR_RELOAD_PROXIES = 250
         self.reqests_counter = 1
-        self.list_host_names = ['www.researchgate.net', 'scholar.google.com', scihub.SCIHUB_HOST_NAME, 'otherhost']
+        self.list_host_names = ['scholar.google.com', scihub.SCIHUB_HOST_NAME, 'otherhost']
         self.file_name = settings.PROXY_FILE
         self.dict_gens_proxy = {host_name: self.load_proxies() for host_name in self.list_host_names}
         self.proxy_request_count = {host_name: 0 for host_name in self.list_host_names}
@@ -293,7 +292,7 @@ def handle_captcha(response):
     return 0
 
 
-def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False):
+def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False, skip_captcha=False):
     """Send get request [, catch errors, try again]* & return data"""
     global REQUEST_STATISTIC
     host = urlparse(url).hostname
@@ -334,7 +333,11 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
                         #                                        settings.PARAMS[_get_name_max_try_to_host(url)], number + 1, _PROXY_OBJ.proxies_count, ip, SESSIONS[ip].HTTP_requests))
                         #    continue
                         #else:
-                            if capthas_handled < MAX_CAPTCHAS_HANDLED:
+                            if host.endswith(scihub.SCIHUB_HOST_NAME) and not settings.PARAMS.get("show_sci_hub_captcha"):
+                                logger.debug("CAPTCHA was found, skip.")
+                                settings.print_message("CAPTCHA was found, skip.")
+                                return None
+                            if not skip_captcha and capthas_handled < MAX_CAPTCHAS_HANDLED:
                                 bad_proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)
                                 handle_captcha(resp)
                                 count_try_for_captcha = 0
@@ -395,7 +398,6 @@ def _get_name_max_try_to_host(url):
     """   """
     dict_host_to_name = \
         {
-            'www.researchgate.net': 'researchgate',
             'scholar.google.com': 'google',
             scihub.SCIHUB_HOST_NAME: 'sci_hub'
         }
@@ -514,33 +516,6 @@ def is_doi(DOI):
     logger.debug("DOI '%s' is %s" % (DOI, "correct" if res else "not correct"))
     return res
 
-
-_SKIP_RG = False
-_SKIP_RG_FOR_ALL = False
-
-def skip_RG_stage(): 
-    global _SKIP_RG
-    _SKIP_RG = True
-
-def skip_RG_stage_for_all(): 
-    global _SKIP_RG, _SKIP_RG_FOR_ALL
-    _SKIP_RG = True
-    _SKIP_RG_FOR_ALL = True
-
-def skip_RG_stage_reset(): 
-    global _SKIP_RG
-    _SKIP_RG = False
-
-def skip_RG_stage_for_all_reset(): 
-    global _SKIP_RG, _SKIP_RG_FOR_ALL
-    _SKIP_RG = False
-    _SKIP_RG_FOR_ALL = False
-
-def RG_stage_is_skipped():
-    return _SKIP_RG
-
-def RG_stage_is_skipped_for_all():
-    return _SKIP_RG_FOR_ALL
 
 def rename_file(old_name, new_name):
     """ Check exists file new_name and if not exists file

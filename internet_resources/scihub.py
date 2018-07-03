@@ -48,10 +48,11 @@ def get_pdf_url(DOI):
 
 def get_pdf(DOI, filename):
     """Load pdf for paper with DOI and save to file filename"""
+    if not DOI: return False
     url = get_pdf_url(DOI)
     if url == None: return False
     try:
-        settings.print_message("Download pdf...", 2)
+        settings.print_message("Download pdf from Sci-Hub by '{}'".format(DOI), 2)
         utils.download_file(url, filename) 
         return utils.check_pdf(filename)
     except:

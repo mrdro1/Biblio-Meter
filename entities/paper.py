@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
-import endnoteparser
 import utils
 import sys, traceback, logging
 import re
 #
 import scholar
-import researchgate
 import settings
 import dbutils
 import grobid
@@ -19,7 +17,6 @@ class Paper(object):
         self.title = None
         self.year = None
         self.authors = None
-        self.EndNoteURL = None
         self.citedby = None
         self.g_type = None
         self.volume = None
@@ -31,15 +28,12 @@ class Paper(object):
         self.abstract = None
         self.abstract_ru = None
         self.DOI = None
-        self.rg_type = None
         self.references = None
         self.references_count = None
         self.db_id = None
-        self.rg_paper_id = None
         self.cluster = None
         self.EndNote = None
         self.paper_version = None
-        self.RIS = None
         self.paper_URL = None,
         self.PDF_URL = None
 
@@ -83,83 +77,6 @@ class Paper(object):
             if not "name" in author:
                 del self.authors[auth_index]
 
-    #
-    def get_rg_first_search_page(self):
-        return researchgate.get_query_json(
-                {
-                    "title":self.title, 
-                    "authors_count":len(self.authors), 
-                    "year":self.year, 
-                    "type":self.g_type.split()[0].lower()
-                }
-            )
-
-
-    def get_data_from_rg(self, query_soup = None, number_of_papers_compared = 30):
-        if number_of_papers_compared == 0: return False
-        logger.debug("Identify paper (or its version) on researchgate")
-        search_params = {
-                "title":self.title.lower(), 
-                "authors_count":len(self.authors), 
-                "year":self.year, 
-                "spage":self.start_page,
-                "epage":self.end_page,
-                "max_researchgate_papers":number_of_papers_compared,
-                "EndNote":self.EndNote,
-                "paper_version":self.paper_version
-            }
-        try:
-            rg_info = researchgate.identification_and_fill_paper(search_params, query_soup)
-        except:
-            logger.debug("Failed to load paper information") 
-            return False
-        if rg_info == None:
-            logger.debug("This paper (or its version) is not identified") 
-            return False
-        logger.debug("Save info about paper (or its version)")
-        if "doi" in rg_info: self.DOI = rg_info["doi"] 
-        if "abstract" in rg_info: self.abstract = rg_info["abstract"] 
-        if "abstract_ru" in rg_info: self.abstract_ru = rg_info["abstract_ru"] 
-        if "rg_id" in rg_info: self.rg_paper_id = rg_info["rg_id"] 
-        if "references_count" in rg_info: self.references_count = rg_info["references_count"] 
-        if "rg_type" in rg_info: self.rg_type = rg_info["rg_type"] 
-        #if "references" in rg_info: self.references = rg_info["references"] 
-        if "start_page" in rg_info and self.start_page == None: self.start_page = rg_info["start_page"]
-        if "end_page" in rg_info and self.end_page == None: self.end_page = rg_info["end_page"]
-        if "RIS" in rg_info: self.RIS = rg_info["RIS"]
-        return True
-
-
-    def get_data_from_rg_id(self, rg_paper_id):
-        try:
-            rg_info = researchgate.fill_paper(researchgate.get_info_from_RIS(rg_paper_id), rg_paper_id)
-        except:
-            logger.debug("Failed to load paper information") 
-            return False
-        logger.debug("Save info about paper (or its version)")
-        if "primary_title" in rg_info: self.title = rg_info["primary_title"] 
-        if "year" in rg_info: self.year = int(rg_info["year"][:4])
-        #if "publisher" in rg_info: self.publisher = rg_info["publisher"] 
-        if "authors" in rg_info: self.authors = rg_info["authors"] 
-        if "doi" in rg_info: self.DOI = rg_info["doi"] 
-        if "abstract" in rg_info: self.abstract = rg_info["abstract"] 
-        if "abstract_ru" in rg_info: self.abstract_ru = rg_info["abstract_ru"] 
-        if "rg_id" in rg_info: self.rg_paper_id = rg_info["rg_id"] 
-        if "references_count" in rg_info: self.references_count = rg_info["references_count"] 
-        if "type_of_reference" in rg_info: self.rg_type = rg_info["type_of_reference"] 
-        #if "references" in rg_info: self.references = rg_info["references"] 
-        if "start_page" in rg_info and self.start_page == None: self.start_page = rg_info["start_page"]
-        if "end_page" in rg_info and self.end_page == None: self.end_page = rg_info["end_page"]
-        if self.end_page != None and self.start_page != None: 
-            re_st_page = re.search("[0-9]+$", self.start_page.strip())
-            re_end_page = re.search("^[0-9]+", self.end_page.strip())
-            if re_st_page: self.start_page = int(re_st_page.group())
-            if re_end_page: self.end_page = int(re_end_page.group())
-            if re_st_page and re_end_page: self.volume = self.end_page - self.start_page + 1
-        if "publisher" in rg_info: self.publisher = rg_info["publisher"]
-        if "alternate_title3" in rg_info and self.publisher == None: self.publisher = rg_info["alternate_title3"]
-        if "RIS" in rg_info: self.RIS = rg_info["RIS"]
-        return True
 
     def get_data_from_grobid(self, pdf_filename):
         try:
@@ -195,17 +112,16 @@ class Paper(object):
                 "g_type":self.g_type,
                 "DOI":self.DOI,
                 "abstract":self.abstract,
-                "abstract_ru":self.abstract_ru,
-                "rg_id":self.rg_paper_id,                
+                "abstract_ru":self.abstract_ru,          
                 "references_count":self.references_count,
-                "rg_type":self.rg_type,
                 "EndNote":self.EndNote,
-                "RIS":self.RIS,
                 "authors":len(self.authors),
                 "google_url":self.paper_URL,
+                "google_cluster_url":str(self.cluster),
                 "google_file_url":self.PDF_URL,
             }
             )
+
 
     def update_in_database(self):
         if self.db_id == None: self.db_id = get_paper_ID({
@@ -215,7 +131,6 @@ class Paper(object):
                 "g_type":self.g_type, 
                 "pages":self.volume, 
                 "year":self.year, 
-                "rg_id":self.rg_paper_id,
                 "start_page":self.start_page,
                 "end_page":self.end_page
             })
@@ -231,17 +146,16 @@ class Paper(object):
                 "DOI":self.DOI,
                 "abstract":self.abstract,
                 "abstract_ru":self.abstract_ru,
-                "rg_id":self.rg_paper_id,
                 "references_count":self.references_count,
-                "rg_type":self.rg_type,
                 "EndNote":self.EndNote,
-                "RIS":self.RIS,
                 "authors":len(self.authors),
                 "id":self.db_id,
                 "google_url":self.paper_URL,
                 "google_file_url":self.PDF_URL,
+                "google_cluster_url":self.cluster
             }
             ) 
+
 
     def in_database(self):
         param = {
@@ -251,7 +165,6 @@ class Paper(object):
                 "g_type":self.g_type, 
                 "pages":self.volume, 
                 "year":self.year, 
-                "rg_id":self.rg_paper_id,
                 "start_page":self.start_page,
                 "end_page":self.end_page
             }

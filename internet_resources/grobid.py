@@ -54,14 +54,19 @@ def processHeaderDocument(pdf_file_name):
         dictData["end_page"] != None,
         dictData["publisher"] != None
         )
-    logger.debug("Translate abstract.")
-    settings.print_message("Translate abstract.", 2)
+
     dictData["abstract_ru"] = None
     if dictData["abstract"]:
+        logger.debug("Translate abstract.")
+        settings.print_message("Translate abstract.", 2, end="...")
         try:
             dictData["abstract_ru"] = translate(dictData["abstract"], 'ru')
+            logger.debug("Translated successfully.")
+            settings.print_message("OK", 2)
         except Exception as error:
-            logger.warn(traceback.format_exc())
+            settings.print_message("FAIL", 2)
+            logger.error("Failed to translate.")
+            logger.error(traceback.format_exc())
     #settings.print_message(msg, 2)
     logger.debug(msg)
     return dictData

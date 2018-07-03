@@ -1,1 +1,1 @@
-python bibliometer.py -l logbook.log -d first_db.db3 -c control3.ctl -p proxies.txt -t
+python bibliometer.py -l logbook.log -d first_db.db3 -c control3.ctl -p proxies.txt

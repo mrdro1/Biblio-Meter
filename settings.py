@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 import re
 import subprocess
+from math import inf
 #
 _main_dir = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(_main_dir, 'utils\\'))
@@ -60,10 +61,10 @@ _CONTROL_FILE = None
 PROXY_FILE = None
 _SUCCESSFUL_START_FLAG = False
 
-INFORMATION_MODE = 1
-TRANSACTION_MODE = 0
-MODE = TRANSACTION_MODE
-INFO_FILE = None
+#INFORMATION_MODE = 1
+#TRANSACTION_MODE = 0
+#MODE = TRANSACTION_MODE
+#INFO_FILE = None
 
 DEFAULT_TIMEOUT = 10
 
@@ -85,7 +86,6 @@ CONTROL_KEYS = [
     "patents", 
     "citations",
     "max_google_papers",
-    "max_researchgate_papers",
     "google_clusters_handling",
     "papers",
     "max_tree_level",
@@ -98,6 +98,7 @@ CONTROL_KEYS = [
     "google_get_files",
     "google_cluster_files",
     "download_scihub_captcha",
+    "show_sci_hub_captcha",
     #"sci_hub_captcha_retry_by_proxy_count",
     #"google_captcha_retry_by_proxy_count",
     ]
@@ -105,14 +106,14 @@ CONTROL_KEYS = [
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
 CONTROL_DEFAULT_VALUES = \
     {
-        "commit_iterations" : 30,
-        "http_contiguous_requests" : 20,
-        "limit_resp_for_one_code" : 1,
-        "start_paper" : 1,
-        "google_clusters_handling" : False,
-        "sci_hub_files" : True,
-        "google_get_files" : True,
-        "google_cluster_files" : True,
+        #"commit_iterations" : 30,
+        #"http_contiguous_requests" : 20,
+        #"limit_resp_for_one_code" : 1,
+        #"start_paper" : 1,
+        #"google_clusters_handling" : False,
+        #"sci_hub_files" : True,
+        #"google_get_files" : True,
+        #"google_cluster_files" : True,
         #"sci_hub_captcha_retry_by_proxy_count" : 5,
         #"google_captcha_retry_by_proxy_count" : 10,
     }
@@ -170,9 +171,9 @@ requiredNamed.add_argument("-d", "--database", action="store", dest="DB_FILE_NAM
 requiredNamed.add_argument("-l", "--log", action="store", dest="LOG_FILE_NAME", help="Logbook file", type=str, required=True)
 requiredNamed.add_argument("-c", "--control", action="store", dest="CONTROL_FILE_NAME", help="Control file", type=str, required=True)
 requiredNamed.add_argument("-p", "--proxies", action="store", dest="PROXIES_FILE", help="File with proxies", type=str, required=True)
-_group = _parser.add_mutually_exclusive_group()
-_group.add_argument("-t", action="store_false", dest="TransactionMode", help="Transaction mode")
-_group.add_argument("-i", action="store_true", dest="InformationMode", help="Information mode")
+#_group = _parser.add_mutually_exclusive_group()
+#_group.add_argument("-t", action="store_false", dest="TransactionMode", help="Transaction mode")
+#_group.add_argument("-i", action="store_true", dest="InformationMode", help="Information mode")
 
 logger.debug("Parse arguments.")
 
@@ -181,19 +182,7 @@ _DB_FILE = _command_args.DB_FILE_NAME
 _LOGBOOK_NAME = _command_args.LOG_FILE_NAME
 _CONTROL_FILE = _command_args.CONTROL_FILE_NAME
 PROXY_FILE = _command_args.PROXIES_FILE
-MODE = INFORMATION_MODE if _command_args.InformationMode else TRANSACTION_MODE
-
-# DEFINE PDF CATALOG AND CREATE IF NOT EXISTS
-logger.debug("Check catalog for PDFs.")
-PDF_CATALOG = os.path.splitext(os.path.split(_DB_FILE)[-1])[0] + "_PDF\\"
-try:
-    if not os.path.exists(PDF_CATALOG):
-            logger.debug("Create folder {}.".format(PDF_CATALOG))
-            os.mkdir(PDF_CATALOG)
-except:
-    logger.error(traceback.format_exc())
-    CloseObjects()
-    exit()
+#MODE = INFORMATION_MODE if _command_args.InformationMode else TRANSACTION_MODE
 
 logger.info("Initializing logbook.")
 
@@ -253,12 +242,24 @@ except:
     exit()
 else:
     logger.info("DB connection initialized.")
-if MODE == INFORMATION_MODE:
-    INFO_FILE = InfoFile("{0}.{1}".format(os.path.splitext(_DB_FILE)[0], 'txt'))
+#if MODE == INFORMATION_MODE:
+#    INFO_FILE = InfoFile("{0}.{1}".format(os.path.splitext(_DB_FILE)[0], 'txt'))
 
 DB_PATH = _main_dir
 if os.path.split(_DB_FILE)[0] != "":
     DB_PATH = os.path.split(_DB_FILE)[0]
+
+# DEFINE PDF CATALOG AND CREATE IF NOT EXISTS
+logger.debug("Check catalog for PDFs.")
+PDF_CATALOG = os.path.splitext(os.path.split(_DB_FILE)[-1])[0] + "_PDF\\"
+try:
+    if not os.path.exists(PDF_CATALOG):
+            logger.debug("Create folder {}.".format(PDF_CATALOG))
+            os.mkdir(PDF_CATALOG)
+except:
+    logger.error(traceback.format_exc())
+    CloseObjects()
+    exit()
 
 _SUCCESSFUL_START_FLAG = True
 # Register current session

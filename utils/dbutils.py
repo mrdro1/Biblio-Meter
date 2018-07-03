@@ -33,12 +33,6 @@ def create_tables_if_not_exists():
         (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
          name varchar(1000),
          shortname varchar(1000),
-         --rg_profile_id varchar(1000),
-         --rg_author_uid varchar(1000),
-         --rg_workplace varchar(1000),
-         --rg_score varchar(1000),
-         --rg_reads integer,
-         --rg_citations integer,
          google_id varchar(1000),
          google_h_index varchar(1000),
          google_i10_index varchar(1000),
@@ -77,18 +71,16 @@ def create_tables_if_not_exists():
          DOI varchar(1000),
          abstract varchar(10000),
          abstract_ru varchar(10000),
-         rg_id varchar(1000),
          references_count integer,
          g_type varchar(1000),
          google_url varchar(1000),
+         google_cluster_url varchar(1000),
          google_file_url varchar(1000),
-         rg_type varchar(1000),
          pages integer,
          start_page integer,
          end_page integer,
          authors integer,
          g_endnote text,
-         rg_ris text,
          source_pdf varchar(1000),
          notes varchar(1000),
          score integer,         
@@ -159,8 +151,6 @@ def get_paper_ID(params):
               )
               or
               (DOI = :DOI)
-              or
-              (rg_id = :rg_id)
         """, **params)
     id = None
     if res != []: id = res[0][0]
@@ -213,13 +203,12 @@ def add_new_paper(params):
     return execute_sql("""
         INSERT INTO papers(
             title, year, publisher, start_page, end_page, pages, g_type,
-            DOI, abstract, abstract_ru, rg_id, references_count, rg_type,
-            g_endnote, rg_ris, authors, r_transaction, ignore,
-            google_url, google_file_url
+            DOI, abstract, abstract_ru, references_count, g_endnote,  
+            authors, r_transaction, ignore, google_url, google_cluster_url, google_file_url
         ) VALUES(
             :title, :year, :publisher, :start_page, :end_page, :pages, :g_type,
-            :DOI, :abstract, :abstract_ru, :rg_id, :references_count, :rg_type,
-            :EndNote, :RIS, :authors, :transaction, :ignore, :google_url,
+            :DOI, :abstract, :abstract_ru, 
+            :references_count, :EndNote, :authors, :transaction, :ignore, :google_cluster_url, :google_url,
             :google_file_url
         )
         """, **params)
@@ -284,13 +273,11 @@ def update_paper(params, update_addition_info=False):
                 DOI=:DOI,
                 abstract=:abstract,
                 abstract_ru=:abstract_ru,
-                rg_id=:rg_id,
                 references_count=:references_count,
-                rg_type=:rg_type,
                 g_endnote=:EndNote,
-                rg_ris=:RIS,
                 authors=:authors,
                 google_url=:google_url,
+                google_cluster_url=:google_cluster_url,
                 google_file_url=:google_file_url
             WHERE id = :id
             """, **params)

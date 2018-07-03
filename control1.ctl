@@ -1,9 +1,16 @@
 {
 "command" : "getPapersByKeyWords",
 "query" : "Accurate mobility \"location prediction\"", 
-"max_google_papers" : "25",
 "patents" : false, 
 "citations" : false,
+"start_paper" : 1,
+"max_google_papers" : 100,
+"google_clusters_handling" : false,
+"google_get_files" : true,
+"google_cluster_files" : true,
+"sci_hub_files" : true,
+"show_sci_hub_captcha" : false,
+
 "http_contiguous_requests" : 5,
-"commit_iterations" : 10
+"limit_resp_for_one_code" : 1
 }

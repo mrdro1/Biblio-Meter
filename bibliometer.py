@@ -94,9 +94,6 @@ def get_papers_by_key_words():
 
                 new_papers += 1
                 if settings.PARAMS["google_get_files"] and paper_version_counter == 0:
-                    download_pdf_url = False
-                    download_pdf_cluster = False
-                    download_pdf_scihub = False
                     tmp = download_pdf(
                         paper_info['general_information']['url'],
                         paper_info['link_to_pdf'],
@@ -232,17 +229,13 @@ def get_PDFs():
             settings.print_message('DOI and URLs is empty, skip this paper.')
             logger.debug("DOI and URLs is empty, skip this paper.")
             continue
-        download_pdf_url = False
-        download_pdf_cluster = False
-        download_pdf_scihub = False
-        download_pdf_url,
-        download_pdf_cluster,
-        download_pdf_scihub = download_pdf(
+        tmp = download_pdf(
             google_URL,
             pdf_google_URL,
             pdf_google_cluster_URL,
             DOI, 
             id)
+        download_pdf_url, download_pdf_cluster, download_pdf_scihub = tmp
         pdf_url_counter += 1 if download_pdf_url else 0
         pdf_cluster_counter += 1 if download_pdf_cluster else 0
         pdf_scihub_counter += 1 if download_pdf_scihub else 0
@@ -251,11 +244,11 @@ def get_PDFs():
             not download_pdf_cluster and \
             not download_pdf_scihub else 0
     new_files_count = pdf_scihub_counter + pdf_cluster_counter + pdf_url_counter
-    settings.print_message("Proceed papers: {0}.".format(len(papers)))
-    settings.print_message("PDF from Google: {0}.".format(pdf_url_counter))
-    settings.print_message("PDF from Google Cluster: {0}.".format(pdf_cluster_counter))
-    settings.print_message("PDF from Sci-Hub: {0}.".format(pdf_scihub_counter))
-    settings.print_message("Unavailable PDFs: {0}.".format(pdf_unavailable_counter))
+    settings.print_message("Proceed papers: {}.".format(len(papers)))
+    settings.print_message("PDF from Google: {}.".format(pdf_url_counter))
+    settings.print_message("PDF from Google Cluster: {}.".format(pdf_cluster_counter))
+    settings.print_message("PDF from Sci-Hub: {}.".format(pdf_scihub_counter))
+    settings.print_message("Unavailable PDFs: {}.".format(pdf_unavailable_counter))
     result = (True, new_files_count, pdf_unavailable_counter, pdf_unavailable_counter + new_files_count)
     return result
 
@@ -523,23 +516,23 @@ def dispatch(command):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_info_from_PDFs()
-                logger.debug("Processing was successful. Success updated: %i. Bad PDFs: %i."
-                            " Failed processing: %i. Total papers: %i "
-                            "Non-empty abstracts: %i. Translated abstracts: %i." % result)
-                settings.print_message("Processing was successful. Success updated: %i."
-                                       " Bad PDFs: %i. Failed processing: %i. Total papers: %i "
-                                       "Non-empty abstracts: %i. Translated abstracts: %i." % result)
+                logger.debug("Processing was successful.\nSuccess updated: %i.\nBad PDFs: %i."
+                            "\nFailed processing: %i.\nTotal papers: %i\n"
+                            "Non-empty abstracts: %i.\nTranslated abstracts: %i." % result)
+                settings.print_message("Processing was successful.\nSuccess updated: %i.\n"
+                                       "Bad PDFs: %i.\nFailed processing: %i.\nTotal papers: %i\n"
+                                       "Non-empty abstracts: %i.\nTranslated abstracts: %i." % result)
                 break
             if case("getPapersByKeyWords"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_papers_by_key_words()
-                logger.debug("Processing was successful. Added new papers: %i. Added new authors: %i. "
-                             "Processed total papers: %i. Downloaded PDFs from URL %i. Downloaded PDFs from cluster %i."
-                             "Downloaded PDFs from Sci-Hub %i. Unavailable PDFs %i." % result)
-                settings.print_message("Processing was successful. Added new papers: %i. Added new authors: %i. "
-                             "Processed total papers: %i. Downloaded PDFs from URL %i. Downloaded PDFs from cluster %i."
-                             "Downloaded PDFs from Sci-Hub %i. Unavailable PDFs %i." % result)
+                logger.debug("Processing was successful.\nAdded new papers: %i.\nAdded new authors: %i.\n"
+                             "Processed total papers: %i.\n Downloaded PDFs from URL %i.\n Downloaded PDFs from cluster %i."
+                             " Downloaded PDFs from Sci-Hub %i.\n Unavailable PDFs %i." % result)
+                settings.print_message("Processing was successful.\nAdded new papers: %i.\nAdded new authors: %i.\n"
+                             "Processed total papers: %i.\n Downloaded PDFs from URL %i.\n Downloaded PDFs from cluster %i.\n"
+                             " Downloaded PDFs from Sci-Hub %i.\n Unavailable PDFs %i." % result)
                 break
             if case("updateAuthors"):
                 result = update_authors()
@@ -551,8 +544,8 @@ def dispatch(command):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_PDFs()
-                settings.print_message("Processing was successful. Downloads files: %i. Unavailable pdf's: %i. Processed total: %i." % result[1:])
-                logger.debug("Processing was successful. Downloads files: %i. Unavailable pdf's: %i. Processed total: %i." % result[1:])
+                settings.print_message("Processing was successful.\nDownloads files: %i.\nUnavailable pdf's: %i.\nProcessed total: %i." % result[1:])
+                logger.debug("Processing was successful.\nDownloads files: %i.\nUnavailable pdf's: %i.\nProcessed total: %i." % result[1:])
                 break
             if case("getReferences"):
                 logger.debug("Processing command '%s'." % command)

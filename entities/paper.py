@@ -117,7 +117,7 @@ class Paper(object):
                 "EndNote":self.EndNote,
                 "authors":len(self.authors),
                 "google_url":self.paper_URL,
-                "google_cluster_url":str(self.cluster),
+                "google_cluster_id":str(self.cluster),
                 "google_file_url":self.PDF_URL,
             }
             )
@@ -152,7 +152,7 @@ class Paper(object):
                 "id":self.db_id,
                 "google_url":self.paper_URL,
                 "google_file_url":self.PDF_URL,
-                "google_cluster_url":self.cluster
+                "google_cluster_id":self.cluster
             }
             ) 
 

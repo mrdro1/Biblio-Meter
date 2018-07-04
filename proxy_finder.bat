@@ -1,1 +1,1 @@
-python proxy_finder.py -q "q" -c 10 -o proxies.txt
+python proxy_finder.py -q query.txt -c 10 -o proxies.txt

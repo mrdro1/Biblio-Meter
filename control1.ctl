@@ -4,7 +4,7 @@
 "patents" : false, 
 "citations" : false,
 "start_paper" : 1,
-"max_google_papers" : 100,
+"max_google_papers" : 10,
 "google_clusters_handling" : false,
 "google_get_files" : true,
 "google_cluster_files" : true,

@@ -74,7 +74,7 @@ def create_tables_if_not_exists():
          references_count integer,
          g_type varchar(1000),
          google_url varchar(1000),
-         google_cluster_url varchar(1000),
+         google_cluster_id varchar(1000),
          google_file_url varchar(1000),
          pages integer,
          start_page integer,
@@ -204,11 +204,11 @@ def add_new_paper(params):
         INSERT INTO papers(
             title, year, publisher, start_page, end_page, pages, g_type,
             DOI, abstract, abstract_ru, references_count, g_endnote,  
-            authors, r_transaction, ignore, google_url, google_cluster_url, google_file_url
+            authors, r_transaction, ignore, google_url, google_cluster_id, google_file_url
         ) VALUES(
             :title, :year, :publisher, :start_page, :end_page, :pages, :g_type,
             :DOI, :abstract, :abstract_ru, 
-            :references_count, :EndNote, :authors, :transaction, :ignore, :google_cluster_url, :google_url,
+            :references_count, :EndNote, :authors, :transaction, :ignore, :google_url, :google_cluster_id,
             :google_file_url
         )
         """, **params)
@@ -277,7 +277,7 @@ def update_paper(params, update_addition_info=False):
                 g_endnote=:EndNote,
                 authors=:authors,
                 google_url=:google_url,
-                google_cluster_url=:google_cluster_url,
+                google_cluster_id=:google_cluster_id,
                 google_file_url=:google_file_url
             WHERE id = :id
             """, **params)

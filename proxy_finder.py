@@ -1,4 +1,4 @@
-# python proxy_finder.py -q "q" -c 1 -o proxies.txt
+# python proxy_finder.py -q "163.121.187.100:8080" -c 1 -o proxies.txt
 
 import argparse
 from datetime import datetime

@@ -119,7 +119,7 @@ def get_papers_by_key_words():
     return (new_papers, new_auth, papers_counter, pdf_url_counter, pdf_cluster_counter, pdf_scihub_counter, pdf_unavailable_counter)
 
 
-def download_pdf(google_url, google_pdf_url, google_cluster_url, DOI, paper_id):
+def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
     # Download pdf for paper (first paper if use google cluster)
     download_pdf_url = False
     download_pdf_cluster = False
@@ -146,10 +146,10 @@ def download_pdf(google_url, google_pdf_url, google_cluster_url, DOI, paper_id):
             logger.debug("Failed get pdf from Google Scholar URL={0}".format(google_pdf_url))
             settings.print_message("failed load PDF from Google Scholar.", 2)
     # load pdf from google scholar cluster by paper url if does not exist 
-    if not success_download and google_cluster_url and settings.PARAMS["google_cluster_files"]:
-        cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(google_cluster_url)
+    if not success_download and google_cluster_id and settings.PARAMS["google_cluster_files"]:
+        cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(google_cluster_id)
         if cluster_pdfs_links is not None:
-            settings.print_message("Try get pdf from Google Scholar cluster {}.".format(google_cluster_url), 1)
+            settings.print_message("Try get pdf from Google Scholar cluster {}.".format(google_cluster_id), 1)
             for google_pdf_url in cluster_pdfs_links:
                 settings.print_message(
                     "Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url), 2)
@@ -224,10 +224,10 @@ def get_PDFs():
     for paper_index, newpaper in enumerate(papers):
         settings.print_message("Handle paper #{0} - {1}.".format(paper_index + 1, newpaper[columns['title']]))
         id = newpaper[columns["id"]]
-        DOI = newpaper[columns["DOI"]]
+        DOI = newpaper[columns["doi"]]
         google_URL = newpaper[columns["google_url"]]
         pdf_google_URL = newpaper[columns["google_file_url"]]
-        pdf_google_cluster_URL = newpaper[columns["google_cluster_url"]]
+        pdf_google_cluster_URL = newpaper[columns["google_cluster_id"]]
         if (google_URL is None) and (pdf_google_URL is None) and (pdf_google_cluster_URL is None) and (DOI is None):
             settings.print_message('DOI and URLs is empty, skip this paper.')
             logger.debug("DOI and URLs is empty, skip this paper.")
@@ -242,7 +242,7 @@ def get_PDFs():
             pdf_google_URL,
             pdf_google_cluster_URL,
             DOI, 
-            newpaper.db_id)
+            id)
         pdf_url_counter += 1 if download_pdf_url else 0
         pdf_cluster_counter += 1 if download_pdf_cluster else 0
         pdf_scihub_counter += 1 if download_pdf_scihub else 0
@@ -477,6 +477,8 @@ def get_info_from_PDFs():
     for N, column in enumerate(dbutils.get_columns_names("papers")):
         columns[column.lower()] = N
     unavailable_files_counter = 0
+    translated_abstract = 0
+    nonempty_abstract = 0
     for paper_index, paper_info in enumerate(papers):
         settings.print_message("Handle paper #{0} (total {1}).".format(paper_index + 1, len(papers)))
         id = paper_info[columns["id"]]

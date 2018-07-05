@@ -98,9 +98,6 @@ CONTROL_KEYS = [
     "google_cluster_files",
     "download_scihub_captcha",
     "show_sci_hub_captcha",
-    "google_get_files_throw_proxy",
-    "sci_hub_files_throw_proxy",
-    "throw_download_count",
     #"sci_hub_captcha_retry_by_proxy_count",
     #"google_captcha_retry_by_proxy_count",
     ]

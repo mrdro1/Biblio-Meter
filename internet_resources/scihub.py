@@ -53,17 +53,7 @@ def get_pdf(DOI, filename):
     if url == None: return False
     try:
         settings.print_message("Download pdf from Sci-Hub by '{}'".format(DOI), 2)
-        success_download = False
-        if settings.PARAMS.get("sci_hub_files_throw_proxy"):
-            for counter in range(settings.PARAMS.get("throw_download_count")):
-                settings.print_message("Try download throw proxy... #{}".format(counter + 1), 3)
-                if utils.download_file(url, filename, True): 
-                    success_download = True
-                    break
-        if settings.PARAMS.get("sci_hub_files_throw_proxy") and not success_download:
-            settings.print_message("Try download without proxy...", 3)
-        if not success_download:
-            utils.download_file(url, filename)
+        utils.download_file(url, filename) 
         return utils.check_pdf(filename)
     except:
         logger.warn(traceback.format_exc())

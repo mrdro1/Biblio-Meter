@@ -43,7 +43,6 @@ _header = build_version_string()
 
 # Path to web driver
 PATH_TO_WEB_DRIVER = 'chromedriver.exe'
-CHROME_COOKIES_PATH = os.path.join(os.getenv('LOCALAPPDATA'), "Google\\Chrome\\User Data\\Default\\Cookies")
 
 # Default browser
 CHROME = 0
@@ -99,6 +98,9 @@ CONTROL_KEYS = [
     "google_cluster_files",
     "download_scihub_captcha",
     "show_sci_hub_captcha",
+    "google_get_files_throw_proxy",
+    "sci_hub_files_throw_proxy",
+    "throw_download_count",
     #"sci_hub_captcha_retry_by_proxy_count",
     #"google_captcha_retry_by_proxy_count",
     ]

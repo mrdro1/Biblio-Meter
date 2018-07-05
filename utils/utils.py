@@ -292,12 +292,12 @@ def handle_captcha(response):
     return 0
 
 
-def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False, skip_captcha=False):
+def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False, skip_captcha=False, force_use_proxy=False):
     """Send get request [, catch errors, try again]* & return data"""
     global REQUEST_STATISTIC
     host = urlparse(url).hostname
-    count_try_for_captcha = 0
     bad_requests_counter = 0
+    count_try_proxy = 0
     # var for control count handled capthas, this help avoid inf cycle
     capthas_handled = 0
     MAX_CAPTCHAS_HANDLED = _PROXY_OBJ.proxies_count
@@ -309,7 +309,7 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
             ip = None
             if POST:
                 resp = SESSIONS["localhost"].post(url=url, files=att_file, stream=stream, timeout=TIMEOUT, verify=False)
-            elif host.endswith(scihub.SCIHUB_HOST_NAME) or for_download:
+            elif host.endswith(scihub.SCIHUB_HOST_NAME) or for_download and not force_use_proxy:
                 resp = SESSIONS["localhost"].get(url, stream=stream, timeout=TIMEOUT, verify=False)
             else:
                 proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)
@@ -333,9 +333,20 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
                         #                                        settings.PARAMS[_get_name_max_try_to_host(url)], number + 1, _PROXY_OBJ.proxies_count, ip, SESSIONS[ip].HTTP_requests))
                         #    continue
                         #else:
-                            if host.endswith(scihub.SCIHUB_HOST_NAME) and not settings.PARAMS.get("show_sci_hub_captcha"):
+                            if host.endswith(scihub.SCIHUB_HOST_NAME) and not settings.PARAMS.get("show_sci_hub_captcha") or force_use_proxy:
                                 logger.debug("CAPTCHA was found, skip.")
                                 settings.print_message("CAPTCHA was found, skip.")
+                                if force_use_proxy:
+                                    ip = [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy_without_changing(host).values()][0]
+                                    if SESSIONS.get(ip) is not None:
+                                        SESSIONS[ip].HTTP_requests = 0
+                                    ip = [ip_port for ip_port in _PROXY_OBJ.get_cur_proxy(host).values()][0]
+                                    if SESSIONS.get(ip) is None:
+                                        logger.debug("Create new session for proxy {}".format(ip))
+                                        SESSIONS[ip] = create_new_session()
+                                    number = [i for i, proxy_ in enumerate(SESSIONS.keys()) if proxy_ == ip][0]
+                                    logger.debug("Change proxy to #{} (total {}): {}".format(number + 1, _PROXY_OBJ.proxies_count, ip))
+                                    settings.print_message("Change proxy to #{} (total {}): {}".format(number + 1, _PROXY_OBJ.proxies_count, ip))
                                 return None
                             if not skip_captcha and capthas_handled < MAX_CAPTCHAS_HANDLED:
                                 bad_proxy = _PROXY_OBJ.get_cur_proxy_without_changing(host)
@@ -450,10 +461,10 @@ def get_json_data(url):
     return json_data
 
 
-def download_file(url, output_filename):
+def download_file(url, output_filename, force_use_proxy=False):
     """Download file from url"""
     logger.warn("Download file (url='%s') and save (filename='%s')" % (url, output_filename))
-    response = get_request(url, stream=True, for_download=True)
+    response = get_request(url, stream=True, for_download=True, force_use_proxy=force_use_proxy)
     if response == None: return False
     content_length = 0
     if response.headers.get('content-type') is None:
@@ -472,7 +483,7 @@ def download_file(url, output_filename):
 
     if content_length == 0 and 'application/pdf' in response.headers['content-type']:
         logger.debug('Downloading the entire file.')
-        response = get_request(url, return_resp=True, for_download=True)
+        response = get_request(url, return_resp=True, for_download=True, force_use_proxy=force_use_proxy)
 
     downloaded_size = 0
     chunk_size = 65536

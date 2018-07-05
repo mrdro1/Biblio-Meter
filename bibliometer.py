@@ -144,15 +144,15 @@ def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
             settings.print_message("failed load PDF from Google Scholar.", 2)
     # load pdf from google scholar cluster by paper url if does not exist 
     if not success_download and google_cluster_id and settings.PARAMS["google_cluster_files"]:
+        settings.print_message("Try get pdf from Google Scholar cluster {}.".format(google_cluster_id), 1)
         cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(google_cluster_id)
         if cluster_pdfs_links is not None:
-            settings.print_message("Try get pdf from Google Scholar cluster {}.".format(google_cluster_id), 1)
             for google_pdf_url in cluster_pdfs_links:
                 settings.print_message(
                     "Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url), 2)
                 logger.debug("Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url))
                 try:
-                    if scholar.get_pdf(google_pdf_url, fn_tmp_pdf):
+                    if scholar.get_pdf(google_pdf_url, fn_tmp_pdf,):
                         settings.print_message("Complete!", 2)
                         dbutils.update_pdf_transaction(paper_id, "Google Scholar Cluster")
                         utils.rename_file(fn_tmp_pdf, fn_pdf)

@@ -89,12 +89,14 @@ class Paper(object):
         self.DOI = pdf_info["DOI"]
         self.abstract = pdf_info["abstract"]
         self.abstract_ru = pdf_info["abstract_ru"]
+        self.year = pdf_info["pubdate"]
         dbutils.update_paper(
             {
                 "DOI":self.DOI,
                 "abstract":self.abstract,
                 "abstract_ru":self.abstract_ru,
-                "id":self.db_id
+                "id":self.db_id,
+                "year":self.year
             }, True
             ) 
         return True

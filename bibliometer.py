@@ -54,8 +54,8 @@ def get_papers_by_key_words():
             for paper_version_counter, paper_addition_information in enumerate(paper_info["different_information"]):
                 papers_counter += 1
                 # if papers_counter > max_papers_count: break;
-                if not "year" in paper_addition_information or not "author" in paper_addition_information:
-                    logger.debug("Skip paper #%i, empty year or authors fields." % papers_counter)
+                if not "author" in paper_addition_information: #or not "year" in paper_addition_information:
+                    logger.debug("Skip paper #%i, empty authors fields." % papers_counter)#year or 
                     continue
                 logger.debug("Process content of EndNote file #%i\n%s\n%s" % (
                 papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))

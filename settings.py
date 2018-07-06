@@ -9,9 +9,9 @@ import subprocess
 from math import inf
 #
 _main_dir = os.path.dirname(__file__)
-sys.path.insert(0, os.path.join(_main_dir, 'utils\\'))
-sys.path.insert(0, os.path.join(_main_dir, 'entities\\'))
-sys.path.insert(0, os.path.join(_main_dir, 'internet_resources\\'))
+sys.path.insert(0, os.path.join(_main_dir, 'utils/'))
+sys.path.insert(0, os.path.join(_main_dir, 'entities/'))
+sys.path.insert(0, os.path.join(_main_dir, 'internet_resources/'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, \
                     close_connection
@@ -250,7 +250,7 @@ if os.path.split(_DB_FILE)[0] != "":
 
 # DEFINE PDF CATALOG AND CREATE IF NOT EXISTS
 logger.debug("Check catalog for PDFs.")
-PDF_CATALOG = os.path.splitext(os.path.split(_DB_FILE)[-1])[0] + "_PDF\\"
+PDF_CATALOG = os.path.splitext(os.path.split(_DB_FILE)[-1])[0] + "_PDF/"
 try:
     if not os.path.exists(PDF_CATALOG):
             logger.debug("Create folder {}.".format(PDF_CATALOG))

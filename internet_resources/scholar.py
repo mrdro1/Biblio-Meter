@@ -430,7 +430,7 @@ def search_pubs_query_with_params(
         '0' if citations else '1',
         start_paper
     )
-    print(url)
+    #settings.print_message(url)
     return search_pubs_custom_url(url, handling_cluster, max_iter, start_paper)
 
 

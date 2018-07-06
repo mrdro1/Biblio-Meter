@@ -13,15 +13,13 @@ import os
 from urllib.parse import urlparse
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import hashlib
-from selenium import webdriver
-from selenium.webdriver.support import expected_conditions as ec
-from selenium.webdriver import ChromeOptions
+#from selenium import webdriver
+#from selenium.webdriver.support import expected_conditions as ec
+#from selenium.webdriver import ChromeOptions
 #
 import browsercookie #
 
 from bs4 import BeautifulSoup
-import shutil
-import progressbar as pb
 import PyPDF2
 #
 import settings
@@ -254,9 +252,9 @@ def _check_captcha(soup):
         try:
             if soup.find('img', id="captcha"):
                 href = 'http://dacemirror.sci-hub.tw' + soup.find('img', id="captcha")['src']
-                if not os.path.exists('captcha//'):
-                    os.mkdir('captcha//')
-                download_file(href, 'captcha//' + href.split('/')[-1])
+                if not os.path.exists('captcha/'):
+                    os.mkdir('captcha/')
+                download_file(href, 'captcha/' + href.split('/')[-1])
         except:
             settings.print_message('Can\'t load captcha image', 2)
     return soup.find('div', id='gs_captcha_ccl') != None or \
@@ -268,11 +266,11 @@ def handle_captcha(response):
     host = urlparse(response.request.url).hostname
     if "sci-hub" in host:
         try:
-            with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
+            with open('html_fails/{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
                 f.write(response.text)
         except:
             pass
-        cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
+        cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%/Google/Chrome/User Data"'
         os.popen(cline.format(response.request.url, ""))
         input("Press Enter after entering to continue")
         logger.debug("Waiting for cookies to be updated.")
@@ -343,7 +341,7 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
                                 count_try_for_captcha = 0
                             else:
                                 try:
-                                    with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
+                                    with open('html_fails/{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
                                         f.write(resp.text)
                                 except:
                                     pass
@@ -387,7 +385,7 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
     SESSIONS["localhost"].cookies = _get_cookies()
     # save html for bad request
     try:
-        with open('html_fails//{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
+        with open('html_fails\{}.html'.format(time.time()), 'w', encoding='UTF-8') as f:
             f.write(resp.text)
     except:
         pass

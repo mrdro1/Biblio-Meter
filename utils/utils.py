@@ -13,6 +13,7 @@ import os
 from urllib.parse import urlparse
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import hashlib
+from PIL import Image
 #from selenium import webdriver
 #from selenium.webdriver.support import expected_conditions as ec
 #from selenium.webdriver import ChromeOptions
@@ -248,18 +249,10 @@ SESSIONS["localhost"].cookies = _get_cookies()
 
 def _check_captcha(soup):
     """Return true if ReCaptcha was found"""
-    if settings.PARAMS.get('download_scihub_captcha'):
-        try:
-            if soup.find('img', id="captcha"):
-                href = 'http://dacemirror.sci-hub.tw' + soup.find('img', id="captcha")['src']
-                if not os.path.exists('captcha/'):
-                    os.mkdir('captcha/')
-                download_file(href, 'captcha/' + href.split('/')[-1])
-        except:
-            settings.print_message('Can\'t load captcha image', 2)
     return soup.find('div', id='gs_captcha_ccl') != None or \
        soup.find('div', class_='g-recaptcha') != None or \
        soup.find('img', id="captcha") != None
+
 
 def handle_captcha(response):
     """ Captcha handler """
@@ -270,10 +263,32 @@ def handle_captcha(response):
                 f.write(response.text)
         except:
             pass
-        cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%/Google/Chrome/User Data"'
-        os.popen(cline.format(response.request.url, ""))
-        input("Press Enter after entering to continue")
-        logger.debug("Waiting for cookies to be updated.")
+        #cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%/Google/Chrome/User Data"'
+        #os.popen(cline.format(response.request.url, ""))
+        logger.debug("Solving captcha.")
+        try:
+            logger.debug("Get img id.")
+            soup = BeautifulSoup(response.text, 'html.parser')
+            captcha_id = soup.find('img', id="captcha")['src'].split('/')[-1].split('.')[0]
+            if settings.PARAMS.get('download_scihub_captcha'):
+                try:
+                    if soup.find('img', id="captcha"):
+                        href = "http://{}/img/{}.jpg".format(host, captcha_id)
+                        if not os.path.exists('captcha/'): os.mkdir('captcha/')
+                        fname = 'captcha/' + href.split('/')[-1]
+                        download_file(href, fname)
+                        img = Image.open(fname)
+                        img.show()
+                except:
+                    settings.print_message('Can\'t load captcha image', 2)
+            settings.print_message(captcha_id)
+            logger.debug("Send answer.")
+            code = input("Input code from CAPTCHA image: ")
+            req = get_request(response.request.url, POST=True, data={"id":captcha_id, "answer":code}, skip_captcha=True, allow_redirects=False)
+            logger.debug("Captcha was solved.")
+        except:
+            logger.debug("Error solving captcha.")
+            logger.warn(traceback.format_exc())
         #settings.print_message("Waiting for cookies to be updated.")
         SESSIONS["localhost"].cookies = _get_cookies()
     else:
@@ -290,7 +305,7 @@ def handle_captcha(response):
     return 0
 
 
-def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False, skip_captcha=False):
+def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False, skip_captcha=False, data=None, allow_redirects=True):
     """Send get request [, catch errors, try again]* & return data"""
     global REQUEST_STATISTIC
     host = urlparse(url).hostname
@@ -306,7 +321,7 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
         try:
             ip = None
             if POST:
-                resp = SESSIONS["localhost"].post(url=url, files=att_file, stream=stream, timeout=TIMEOUT, verify=False)
+                resp = SESSIONS["localhost"].post(url=url, files=att_file, stream=stream, timeout=TIMEOUT, verify=False, data=data, allow_redirects=allow_redirects)
             elif host.endswith(scihub.SCIHUB_HOST_NAME) or for_download:
                 resp = SESSIONS["localhost"].get(url, stream=stream, timeout=TIMEOUT, verify=False)
             else:

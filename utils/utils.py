@@ -13,6 +13,7 @@ import os
 from urllib.parse import urlparse
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import hashlib
+from shutil import copyfile
 from PIL import Image
 #from selenium import webdriver
 #from selenium.webdriver.support import expected_conditions as ec
@@ -270,17 +271,24 @@ def handle_captcha(response):
             logger.debug("Get img id.")
             soup = BeautifulSoup(response.text, 'html.parser')
             captcha_id = soup.find('img', id="captcha")['src'].split('/')[-1].split('.')[0]
-            if settings.PARAMS.get('download_scihub_captcha'):
-                try:
-                    if soup.find('img', id="captcha"):
-                        href = "http://{}/img/{}.jpg".format(host, captcha_id)
-                        if not os.path.exists('captcha/'): os.mkdir('captcha/')
+            try:
+                if soup.find('img', id="captcha"):
+                    href = "http://{}/img/{}.jpg".format(host, captcha_id)
+                    if not os.path.exists('captcha/'): os.mkdir('captcha/')
+                    tmp_fname = 'captcha/tmp_' + href.split('/')[-1]
+                    logger.debug("Download captcha image.")
+                    download_file(href, tmp_fname)
+                    if settings.PARAMS.get('download_scihub_captcha'):
                         fname = 'captcha/' + href.split('/')[-1]
-                        download_file(href, fname)
-                        img = Image.open(fname)
-                        img.show()
-                except:
-                    settings.print_message('Can\'t load captcha image', 2)
+                        logger.debug("Copy file {} -> {}.".format(tmp_fname, fname))
+                        copyfile(tmp_fname, 'captcha/' + href.split('/')[-1])
+                    logger.debug("Open image and remove file {}.".format(tmp_fname))
+                    img = Image.open(tmp_fname)
+                    img.show()
+                    os.remove(tmp_fname)
+            except:
+                settings.print_message('Can\'t load captcha image', 2)
+                raise Exception("CAPTCHA image unavailable!")
             settings.print_message(captcha_id)
             logger.debug("Send answer.")
             code = input("Input code from CAPTCHA image: ")
@@ -289,6 +297,9 @@ def handle_captcha(response):
         except:
             logger.debug("Error solving captcha.")
             logger.warn(traceback.format_exc())
+            cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%/Google/Chrome/User Data"'
+            os.popen(cline.format(response.request.url, ""))
+            code = input("Press enter to continue.")
         #settings.print_message("Waiting for cookies to be updated.")
         SESSIONS["localhost"].cookies = _get_cookies()
     else:

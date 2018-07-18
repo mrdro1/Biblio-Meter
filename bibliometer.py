@@ -27,7 +27,6 @@ logger.setLevel(settings.LOG_LEVEL)
 def get_papers_by_key_words():
     logger.debug("Search papers from google.scholar.")
     settings.print_message("Search papers from google.scholar.")
-    #settings.PARAMS['google_clusters_handling'] = 'False'
     paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(settings.PARAMS)
     
     if paper_generator is None:
@@ -49,67 +48,64 @@ def get_papers_by_key_words():
         for paper_info in paper_generator:
             max_papers_count -= 1
             # Loop for different versions of paper
-            paper_versions = len(paper_info["different_information"])
-            if paper_versions == 0: settings.print_message(
+            if not paper_info["different_information"]: settings.print_message(
                 "Not found information about paper #%i, skipped." % papers_counter, 1)
-            for paper_version_counter, paper_addition_information in enumerate(paper_info["different_information"]):
-                papers_counter += 1
-                # if papers_counter > max_papers_count: break;
-                #if not "author" in paper_addition_information: #or not "year" in paper_addition_information:
-                #    logger.debug("Skip paper #%i, empty authors fields." % papers_counter)#year or 
-                #    continue
-                logger.debug("Process content of EndNote file #%i\n%s\n%s" % (
-                papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
-                # Create new paper entity
-                newpaper = paper.Paper()
-                # Fill data from google scholar
-                newpaper.get_info_from_sch(paper_info["general_information"], paper_addition_information,
-                                           paper_version_counter + 1, paper_info['link_to_pdf'])
-                if newpaper.in_database():
-                    settings.print_message("This paper%s already exists, id = %i." % ((" version" if paper_versions > 1 else ""), newpaper.db_id), 1)
-                else:
-                    new_papers += 1
-                    newpaper.add_to_database()
-                    settings.print_message(
-                        "Adding a paper%s to the database" % (" version" if paper_versions > 1 else ""),
-                        1)
+            paper_addition_information = paper_info["different_information"]
+            papers_counter += 1
+            # if papers_counter > max_papers_count: break;
+            #if not "author" in paper_addition_information: #or not "year" in paper_addition_information:
+            #    logger.debug("Skip paper #%i, empty authors fields." % papers_counter)#year or 
+            #    continue
+            logger.debug("Process content of EndNote file #%i\n%s\n%s" % (
+            papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
+            # Create new paper entity
+            newpaper = paper.Paper()
+            # Fill data from google scholar
+            newpaper.get_info_from_sch(paper_info["general_information"], paper_addition_information,
+                                        1, paper_info['link_to_pdf'])
+            if newpaper.in_database():
+                settings.print_message("This paper already exists, id = {}.".format(newpaper.db_id), 1)
+            else:
+                new_papers += 1
+                newpaper.add_to_database()
+                settings.print_message("Adding a paper to the database", 1)
 
-                    # Get and insert in database info about author
-                    settings.print_message("Authors:", 2)
-                    for author_info in newpaper.authors:
-                        # Create new author entity
-                        newauthor = author.Author()
-                        newauthor.get_base_info_from_sch(author_info)
+                # Get and insert in database info about author
+                settings.print_message("Authors:", 2)
+                for author_info in newpaper.authors:
+                    # Create new author entity
+                    newauthor = author.Author()
+                    newauthor.get_base_info_from_sch(author_info)
 
-                        settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 4)
-                        logger.debug("Check exists author and if not then insert into DB.")
-                        if not newauthor.in_database():
-                            newauthor.get_info_from_sch()
-                            # Insert new author into DB
-                            settings.print_message("Adding author to the database", 4)
-                            newauthor.save_to_database()
-                            new_auth += 1
-                        else:
-                            settings.print_message("This author already exists, id = %i." % newauthor.db_id, 4)
-                        # Insert into DB reference
-                        dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
+                    settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 4)
+                    logger.debug("Check exists author and if not then insert into DB.")
+                    if not newauthor.in_database():
+                        newauthor.get_info_from_sch()
+                        # Insert new author into DB
+                        settings.print_message("Adding author to the database", 4)
+                        newauthor.save_to_database()
+                        new_auth += 1
+                    else:
+                        settings.print_message("This author already exists, id = %i." % newauthor.db_id, 4)
+                    # Insert into DB reference
+                    dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
 
-                if settings.PARAMS["google_get_files"] and paper_version_counter == 0:
-                    tmp = download_pdf(
-                        paper_info['general_information']['url'],
-                        paper_info['link_to_pdf'],
-                        paper_info['general_information'].get("cluster"),
-                        None, newpaper.db_id)
-                    download_pdf_url, download_pdf_cluster, download_pdf_scihub = tmp
-                    pdf_url_counter += 1 if download_pdf_url else 0
-                    pdf_cluster_counter += 1 if download_pdf_cluster else 0
-                    pdf_scihub_counter += 1 if download_pdf_scihub else 0
-                    pdf_unavailable_counter += 1 if \
-                        not download_pdf_url and \
-                        not download_pdf_cluster and \
-                        not download_pdf_scihub else 0
-                # Commit transaction each commit_iterations iterations
-                if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
+            if settings.PARAMS["google_get_files"]:
+                tmp = download_pdf(
+                    paper_info['general_information']['url'],
+                    paper_info['link_to_pdf'],
+                    paper_info['general_information'].get("cluster"),
+                    None, newpaper.db_id)
+                download_pdf_url, download_pdf_cluster, download_pdf_scihub = tmp
+                pdf_url_counter += 1 if download_pdf_url else 0
+                pdf_cluster_counter += 1 if download_pdf_cluster else 0
+                pdf_scihub_counter += 1 if download_pdf_scihub else 0
+                pdf_unavailable_counter += 1 if \
+                    not download_pdf_url and \
+                    not download_pdf_cluster and \
+                    not download_pdf_scihub else 0
+            # Commit transaction each commit_iterations iterations
+            if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
             # if papers_counter >= max_papers_count: break;
     return (about_res_count, new_papers, new_auth, papers_counter, new_auth + new_papers, 
             pdf_url_counter, pdf_cluster_counter, pdf_scihub_counter, pdf_unavailable_counter)

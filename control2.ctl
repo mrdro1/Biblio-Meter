@@ -1,6 +1,6 @@
 {
 "command" : "getFiles",
-"papers" : "select * from papers where (not DOI is Null or not google_file_url is Null or not google_cluster_id is Null or not google_url is Null) limit 1000",
+"papers" : "select * from papers where (not DOI is Null or not google_file_url is Null or not google_cluster_id is Null or not google_url is Null) and r_file_transaction is null limit 1000",
 "google_cluster_files" : true,
 "sci_hub_files" : true,
 

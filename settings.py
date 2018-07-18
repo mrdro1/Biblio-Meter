@@ -89,7 +89,6 @@ CONTROL_KEYS = [
     "patents", 
     "citations",
     "max_google_papers",
-    "google_clusters_handling",
     "papers",
     "max_tree_level",
     "max_cited_papers",
@@ -104,8 +103,6 @@ CONTROL_KEYS = [
     "show_sci_hub_captcha",
     "sci_hub_timeout",
     "sci_hub_capcha_autosolve",
-    #"sci_hub_captcha_retry_by_proxy_count",
-    #"google_captcha_retry_by_proxy_count",
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())

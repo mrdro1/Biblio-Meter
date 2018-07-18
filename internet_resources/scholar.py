@@ -167,6 +167,9 @@ def _get_info_from_resulting_selection(paper_soup):
             end_note = get_info_from_EndNote(link['href'].strip(), True)
             if end_note != None:
                 different_information.update(end_note)
+            else:
+                full_info["different_information"] = None
+                return full_info
             different_information["url_scholarbib"] = link['href'].strip()
         if 'Cited by' in link.text or 'Цитируется' in link.text:
             #utils.get_soup(_HOST + link['href'].strip())
@@ -201,6 +204,7 @@ def get_info_from_EndNote(file_url, return_source = False):
     EndNode_file = EndNode_file.replace("\r", "")
     logger.debug("EndNote file:\n%s" % EndNode_file)
     EndNote_info = EndNote_parsing(EndNode_file)
+    if not EndNote_info: return None
     if "pages" in EndNote_info:
         try:
             pages = EndNote_info["pages"].split("-")

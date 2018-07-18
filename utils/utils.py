@@ -65,6 +65,7 @@ class ProxyManager:
         self.file_name = settings.PROXY_FILE
         self.current_proxy_num = 0
         self.proxies_count = 0
+        self.scan_proxy_files_count = 0
         self.current_proxy = dict()
         self.current_proxy_ip = None
         self._proxy_list = self.load_proxies()
@@ -85,6 +86,7 @@ class ProxyManager:
         """ change current proxy for specific host name """
         self.current_proxy = next(self._proxy_list)
         self.current_proxy_num = self.current_proxy_num % self.proxies_count + 1
+        if self.current_proxy_num == 1: self.scan_proxy_files_count += 1
         logger.debug("Change proxy to {} #{} (total {})".format(
             self.current_proxy, self.current_proxy_num, self.proxies_count))
         self.current_proxy_ip = self.current_proxy["https"]
@@ -257,11 +259,11 @@ def handle_captcha(response):
                     tmp_fname = settings.DIR_CAPTCHA_IMG + 'tmp_' + href.split('/')[-1]
                     logger.debug("Download captcha image.")
                     download_file(href, tmp_fname)
-                    if settings.PARAMS.get('download_scihub_captcha'):
+                    if settings.PARAMS.get('sci_hub_download_captcha'):
                         fname = settings.DIR_CAPTCHA_IMG + href.split('/')[-1]
                         logger.debug("Copy file {} -> {}.".format(tmp_fname, fname))
                         copyfile(tmp_fname, settings.DIR_CAPTCHA_IMG + href.split('/')[-1])
-                    if not settings.PARAMS.get("show_sci_hub_captcha"):
+                    if not settings.PARAMS.get("sci_hub_show_captcha"):
                         global LAST_CAPTCHA_SOLVE_TIME
                         timespan = int((datetime.now() - LAST_CAPTCHA_SOLVE_TIME).total_seconds())
                         sleep_time = settings.PARAMS["sci_hub_timeout"] - timespan
@@ -287,7 +289,7 @@ def handle_captcha(response):
             #settings.print_message(captcha_id)
             logger.debug("Captcha ID {}.".format(captcha_id))
             logger.debug("Send answer.")
-            if settings.PARAMS.get("show_sci_hub_captcha"):
+            if settings.PARAMS.get("sci_hub_show_captcha"):
                 answer = input("Input code from CAPTCHA image: ")
             if answer != '':
                 req = get_request(response.request.url, POST=True, data={"id":captcha_id, "answer":answer}, skip_captcha=True, allow_redirects=False)
@@ -300,7 +302,7 @@ def handle_captcha(response):
         except:
             logger.debug("Error solving captcha.")
             logger.warn(traceback.format_exc())
-            if settings.PARAMS.get("show_sci_hub_captcha"):
+            if settings.PARAMS.get("sci_hub_show_captcha"):
                 cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%/Google/Chrome/User Data"'
                 os.popen(cline.format(response.request.url, ""))
                 answer = input("Press Enter to try load again. For skip this paper type 'skip' and press Enter.")
@@ -351,8 +353,8 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
                     if not skip_captcha and capthas_handled < MAX_CAPTCHAS_HANDLED \
                     and (host.endswith(scihub.SCIHUB_HOST_NAME) \
-                        and (not settings.PARAMS["show_sci_hub_captcha"] and capthas_handled < settings.PARAMS["sci_hub_capcha_autosolve"] \
-                             or settings.PARAMS["show_sci_hub_captcha"])
+                        and (not settings.PARAMS["sci_hub_show_captcha"] and capthas_handled < settings.PARAMS["sci_hub_capcha_autosolve"] \
+                             or settings.PARAMS["sci_hub_show_captcha"])
                     or not host.endswith(scihub.SCIHUB_HOST_NAME)):
                         # handle captcha
                         if host.endswith(scihub.SCIHUB_HOST_NAME):

@@ -5,3 +5,5 @@ arrow
 pypdf2
 docx2txt
 conda install -c conda-forge opencv #install cv2
+conda install h5py==2.8.0
+pip install pycryptodome==3.4.3

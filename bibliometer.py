@@ -3,6 +3,7 @@ import sys
 import traceback
 import logging
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import queue
 import json
 from datetime import datetime
@@ -31,13 +32,13 @@ def get_papers_by_key_words():
     
     if paper_generator is None:
         logger.debug("Soup from google.scholar is None. End command get_papers_by_key_words")
-        return (0, 0, 0, 0, 0, 0, 0)
+        return (0, 0, 0, 0, 0, 0, 0, 0, 0)
 
     logger.debug(about_res_count)
     settings.print_message("Google: Found {0} papers.".format(about_res_count))
     new_papers = 0
     new_auth = 0
-    max_papers_count = int(settings.PARAMS["max_google_papers"])
+    max_papers_count = int(settings.PARAMS["google_max_papers"])
     commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
     papers_counter = 0
     pdf_url_counter = 0
@@ -651,8 +652,8 @@ def dispatch(command):
     logger.debug("Run began on {0}".format(start_time))
     logger.debug("Run ended on {0}".format(end_time))
     logger.debug("Elapsed time was: {0}".format(end_time - start_time))
-    logger.debug("Last used proxy-server {} (#{}, total {} proxies)".format(
-        utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count))
+    logger.debug("Last used proxy-server {} (#{}, total {} proxies, proxies file scans: {})".format(
+        utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count, utils.PROXY_OBJ.scan_proxy_files_count))
     print_to_log_http_statistic()
     settings.DESCR_TRANSACTION = msg
 

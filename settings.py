@@ -108,16 +108,7 @@ CONTROL_KEYS = [
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
 CONTROL_DEFAULT_VALUES = \
     {
-        #"commit_iterations" : 30,
-        #"http_contiguous_requests" : 20,
-        #"limit_resp_for_one_code" : 1,
-        #"start_paper" : 1,
-        #"google_clusters_handling" : False,
-        #"sci_hub_files" : True,
-        #"google_get_files" : True,
-        #"google_cluster_files" : True,
-        #"sci_hub_captcha_retry_by_proxy_count" : 5,
-        #"google_captcha_retry_by_proxy_count" : 10,
+
     }
 
 def CloseObjects():

@@ -236,7 +236,7 @@ def _search_scholar_soup(soup, max_papers_count, total_papers, start_paper):
     while True:
         paper_blocks = soup.find_all('div', 'gs_r')
         page_total = len(paper_blocks)
-        logger.debug("Find papers on page #{0} (max_google_papers = {1})".format(page_num, max_papers_count))
+        logger.debug("Find papers on page #{0} (google_max_papers = {1})".format(page_num, max_papers_count))
         logger.debug("Total %i papers on page." % (page_total))
         for page_counter, paper in enumerate(paper_blocks):
             if counter >= max_papers_count: break;
@@ -299,7 +299,7 @@ def search_pubs_query_with_control_params(params):
         params['words_in_body'] if 'words_in_body' in params else True,
         params['patents'] if 'patents' in params else True,
         params['citations'] if 'citations' in params else True,
-        int(params["max_google_papers"]) if "max_google_papers" in params else float("inf") if "max_google_papers" in params else float("inf"),
+        int(params["google_max_papers"]) if "google_max_papers" in params else float("inf") if "google_max_papers" in params else float("inf"),
         params['start_paper'] if 'start_paper' in params else 1,
     )
 

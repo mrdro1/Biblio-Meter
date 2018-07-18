@@ -49,11 +49,11 @@ def get_papers_by_key_words():
         for paper_info in paper_generator:
             max_papers_count -= 1
             # Loop for different versions of paper
-            if not paper_info["different_information"]: settings.print_message(
-                "Not found information about paper #%i, skipped." % papers_counter, 1)
+            if not paper_info["different_information"]: 
+                settings.print_message("Not found information about paper #%i, skipped." % papers_counter, 1)
+                continue
             paper_addition_information = paper_info["different_information"]
             papers_counter += 1
-            # if papers_counter > max_papers_count: break;
             #if not "author" in paper_addition_information: #or not "year" in paper_addition_information:
             #    logger.debug("Skip paper #%i, empty authors fields." % papers_counter)#year or 
             #    continue
@@ -647,8 +647,8 @@ def dispatch(command):
     settings.print_message("Run began on {0}".format(start_time))
     settings.print_message("Run ended on {0}".format(end_time))
     settings.print_message("Elapsed time was: {0}".format(end_time - start_time))
-    settings.print_message("Last used proxy-server {} (#{}, total {} proxies)".format(
-        utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count))
+    settings.print_message("Last used proxy-server {} (#{}, total {} proxies, proxies file scans: {})".format(
+        utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count, utils.PROXY_OBJ.scan_proxy_files_count))
     logger.debug("Run began on {0}".format(start_time))
     logger.debug("Run ended on {0}".format(end_time))
     logger.debug("Elapsed time was: {0}".format(end_time - start_time))

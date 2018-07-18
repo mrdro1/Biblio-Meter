@@ -322,7 +322,7 @@ def search_pubs_query_with_params(
         date_to,
         '0' if patents else '1',
         '0' if citations else '1',
-        start_paper
+        start_paper if start_paper > 1 else ''
     )
     #settings.print_message(url)
     return search_pubs_custom_url(url, max_iter, start_paper)

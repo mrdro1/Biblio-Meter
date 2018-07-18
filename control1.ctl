@@ -3,9 +3,9 @@
 "query" : "Accurate mobility \"location prediction\"", 
 "patents" : false, 
 "citations" : false,
-"start_paper" : 801,
+"start_paper" : 1,
 
-"google_max_papers" : 100,
+"google_max_papers" : 10,
 "google_get_files" : false,
 "google_cluster_files" : true,
 

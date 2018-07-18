@@ -26,7 +26,8 @@ def create_tables_if_not_exists():
          to_date datetime not null,
          command varchar(10000)  not null,
          parameters varchar(10000) not null,
-         result varchar(10000) not null
+         result varchar(10000) not null,
+         description text
         );''',
         '''
         create table if not exists authors
@@ -43,26 +44,6 @@ def create_tables_if_not_exists():
         );
         ''',
         '''
-        create table if not exists authors_skills
-        (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
-         skill varchar(1000) not null,
-         r_author integer not null,
-         r_transaction integer not null,
-         foreign key (r_author) references authors(id),
-         foreign key (r_transaction) references transactions(id)
-        );
-        ''',
-        '''
-        create table if not exists authors_topics
-        (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
-         topic varchar(1000) not null,
-         r_author integer not null,
-         r_transaction integer not null,
-         foreign key (r_author) references authors(id),
-         foreign key (r_transaction) references transactions(id)
-        );
-        ''',
-        '''
         create table if not exists papers
         (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
          title varchar(1000) not null,
@@ -72,18 +53,19 @@ def create_tables_if_not_exists():
          abstract varchar(10000),
          abstract_ru varchar(10000),
          references_count integer,
-         g_type varchar(1000),
+         google_type varchar(1000),
          google_url varchar(1000),
          google_cluster_id varchar(1000),
          google_file_url varchar(1000),
+         google_cited_by_count integer,
          pages integer,
          start_page integer,
          end_page integer,
          authors integer,
-         g_endnote text,
+         endnote text,
          source_pdf varchar(1000),
          notes varchar(1000),
-         score integer,         
+         score integer,
          ignore boolean not null,
          r_transaction integer not null,
          r_file_transaction integer,
@@ -143,7 +125,7 @@ def get_paper_ID(params):
         where (
               title = :title
               and authors = :auth_count
-              and (g_type = :g_type or g_type is null or :g_type is null)
+              and (google_type = :google_type or google_type is null or :google_type is null)
               and (year = :year or year is null or :year is null)
               and (pages = :pages or pages is null or :pages is null)
               --and (start_page = :start_page or start_page is null or :start_page is null)
@@ -188,30 +170,22 @@ def set_program_transaction(Command, Params):
     Transactional(ADD_Transaction)
     
 
-def close_program_transaction(Result):
+def close_program_transaction(result, description):
     def UPDATE_Transaction():
         execute_sql("""
             UPDATE transactions 
-            SET to_date = :to_date, result = :result WHERE ID = :ID
-            """, **{"to_date":datetime.datetime.now(), "result":Result, "ID":_CURRENT_PROGRAM_TRANSACTION_ID})
+            SET to_date = :to_date, result = :result, description = :description WHERE ID = :ID
+            """, **{"to_date":datetime.datetime.now(), "result":result, "ID":_CURRENT_PROGRAM_TRANSACTION_ID, "description":description})
     Transactional(UPDATE_Transaction)
 
 
 def add_new_paper(params):
     logger.debug("Add new paper (title='%s')" % params["title"])
-    params.update({"ignore":False, "transaction":_CURRENT_PROGRAM_TRANSACTION_ID})
+    params.update({"ignore":False, "r_transaction":_CURRENT_PROGRAM_TRANSACTION_ID})
+    keys = [key for key in params.keys() if key != "id"]
     return execute_sql("""
-        INSERT INTO papers(
-            title, year, publisher, start_page, end_page, pages, g_type,
-            DOI, abstract, abstract_ru, references_count, g_endnote,  
-            authors, r_transaction, ignore, google_url, google_cluster_id, google_file_url
-        ) VALUES(
-            :title, :year, :publisher, :start_page, :end_page, :pages, :g_type,
-            :DOI, :abstract, :abstract_ru, 
-            :references_count, :EndNote, :authors, :transaction, :ignore, :google_url, :google_cluster_id,
-            :google_file_url
-        )
-        """, **params)
+        INSERT INTO papers({}) VALUES(:{})
+        """.format(", ".join(keys), ", :".join(keys)), **params)
 
 
 def add_new_author(params):
@@ -252,36 +226,11 @@ def add_paper_paper_edge(IDPaper1, IDPaper2, Type):
 
 def update_paper(params, update_addition_info=False):
     logger.debug("Update paper id={0}.".format(params["id"]))
-    if update_addition_info:
-        execute_sql("""
-            UPDATE papers 
-            SET DOI=:DOI,
-                abstract=:abstract,
-                abstract_ru=:abstract_ru                
-            WHERE id = :id
-            """, **params)
-    else:
-        execute_sql("""
-            UPDATE papers 
-            SET title=:title,
-                year=:year,
-                publisher=:publisher,
-                start_page=:start_page,
-                end_page=:end_page,
-                pages=:pages,
-                g_type=:g_type,
-                DOI=:DOI,
-                abstract=:abstract,
-                abstract_ru=:abstract_ru,
-                references_count=:references_count,
-                g_endnote=:EndNote,
-                authors=:authors,
-                google_url=:google_url,
-                google_cluster_id=:google_cluster_id,
-                google_file_url=:google_file_url
-            WHERE id = :id
-            """, **params)
-
+    execute_sql("""
+        UPDATE papers
+        SET {}
+        WHERE id=:id
+        """.format(", ".join([key + "=:" + key for key in params.keys() if key != "id"])), **params)
 
 def execute_sql(SQL, *args, **options):
     cur = DB_CONNECTION.cursor()

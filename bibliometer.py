@@ -18,6 +18,7 @@ import author
 import scholar
 import scihub
 import grobid
+from translator import translate
 
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOG_LEVEL)
@@ -54,9 +55,9 @@ def get_papers_by_key_words():
             for paper_version_counter, paper_addition_information in enumerate(paper_info["different_information"]):
                 papers_counter += 1
                 # if papers_counter > max_papers_count: break;
-                if not "author" in paper_addition_information: #or not "year" in paper_addition_information:
-                    logger.debug("Skip paper #%i, empty authors fields." % papers_counter)#year or 
-                    continue
+                #if not "author" in paper_addition_information: #or not "year" in paper_addition_information:
+                #    logger.debug("Skip paper #%i, empty authors fields." % papers_counter)#year or 
+                #    continue
                 logger.debug("Process content of EndNote file #%i\n%s\n%s" % (
                 papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
                 # Create new paper entity
@@ -67,6 +68,7 @@ def get_papers_by_key_words():
                 if newpaper.in_database():
                     settings.print_message("This paper%s already exists, id = %i." % ((" version" if paper_versions > 1 else ""), newpaper.db_id), 1)
                 else:
+                    new_papers += 1
                     newpaper.add_to_database()
                     settings.print_message(
                         "Adding a paper%s to the database" % (" version" if paper_versions > 1 else ""),
@@ -92,7 +94,6 @@ def get_papers_by_key_words():
                         # Insert into DB reference
                         dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
 
-                new_papers += 1
                 if settings.PARAMS["google_get_files"] and paper_version_counter == 0:
                     tmp = download_pdf(
                         paper_info['general_information']['url'],
@@ -110,11 +111,8 @@ def get_papers_by_key_words():
                 # Commit transaction each commit_iterations iterations
                 if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
             # if papers_counter >= max_papers_count: break;
-    logger.debug("End processing. Changes in DB: %i." % (new_auth + new_papers))
-    settings.print_message("End processing. Changes in DB: %i." % (new_auth + new_papers))
-    #print(new_papers, new_auth, papers_counter, )
-    return (new_papers, new_auth, papers_counter, pdf_url_counter, pdf_cluster_counter, pdf_scihub_counter, pdf_unavailable_counter)
-
+    return (about_res_count, new_papers, new_auth, papers_counter, new_auth + new_papers, 
+            pdf_url_counter, pdf_cluster_counter, pdf_scihub_counter, pdf_unavailable_counter)
 
 def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
     # Download pdf for paper (first paper if use google cluster)
@@ -137,8 +135,10 @@ def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
                 utils.rename_file(fn_tmp_pdf, fn_pdf)
                 download_pdf_url = True
                 success_download = True
+        except KeyboardInterrupt:
+            raise
         except:
-            settings.print_message(traceback.format_exc())
+            #settings.print_message(traceback.format_exc())
             utils.REQUEST_STATISTIC['failed_requests'].append(google_pdf_url)
             logger.debug("Failed get pdf from Google Scholar URL={0}".format(google_pdf_url))
             settings.print_message("failed load PDF from Google Scholar.", 2)
@@ -159,6 +159,8 @@ def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
                         download_pdf_cluster = True
                         success_download = True
                         break
+                except KeyboardInterrupt:
+                    raise
                 except:
                     utils.REQUEST_STATISTIC['failed_requests'].append(google_pdf_url)
                     logger.debug("Failed get pdf from Google Scholar cluster URL={0}".format(google_pdf_url))
@@ -181,6 +183,8 @@ def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
                 utils.rename_file(fn_tmp_pdf, fn_pdf)
                 success_download = True
                 download_pdf_scihub = True
+        except KeyboardInterrupt:
+            raise
         except:
             utils.REQUEST_STATISTIC['failed_requests'].append(google_url)
             logger.debug("Failed get pdf from sci-hub URL={0}".format(google_url))
@@ -188,6 +192,7 @@ def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
             #continue
     if not success_download:
         settings.print_message("Downolad PDF unavaliable.", 1)
+        utils.delfile(fn_tmp_pdf)
     return (download_pdf_url, download_pdf_cluster, download_pdf_scihub)
 
 
@@ -211,15 +216,18 @@ def get_PDFs():
     settings.print_message("Select papers from database.")
     PAPERS_SQL = settings.PARAMS["papers"]
     # get conditions and create standart query
-    PAPERS_SQL = "SELECT * FROM papers " + PAPERS_SQL[PAPERS_SQL.lower().find("where"):]
+    col_names = "id, doi, google_url, google_file_url, google_cluster_id, title"
+    PAPERS_SQL = "SELECT {} FROM papers {}".format(col_names, PAPERS_SQL[PAPERS_SQL.lower().find("where"):])
     papers = dbutils.execute_sql(PAPERS_SQL)
-    settings.print_message("{0} papers selected.".format(len(papers)))
+    total = len(papers)
+    settings.print_message("{0} papers selected.".format(total))
+    logger.debug("{0} papers selected.".format(total))
     # Get columns from query
-    columns = dict()
-    for N, column in enumerate(dbutils.get_columns_names("papers")):
-        columns[column.lower()] = N
+    columns = dict([(word, i) for i, word in enumerate(col_names.split(', '))])
+    #for N, column in enumerate(dbutils.get_columns_names("papers")):
+    #    columns[column.lower()] = N
     for paper_index, newpaper in enumerate(papers):
-        settings.print_message("Handle paper #{0} - {1}.".format(paper_index + 1, newpaper[columns['title']]))
+        settings.print_message("Process paper #{} (total {}) - {}.".format(paper_index + 1, total, newpaper[columns['title']]))
         id = newpaper[columns["id"]]
         DOI = newpaper[columns["doi"]]
         google_URL = newpaper[columns["google_url"]]
@@ -338,8 +346,8 @@ def get_references():
     #while not tree_queue.empty():
     #    papers_counter += 1
     #    parent_paper_db_id, parent_paper_rg_id, parent_paper_DOI, tree_level = tree_queue.get()
-    #    logger.debug("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
-    #    settings.print_message("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
+    #    logger.debug("Process paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
+    #    settings.print_message("Process paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
     #    if parent_paper_rg_id == None:
     #        logger.debug("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(papers_counter))
     #        settings.print_message("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(papers_counter), 2)
@@ -402,8 +410,8 @@ def get_cities():
     #while not tree_queue.empty():
     #    papers_counter += 1
     #    parent_paper_db_id, parent_paper_rg_id, parent_paper_DOI, tree_level = tree_queue.get()
-    #    logger.debug("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
-    #    settings.print_message("Handle paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
+    #    logger.debug("Process paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
+    #    settings.print_message("Process paper #{0}, treelevel #{1}.".format(papers_counter, tree_level))
     #    if parent_paper_rg_id == None:
     #        logger.debug("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(papers_counter))
     #        settings.print_message("Paper #{0} hasn't rg_id, search paper by DOI on Researchgate.".format(papers_counter), 2)
@@ -459,22 +467,20 @@ def get_info_from_PDFs():
     papers_counter = 0
     bad_papers = 0
     bad_pdfs = 0
+    unavailable_files_counter = 0
+    nonempty_abstract = 0
     #
     logger.debug("Select papers from database.")
     settings.print_message("Select papers from database.")
     PAPERS_SQL = settings.PARAMS["papers"]
+    # get conditions and create standart query
+    PAPERS_SQL = "SELECT id FROM papers " + PAPERS_SQL[PAPERS_SQL.lower().find("where"):]
     papers = dbutils.execute_sql(PAPERS_SQL)
-    settings.print_message("{0} papers selected.".format(len(papers)), 2)
-    # Get columns from query
-    columns = dict()
-    for N, column in enumerate(dbutils.get_columns_names("papers")):
-        columns[column.lower()] = N
-    unavailable_files_counter = 0
-    translated_abstract = 0
-    nonempty_abstract = 0
+    settings.print_message("{0} papers selected.".format(len(papers)))
+    logger.debug("{0} papers selected.".format(len(papers)))
     for paper_index, paper_info in enumerate(papers):
-        settings.print_message("Handle paper #{0} (total {1}).".format(paper_index + 1, len(papers)))
-        id = paper_info[columns["id"]]
+        settings.print_message("Process paper #{0} (total {1}).".format(paper_index + 1, len(papers)))
+        id = paper_info[0]
         file_name = "{0}{1}.pdf".format(settings.PDF_CATALOG, id)
         if not os.path.exists(file_name):
             settings.print_message('PDF "{}" not found, skip this paper.'.format(file_name), 2)
@@ -489,12 +495,64 @@ def get_info_from_PDFs():
             bad_papers += 1
             continue
         papers_counter += 1
-        translated_abstract += 1 if cur_paper.abstract and cur_paper.abstract_ru else 0
+        #translated_abstract += 1 if cur_paper.abstract and cur_paper.abstract_ru else 0
         nonempty_abstract +=  1 if cur_paper.abstract else 0
         settings.print_message('Success processed PFD "{}".'.format(file_name), 2)
         logger.debug('Success processed PFD "{}".'.format(file_name))
         if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
-    return (papers_counter, bad_pdfs, bad_papers, len(papers), nonempty_abstract, translated_abstract)
+    return (papers_counter, bad_pdfs, bad_papers, len(papers), nonempty_abstract)
+
+
+def translate_abstracts():
+    """ Get papers with abstract and translate this. """
+    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    # statistic
+    papers_counter = 0
+    bad_abstracts = 0
+    translated_abstract = 0
+    #
+    logger.debug("Select papers from database.")
+    settings.print_message("Select papers from database.")
+    PAPERS_SQL = settings.PARAMS["papers"]
+    # get conditions and create standart query
+    col_names = "id, abstract"
+    PAPERS_SQL = "SELECT {} FROM papers {}".format(col_names, PAPERS_SQL[PAPERS_SQL.lower().find("where"):])
+    papers = dbutils.execute_sql(PAPERS_SQL)
+    settings.print_message("{0} papers selected.".format(len(papers)))
+    logger.debug("{0} papers selected.".format(len(papers)))
+    # Get columns from query
+    columns = dict([(word, i) for i, word in enumerate(col_names.split(', '))])
+    #for N, column in enumerate(dbutils.get_columns_names("papers")):
+    #    columns[column.lower()] = N
+    for paper_index, paper_info in enumerate(papers):
+        settings.print_message("Process paper #{0} (total {1}).".format(paper_index + 1, len(papers)))
+        id = paper_info[columns["id"]]
+        abstract = paper_info[columns["abstract"]]
+        if not abstract:
+            msg = "Paper (id: {}) hasn't abstract, skip.".format(paper_index + 1, id)
+            settings.print_message(msg, 2)
+            logger.debug(msg)
+            bad_abstracts += 1
+            continue
+        msg = "Translate abstract..."
+        logger.debug(msg)
+        settings.print_message(msg, 2)
+        abstract_ru = translate(abstract, to_language='ru')
+        if abstract_ru:
+            dbutils.update_paper({"id":id, "abstract_ru":abstract_ru,}, True)
+            msg = "Successful translated."
+            logger.debug(msg)
+            settings.print_message(msg, 2)
+            translated_abstract += 1
+        else:
+            msg = "Translated abstract is failed."
+            logger.debug(msg)
+            settings.print_message(msg, 2)
+            bad_abstracts += 1
+            continue
+        papers_counter += 1
+        if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
+    return (papers_counter, len(papers), bad_abstracts, translated_abstract)
 
 
 def print_to_log_http_statistic():
@@ -510,86 +568,98 @@ def dispatch(command):
     result = None
     logger.debug("command %s.", command)
     start_time = datetime.now()
+    msg = None
     try:
         for case in utils.Switch(command):
-            if case('processFiles'):
+            if case('extractAbstractsFromPDF'):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_info_from_PDFs()
-                logger.debug("Processing was successful.\nSuccess updated: %i.\nBad PDFs: %i."
-                            "\nFailed processing: %i.\nTotal papers: %i\n"
-                            "Non-empty abstracts: %i.\nTranslated abstracts: %i." % result)
-                settings.print_message("Processing was successful.\nSuccess updated: %i.\n"
-                                       "Bad PDFs: %i.\nFailed processing: %i.\nTotal papers: %i\n"
-                                       "Non-empty abstracts: %i.\nTranslated abstracts: %i." % result)
+                msg = "Processing was successful.\nSuccess updated: %i.\nBad PDFs: %i." \
+                        "\nFailed processing: %i.\nTotal papers: %i\n" \
+                        "Non-empty abstracts: %i." % result
+                logger.debug(msg)
+                settings.print_message(msg)
+                break
+            if case("translateAbstracts"):
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
+                result = translate_abstracts()
+                msg = "Processing was successful.\nProcessing papers: %i.\n" \
+                            "Total papers: %i.\nNon-translated abstracts: %i\n" \
+                            "Translated abstracts: %i." % result
+                logger.debug(msg)
+                settings.print_message(msg)
                 break
             if case("getPapersByKeyWords"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_papers_by_key_words()
-                logger.debug("Processing was successful.\nAdded new papers: %i.\nAdded new authors: %i.\n"
-                             "Processed total papers: %i.\n Downloaded PDFs from URL %i.\n Downloaded PDFs from cluster %i."
-                             " Downloaded PDFs from Sci-Hub %i.\n Unavailable PDFs %i." % result)
-                settings.print_message("Processing was successful.\nAdded new papers: %i.\nAdded new authors: %i.\n"
-                             "Processed total papers: %i.\n Downloaded PDFs from URL %i.\n Downloaded PDFs from cluster %i.\n"
-                             " Downloaded PDFs from Sci-Hub %i.\n Unavailable PDFs %i." % result)
+                msg = "Processing was successful.\nFounded papers in Google Scholar by keywords: %i\n" \
+                             "Added new papers: %i.\nAdded new authors: %i.\n" \
+                             "Processed total papers: %i.\nChanges in DB: %i.\n Downloaded PDFs from URL %i.\n Downloaded PDFs from cluster %i.\n" \
+                             " Downloaded PDFs from Sci-Hub %i.\n Unavailable PDFs %i." % result
+                logger.debug(msg)
+                settings.print_message(msg)
                 break
-            if case("updateAuthors"):
-                result = update_authors()
-                break
-            if case("getPapersOfAuthors"):
-                result = get_papers_of_authors()
-                break
-            if case("getPDFs"):
+            if case("getFiles"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_PDFs()
-                settings.print_message("Processing was successful.\nDownloads files: %i.\nUnavailable pdf's: %i.\nProcessed total: %i." % result[1:])
-                logger.debug("Processing was successful.\nDownloads files: %i.\nUnavailable pdf's: %i.\nProcessed total: %i." % result[1:])
+                msg = "Processing was successful.\nDownloads files: %i.\nUnavailable pdf's: %i.\nProcessed total: %i." % result[1:]
+                logger.debug(msg)
+                settings.print_message(msg)
                 break
             if case("getReferences"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_references()
-                logger.debug("Processing was successful. Processed total papers: %i. Papers without references: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
-                settings.print_message("Processing was successful. Processed total papers: %i. Papers without references: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
+                msg = "Processing was successful. Processed total papers: %i. Papers without references: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result
+                logger.debug(msg)
+                settings.print_message(msg)
                 break
             if case("getCities"):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_cities()
-                logger.debug("Processing was successful. Processed total papers: %i. Papers without citations: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
-                settings.print_message("Processing was successful. Processed total papers: %i. Papers without citations: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result)
+                msg = "Processing was successful. Processed total papers: %i. Papers without citations: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result
+                logger.debug(msg)
+                settings.print_message(msg)
                 break
             if case(): # default
                 logger.warn("Unknown command: %s" % command)
                 settings.print_message("Unknown command: %s" % command)
+                msg = "Unknown command '{}'".format(command)
                 break
         # Fix database changes
         dbutils.commit()
     except KeyboardInterrupt:
+        logger.warn("Caught KeyboardInterrupt, terminating processing")
         settings.print_message("Caught KeyboardInterrupt, terminating processing")
-        settings.RESULT = "WARNING: User was terminated processing"
+        settings.RESULT = "WARNING"
+        msg = "User was terminated processing"
         dbutils.rollback()
     except:
         logger.error(traceback.format_exc())
         settings.print_message("Processing finished with error.")
         settings.print_message("For more details, see the log.")
-        settings.RESULT = "ERROR: {0}".format(traceback.format_exc())
+        settings.RESULT = "ERROR"
+        msg = traceback.format_exc()
         dbutils.rollback()
     end_time = datetime.now()
     settings.print_message("Run began on {0}".format(start_time))
     settings.print_message("Run ended on {0}".format(end_time))
     settings.print_message("Elapsed time was: {0}".format(end_time - start_time))
+    settings.print_message("Last used proxy-server {} (#{}, total {} proxies)".format(
+        utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count))
     logger.debug("Run began on {0}".format(start_time))
     logger.debug("Run ended on {0}".format(end_time))
     logger.debug("Elapsed time was: {0}".format(end_time - start_time))
+    logger.debug("Last used proxy-server {} (#{}, total {} proxies)".format(
+        utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count))
     print_to_log_http_statistic()
-
-def main():  
-    dispatch(settings.PARAMS["command"])
-
+    settings.DESCR_TRANSACTION = msg
 
 if __name__ == "__main__":
-    main()
+    dispatch(settings.PARAMS["command"])
 

@@ -65,11 +65,15 @@ _SUCCESSFUL_START_FLAG = False
 #MODE = TRANSACTION_MODE
 #INFO_FILE = None
 
+DIR_CAPTCHA_IMG = r"captcha/"
+if not os.path.exists(DIR_CAPTCHA_IMG): os.mkdir(DIR_CAPTCHA_IMG)
+
 DEFAULT_TIMEOUT = 10
 
 LOG_LEVEL = logging.DEBUG
 
 RESULT = "SUCCESS"
+DESCR_TRANSACTION = None
 
 CONTROL_KEYS = [
     "command",
@@ -98,6 +102,8 @@ CONTROL_KEYS = [
     "google_cluster_files",
     "download_scihub_captcha",
     "show_sci_hub_captcha",
+    "sci_hub_timeout",
+    "sci_hub_capcha_autosolve",
     #"sci_hub_captcha_retry_by_proxy_count",
     #"google_captcha_retry_by_proxy_count",
     ]
@@ -120,7 +126,7 @@ CONTROL_DEFAULT_VALUES = \
 def CloseObjects():
     if _SUCCESSFUL_START_FLAG:
         # Register successfuly finish curent session
-        close_program_transaction(RESULT)
+        close_program_transaction(RESULT, DESCR_TRANSACTION)
     # Close db conn
     close_connection()
     # Close logbook file

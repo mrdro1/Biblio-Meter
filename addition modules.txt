@@ -4,3 +4,4 @@ mtranslate
 arrow
 pypdf2
 docx2txt
+conda install -c conda-forge opencv #install cv2

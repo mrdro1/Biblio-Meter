@@ -18,8 +18,8 @@ class Paper(object):
         self.year = None
         self.authors = None
         self.citedby = None
-        self.g_type = None
-        self.volume = None
+        self.google_type = None
+        self.pages = None
         self.secondaryTitle = None
         self.EndNoteURL = None
         self.start_page = None
@@ -49,13 +49,17 @@ class Paper(object):
         if "title" in additional_information: self.title = additional_information["title"]
         if "citedby" in additional_information: self.citedby = additional_information["citedby"]
         if "url_scholarbib" in additional_information: self.EndNoteURL = additional_information["url_scholarbib"]
-        if "start_page" in additional_information: self.start_page = additional_information["start_page"]
-        if "end_page" in additional_information: self.end_page = additional_information["end_page"]
         if "year" in additional_information: self.year = int(additional_information["year"])
-        if "type" in additional_information: self.g_type = additional_information["type"]
+        if "type" in additional_information: self.google_type = additional_information["type"]
         if "publisher" in additional_information: self.publisher = additional_information["publisher"]
         if "secondarytitle" in additional_information: self.secondaryTitle = additional_information["secondarytitle"]
-        if "volume" in additional_information: self.volume = int(additional_information["volume"])
+        if "pages" in additional_information: self.pages = additional_information["pages"]
+
+        if "start_page" in additional_information \
+            and "end_page" in additional_information:
+            self.start_page = additional_information["start_page"]
+            self.end_page = additional_information["end_page"]
+        
         if "EndNote" in additional_information: self.EndNote = additional_information["EndNote"]
         # Matching authors from the header and from EndNote, adding information in case of coincidence
         self.authors = list()
@@ -101,7 +105,6 @@ class Paper(object):
             ) 
         return True
 
-
     def add_to_database(self):
         self.db_id = dbutils.add_new_paper(
             {
@@ -110,17 +113,18 @@ class Paper(object):
                 "publisher":self.publisher,
                 "start_page":self.start_page,
                 "end_page":self.end_page,
-                "pages":self.volume,
-                "g_type":self.g_type,
+                "pages":self.pages,
+                "google_type":self.google_type,
                 "DOI":self.DOI,
                 "abstract":self.abstract,
                 "abstract_ru":self.abstract_ru,          
                 "references_count":self.references_count,
-                "EndNote":self.EndNote,
+                "endnote":self.EndNote,
                 "authors":len(self.authors),
                 "google_url":self.paper_URL,
-                "google_cluster_id":str(self.cluster),
+                "google_cluster_id": str(self.cluster) if self.cluster else None,
                 "google_file_url":self.PDF_URL,
+                "google_cited_by_count":self.citedby,
             }
             )
 
@@ -130,8 +134,8 @@ class Paper(object):
                 "DOI":self.DOI, 
                 "title":self.title, 
                 "auth_count":len(self.authors), 
-                "g_type":self.g_type, 
-                "pages":self.volume, 
+                "google_type":self.google_type, 
+                "pages":self.pages, 
                 "year":self.year, 
                 "start_page":self.start_page,
                 "end_page":self.end_page
@@ -143,8 +147,8 @@ class Paper(object):
                 "publisher":self.publisher,
                 "start_page":self.start_page,
                 "end_page":self.end_page,
-                "pages":self.volume,
-                "g_type":self.g_type,
+                "pages":self.pages,
+                "google_type":self.google_type,
                 "DOI":self.DOI,
                 "abstract":self.abstract,
                 "abstract_ru":self.abstract_ru,
@@ -164,8 +168,8 @@ class Paper(object):
                 "DOI":self.DOI, 
                 "title":self.title, 
                 "auth_count":len(self.authors), 
-                "g_type":self.g_type, 
-                "pages":self.volume, 
+                "google_type":self.google_type, 
+                "pages":self.pages, 
                 "year":self.year, 
                 "start_page":self.start_page,
                 "end_page":self.end_page

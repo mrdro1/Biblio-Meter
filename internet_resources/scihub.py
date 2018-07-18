@@ -55,6 +55,8 @@ def get_pdf(DOI, filename):
         settings.print_message("Download pdf from Sci-Hub by '{}'".format(DOI), 2)
         utils.download_file(url, filename) 
         return utils.check_pdf(filename)
+    except KeyboardInterrupt:
+        raise
     except:
         logger.warn(traceback.format_exc())
         #return False

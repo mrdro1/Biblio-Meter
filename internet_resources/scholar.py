@@ -33,7 +33,7 @@ _SCHOLARCLUSTERRE = r'cluster=[0-9]*'
 
 
 def get_pdfs_link_from_cluster(cluster_id):
-    logger.debug("Handle papers from cluster %s." % (cluster_id))
+    logger.debug("Process papers from cluster %s." % (cluster_id))
     url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
     logger.debug("Get cluster page URL='{0}'.".format(url))
     pdf_links = list()
@@ -197,6 +197,8 @@ def get_pdf(url, filename):
         settings.print_message("Download pdf...", 2)
         utils.download_file(url, filename)
         return utils.check_pdf(filename)
+    except KeyboardInterrupt:
+        raise
     except:
         logger.warn(traceback.format_exc())
         #return False
@@ -323,13 +325,20 @@ def get_info_from_EndNote(file_url, return_source = False):
             if len(pages) == 2:
                 start_page = pages[0].strip()
                 end_page = pages[1].strip()
-                re_st_page = re.search("[0-9]+$", start_page)
-                re_end_page = re.search("^[0-9]+", end_page)
-                if re_st_page: EndNote_info["start_page"] = int(re_st_page.group())
-                if re_end_page: EndNote_info["end_page"] = int(re_end_page.group())
-                if re_st_page and re_end_page: EndNote_info["volume"] = EndNote_info["end_page"] - EndNote_info["start_page"] + 1
+                re_st_page = re.search("[0-9]+", start_page)
+                re_end_page = re.search("[0-9]+", end_page)
+                if re_st_page: EndNote_info["start_page"] = int(re_st_page.group(0))
+                if re_end_page: EndNote_info["end_page"] = int(re_end_page.group(0))
+                if re_st_page and re_end_page: EndNote_info["pages"] = abs(EndNote_info["end_page"] - EndNote_info["start_page"] + 1)
+            else:
+                re_st_page = re.search("[0-9]+", EndNote_info["pages"])
+                EndNote_info["pages"] = int(re_st_page.group(0))
         except Exception as error:
             logger.warn("Can't eval count of pages for paper.")
+            try:
+                EndNote_info["pages"] = int(EndNote_info["pages"])
+            except:
+                EndNote_info["pages"] = None
     if return_source: EndNote_info.update({ "EndNote" : EndNode_file })
     return EndNote_info
 
@@ -346,8 +355,8 @@ def _search_scholar_soup(soup, handling_cluster, max_papers_count, total_papers,
         for page_counter, paper in enumerate(paper_blocks):
             if counter >= max_papers_count: break;
             counter += 1
-            settings.print_message("Handle paper #%i (total %i)" % (counter, total_papers))
-            logger.debug("Handle paper #%i (total %i)" % (counter, total_papers))
+            settings.print_message("Process paper #%i (total %i)" % (counter, total_papers))
+            logger.debug("Process paper #%i (total %i)" % (counter, total_papers))
             logger.debug("Parse html and get info about paper #{0} on searching page (total {1} on page)".format(page_counter + 1, page_total))
             yield _get_info_from_resulting_selection(paper, handling_cluster)
         if soup.find(class_='gs_ico gs_ico_nav_next') and counter < max_papers_count:

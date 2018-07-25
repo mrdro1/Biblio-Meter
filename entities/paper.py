@@ -34,8 +34,10 @@ class Paper(object):
         self.cluster = None
         self.EndNote = None
         self.paper_version = None
-        self.paper_URL = None,
+        self.paper_URL = None
         self.PDF_URL = None
+        self.versions = None
+        self.downloaded = False
 
     def get_info_from_sch(self, general_information, additional_information, paper_version=1, pdf_url=None):
         # General
@@ -48,6 +50,7 @@ class Paper(object):
         self.paper_version = paper_version
         if "title" in additional_information: self.title = additional_information["title"]
         if "citedby" in additional_information: self.citedby = additional_information["citedby"]
+        if "versions" in additional_information: self.versions = additional_information["versions"]
         if "url_scholarbib" in additional_information: self.EndNoteURL = additional_information["url_scholarbib"]
         if "year" in additional_information: self.year = int(additional_information["year"])
         if "type" in additional_information: self.google_type = additional_information["type"]
@@ -125,6 +128,7 @@ class Paper(object):
                 "google_cluster_id": str(self.cluster) if self.cluster else None,
                 "google_file_url":self.PDF_URL,
                 "google_cited_by_count":self.citedby,
+                "google_versions":self.versions,
             }
             )
 
@@ -176,3 +180,9 @@ class Paper(object):
             }
         self.db_id = dbutils.get_paper_ID(param)
         return self.db_id != None
+
+
+    def is_downloaded(self):
+        param = { "id" : self.db_id }
+        self.downloaded = dbutils.get_pdf_download_transaction(param) != None
+        return self.downloaded

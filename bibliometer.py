@@ -66,6 +66,7 @@ def get_papers_by_key_words():
                                         1, paper_info['link_to_pdf'])
             if newpaper.in_database():
                 settings.print_message("This paper already exists, id = {}.".format(newpaper.db_id), 1)
+                newpaper.is_downloaded()
             else:
                 new_papers += 1
                 newpaper.add_to_database()
@@ -78,12 +79,12 @@ def get_papers_by_key_words():
                     newauthor = author.Author()
                     newauthor.get_base_info_from_sch(author_info)
 
-                    settings.print_message("Handle author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 4)
+                    settings.print_message("Process author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), 4)
                     logger.debug("Check exists author and if not then insert into DB.")
                     if not newauthor.in_database():
                         newauthor.get_info_from_sch()
                         # Insert new author into DB
-                        settings.print_message("Adding author to the database", 4)
+                        settings.print_message("Add author to the database", 4)
                         newauthor.save_to_database()
                         new_auth += 1
                     else:
@@ -91,11 +92,12 @@ def get_papers_by_key_words():
                     # Insert into DB reference
                     dbutils.add_author_paper_edge(newauthor.db_id, newpaper.db_id)
 
-            if settings.PARAMS["google_get_files"]:
+            if settings.PARAMS["google_get_files"] and (not newpaper.downloaded or settings.PARAMS["google_download_again"]):
                 tmp = download_pdf(
-                    paper_info['general_information']['url'],
-                    paper_info['link_to_pdf'],
-                    paper_info['general_information'].get("cluster"),
+                    newpaper.title,
+                    newpaper.paper_URL,
+                    newpaper.PDF_URL,
+                    newpaper.cluster,
                     None, newpaper.db_id)
                 download_pdf_url, download_pdf_cluster, download_pdf_scihub = tmp
                 pdf_url_counter += 1 if download_pdf_url else 0
@@ -111,7 +113,7 @@ def get_papers_by_key_words():
     return (about_res_count, new_papers, new_auth, papers_counter, new_auth + new_papers, 
             pdf_url_counter, pdf_cluster_counter, pdf_scihub_counter, pdf_unavailable_counter)
 
-def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
+def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
     # Download pdf for paper (first paper if use google cluster)
     download_pdf_url = False
     download_pdf_cluster = False
@@ -144,6 +146,7 @@ def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
         settings.print_message("Try get pdf from Google Scholar cluster {}.".format(google_cluster_id), 1)
         cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(google_cluster_id)
         if cluster_pdfs_links is not None:
+            cluster_pdfs_links = [url for url in cluster_pdfs_links if google_pdf_url != url]
             for google_pdf_url in cluster_pdfs_links:
                 settings.print_message(
                     "Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url), 2)
@@ -171,15 +174,16 @@ def download_pdf(google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
         settings.print_message("Getting PDF-file from Sci-Hub.", 2)
         logger.debug("Getting PDF-file on Sci-Hub.")
         try:
-            if not scihub.get_pdf(DOI, fn_tmp_pdf) and \
-            not scihub.get_pdf(google_url, fn_tmp_pdf):
-                settings.print_message("PDF unavailable on sci-hub.", 2)
-            else:
+            if scihub.get_pdf(DOI, fn_tmp_pdf) or \
+               scihub.get_pdf(google_url, fn_tmp_pdf) or \
+               scihub.get_pdf(title, fn_tmp_pdf) and settings.PARAMS["sci_hub_title_search"]:
                 settings.print_message("Complete!", 2)
                 dbutils.update_pdf_transaction(paper_id, "Sci-hub")
                 utils.rename_file(fn_tmp_pdf, fn_pdf)
                 success_download = True
                 download_pdf_scihub = True
+            else:
+                settings.print_message("PDF unavailable on sci-hub.", 2)
         except KeyboardInterrupt:
             raise
         except:
@@ -209,11 +213,12 @@ def get_PDFs():
     pdf_scihub_counter = 0
     pdf_unavailable_counter = 0
     #
+    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
     logger.debug("Select papers from database.")
     settings.print_message("Select papers from database.")
     PAPERS_SQL = settings.PARAMS["papers"]
     # get conditions and create standart query
-    col_names = "id, doi, google_url, google_file_url, google_cluster_id, title"
+    col_names = "id, title, doi, google_url, google_file_url, google_cluster_id, title"
     PAPERS_SQL = "SELECT {} FROM papers {}".format(col_names, PAPERS_SQL[PAPERS_SQL.lower().find("where"):])
     papers = dbutils.execute_sql(PAPERS_SQL)
     total = len(papers)
@@ -226,6 +231,7 @@ def get_PDFs():
     for paper_index, newpaper in enumerate(papers):
         settings.print_message("Process paper #{} (total {}) - {}.".format(paper_index + 1, total, newpaper[columns['title']]))
         id = newpaper[columns["id"]]
+        title = newpaper[columns["title"]]
         DOI = newpaper[columns["doi"]]
         google_URL = newpaper[columns["google_url"]]
         pdf_google_URL = newpaper[columns["google_file_url"]]
@@ -235,6 +241,7 @@ def get_PDFs():
             logger.debug("DOI and URLs is empty, skip this paper.")
             continue
         tmp = download_pdf(
+            title,
             google_URL,
             pdf_google_URL,
             pdf_google_cluster_URL,
@@ -248,12 +255,13 @@ def get_PDFs():
             not download_pdf_url and \
             not download_pdf_cluster and \
             not download_pdf_scihub else 0
+        if paper_index % commit_iterations == 0: dbutils.commit(paper_index)
     new_files_count = pdf_scihub_counter + pdf_cluster_counter + pdf_url_counter
-    settings.print_message("Proceed papers: {}.".format(len(papers)))
-    settings.print_message("PDF from Google: {}.".format(pdf_url_counter))
-    settings.print_message("PDF from Google Cluster: {}.".format(pdf_cluster_counter))
-    settings.print_message("PDF from Sci-Hub: {}.".format(pdf_scihub_counter))
-    settings.print_message("Unavailable PDFs: {}.".format(pdf_unavailable_counter))
+    #settings.print_message("Proceed papers: {}.".format(len(papers)))
+    #settings.print_message("PDF from Google: {}.".format(pdf_url_counter))
+    #settings.print_message("PDF from Google Cluster: {}.".format(pdf_cluster_counter))
+    #settings.print_message("PDF from Sci-Hub: {}.".format(pdf_scihub_counter))
+    #settings.print_message("Unavailable PDFs: {}.".format(pdf_unavailable_counter))
     result = (True, new_files_count, pdf_unavailable_counter, pdf_unavailable_counter + new_files_count)
     return result
 
@@ -561,6 +569,22 @@ def print_to_log_http_statistic():
     if len(utils.REQUEST_STATISTIC['failed_requests']) > 0:
         logger.info('List failed HTTP-requests:\n{0}'.format("\n".join(utils.REQUEST_STATISTIC['failed_requests'])))
 
+
+def print_to_log_captcha_statistic():
+    """ This function print statistic of sci-hub CAPTCHA solving in log. """
+    if utils.CAPTCHA_STATISTIC["total"] > 0:
+        msg = "CAPTCHA solve statistic:\n Total: {}\n Solved: {} ({:.3f}%)\n At once solved: {} ({:.3f}%)\n Several attempts: {:.1f}".format(
+            utils.CAPTCHA_STATISTIC["total"],
+            utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["not_solved"],
+            (utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["not_solved"]) * 100. / utils.CAPTCHA_STATISTIC["total"],
+            utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["solved_by_several_attempts"],
+            (utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["solved_by_several_attempts"]) * 100. / utils.CAPTCHA_STATISTIC["total"],
+            utils.CAPTCHA_STATISTIC["total_attempts"] * 1. / utils.CAPTCHA_STATISTIC["total"])
+        logger.debug("Cur captcha statistic: {}".format(json.dumps(utils.CAPTCHA_STATISTIC)))
+        logger.info(msg)
+        settings.print_message(msg)
+
+
 def dispatch(command):
     result = None
     logger.debug("command %s.", command)
@@ -598,6 +622,7 @@ def dispatch(command):
                              " Downloaded PDFs from Sci-Hub %i.\n Unavailable PDFs %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
+                print_to_log_captcha_statistic()
                 break
             if case("getFiles"):
                 logger.debug("Processing command '%s'." % command)
@@ -606,6 +631,7 @@ def dispatch(command):
                 msg = "Processing was successful.\nDownloads files: %i.\nUnavailable pdf's: %i.\nProcessed total: %i." % result[1:]
                 logger.debug(msg)
                 settings.print_message(msg)
+                print_to_log_captcha_statistic()
                 break
             if case("getReferences"):
                 logger.debug("Processing command '%s'." % command)

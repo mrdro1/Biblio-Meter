@@ -58,6 +58,7 @@ def create_tables_if_not_exists():
          google_cluster_id varchar(1000),
          google_file_url varchar(1000),
          google_cited_by_count integer,
+         google_versions integer,
          pages integer,
          start_page integer,
          end_page integer,
@@ -116,6 +117,18 @@ def get_author_ID(params):
     if res != []: id = res[0][0]
     logger.debug("Author id = {0}.".format(id))
     return id
+
+
+def get_pdf_download_transaction(params):
+    logger.debug("Get pdf download transaction %s." % json.dumps(params))
+    res = execute_sql("""
+        select r_file_transaction from papers
+        where id = :id
+        """, **params)
+    tr = None
+    if res != []: tr = res[0][0]
+    logger.debug("r_file_transaction = {0}.".format(tr))
+    return tr
 
 
 def get_paper_ID(params):

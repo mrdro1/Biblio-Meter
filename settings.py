@@ -98,11 +98,13 @@ CONTROL_KEYS = [
     "google_max_papers",
     "google_get_files",
     "google_cluster_files",
+    "google_download_again",
     "sci_hub_files",
     "sci_hub_download_captcha",
     "sci_hub_show_captcha",
     "sci_hub_timeout",
     "sci_hub_capcha_autosolve",
+    "sci_hub_title_search",
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
@@ -124,13 +126,15 @@ def CloseObjects():
 # logging
 
 # CONSOLE LOG
-cfromat = "[{0}] {1}{2}"
-def print_message(message, level=0):
+cfromat = "[{time}] {spaсe_level}{msg}"
+def print_message(message, level=0, end=None):
     level_indent = " " * level
     try:
-        print(cfromat.format(datetime.now(), level_indent, message))
+        print(cfromat.format(time=datetime.now(), spaсe_level=level_indent, msg=message), end=end)
     except:
-        print('programmers did not fix encoding))')
+        logger.error("Message can not be displayed because the encoding is not supported.")
+        logger.error(traceback.print_exc())
+        print(cfromat.format(time=datetime.now(), spaсe_level=level_indent, msg="Message can not be displayed because the encoding is not supported."))
 #
 
 # Logging handlers

@@ -147,11 +147,13 @@ def _get_info_from_resulting_selection(paper_soup):
     settings.print_message("Get additional information.", 3)
   
     count_sim_papers = 0
+    different_information = dict()
     for link in footer_links:
         if 'versions' in link.text or 'версии статьи' in link.text:
             count_sim_papers = int(re.findall(r'\d+', link.text.strip())[0])
             logger.debug("In cluster %i papers." % count_sim_papers)
             general_information["cluster"] = int(re.findall(r'\d+', link['href'].strip())[0])
+            different_information["versions"] = int(re.findall(r'\d+',link.text.strip())[0])
             break
 
     # check: have paper link to pdf
@@ -159,7 +161,6 @@ def _get_info_from_resulting_selection(paper_soup):
     link_to_pdf = _get_url_pdf(paper_soup)
     full_info['link_to_pdf'] = link_to_pdf
 
-    different_information = dict()
     is_end_note = False
     for link in footer_links:
         if 'endnote' in link.text.strip().lower():
@@ -273,11 +274,11 @@ def get_about_count_results(soup):
         title = title.find('div', {'class': 'gs_ab_mdw'})
         if title:
             count_papers = title.text
-            if count_papers:
-                count_papers = count_papers.split(' ')[1].replace(',', '')
-            else:
-                count_papers = 1
             try:
+                if count_papers:
+                    count_papers = re.search("[0-9]+ resu", count_papers.replace(',', '')).group(0).split()[0]
+                else:
+                    count_papers = 1
                 int(count_papers)
             except:
                 count_papers = title.text.split(' ')[0].replace(',', '')

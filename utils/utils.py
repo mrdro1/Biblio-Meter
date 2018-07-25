@@ -33,9 +33,16 @@ import scihub
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+CHECK_CONN_URL = "https://www.google.com/"
 REQUEST_STATISTIC = {'count_requests': 0, 'failed_requests':list()}
 LAST_CAPTCHA_SOLVE_TIME = datetime.now()
-STATISTIC_LST = list()
+CAPTCHA_STATISTIC = {
+        "total" : 0,
+        "not_solved" : 0,
+        "solved_by_several_attempts" : 0,
+        "total_attempts" : 0,
+    }
 # dict for save count response with same status code != 200
 dict_bad_status_code = collections.defaultdict(lambda: 0)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -252,10 +259,11 @@ def handle_captcha(response):
         try:
             logger.debug("Get img id.")
             soup = BeautifulSoup(response.text, 'html.parser')
-            captcha_id = soup.find('img', id="captcha")['src'].split('/')[-1].split('.')[0]
+            captcha_img_url = soup.find('img', id="captcha")['src']
+            captcha_id = captcha_img_url.split('/')[-1].split('.')[0]
             try:
                 if soup.find('img', id="captcha"):
-                    href = "http://{}/img/{}.jpg".format(host, captcha_id)
+                    href = "http://{}{}".format(host, captcha_img_url)
                     tmp_fname = settings.DIR_CAPTCHA_IMG + 'tmp_' + href.split('/')[-1]
                     logger.debug("Download captcha image.")
                     download_file(href, tmp_fname)
@@ -269,12 +277,17 @@ def handle_captcha(response):
                         sleep_time = settings.PARAMS["sci_hub_timeout"] - timespan
                         sleep_time = sleep_time if sleep_time > 0 else 0
                         logger.debug("Sleep {} seconds for auto solving captcha. Last solve {}".format(sleep_time, LAST_CAPTCHA_SOLVE_TIME))
-                        time.sleep(sleep_time)
+                        for sec in range(sleep_time, 0, -1):
+                            fstr = "Please wait {} seconds to solve CAPTCHA.  \r".format(sec)
+                            settings.print_message(fstr, 3, "")
+                            time.sleep(1)
+                            if sec == 1: settings.print_message(" " * len(fstr), 3, "\r")
                         LAST_CAPTCHA_SOLVE_TIME = datetime.now()
                         logger.debug("Auto solve captcha...")
-                        settings.print_message("CAPTCHA was found. Solving...", 3)
+                        settings.print_message("Solving CAPTCHA...\r", 3, "")
+                        CAPTCHA_STATISTIC["total_attempts"] += 1
                         answer = compaund_model.solve(tmp_fname)
-                        settings.print_message("Try load again.", 3)
+                        settings.print_message("Try download PDF again...", 3)
                     else:
                         logger.debug("Open captcha image (file {}).".format(tmp_fname))
                         img = Image.open(tmp_fname)
@@ -359,18 +372,20 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
                         # handle captcha
                         if host.endswith(scihub.SCIHUB_HOST_NAME):
                             if capthas_handled == 0:
-                                STATISTIC_LST.insert(0, 1)
-                                logger.debug("New autosolve. Cur mean: {}. Cur LIST: {}".format(np.mean(STATISTIC_LST), ", ".join(map(str, STATISTIC_LST))))
-                            else:
-                                STATISTIC_LST[0] += 1
+                                CAPTCHA_STATISTIC["total"] += 1
+                                logger.debug("New autosolve. Cur statistic: {}".format(json.dumps(CAPTCHA_STATISTIC)))
+                            if capthas_handled == 1: CAPTCHA_STATISTIC["solved_by_several_attempts"] += 1
+                            if settings.PARAMS.get("sci_hub_show_captcha"): CAPTCHA_STATISTIC["total_attempts"] += 1
                         if handle_captcha(resp) != 0: return None
-                    else: 
+                    else:
+                        if host.endswith(scihub.SCIHUB_HOST_NAME) and capthas_handled >= settings.PARAMS["sci_hub_capcha_autosolve"]:
+                            CAPTCHA_STATISTIC["not_solved"] += 1
                         return None
                     capthas_handled += 1
                     continue
             if resp.status_code == 404:
                 logger.debug("Http error 404: Page '{}' not found".format(url))
-                settings.print_message("Http error 404: Page '{}' not found".format(url))
+                #settings.print_message("Http error 404: Page '{}' not found".format(url))
                 # +1 bad requests
                 REQUEST_STATISTIC['failed_requests'].append(url)
                 if ip: SESSIONS[ip].HTTP_requests = 0
@@ -402,6 +417,7 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
             process_many_bad_status_code(host, use_proxy)
             continue
     settings.print_message("Failed {} times get requests from '{}'".format(settings.PARAMS["http_contiguous_requests"], url))
+    check_internet_connection()
     # +1 bad requests
     REQUEST_STATISTIC['failed_requests'].append(url)
     SESSIONS["localhost"].cookies = _get_cookies()
@@ -568,3 +584,18 @@ def delfile(file_name):
         os.remove(file_name)
     else:
         logger.debug("File '{}' not exists.".format(file_name))
+
+
+def check_internet_connection():
+    """ Check internet connection and handle disconnection """
+    logger.debug("Check internet connection.")
+    resp = None
+    try:
+        resp = requests.get(CHECK_CONN_URL)
+        logger.debug("There is internet access.")
+        return True
+    except:
+        pass
+    if not resp or resp.status_code != 200:
+        logger.debug("Not access to the Internet, check the connection and try again.")
+        raise Exception("Not access to the Internet, check the connection and try again.")

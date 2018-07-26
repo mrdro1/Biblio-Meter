@@ -417,7 +417,9 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
             process_many_bad_status_code(host, use_proxy)
             continue
     settings.print_message("Failed {} times get requests from '{}'".format(settings.PARAMS["http_contiguous_requests"], url))
-    check_internet_connection()
+    if check_internet_connection() > 0:
+        """ If there was a disconnection from the Internet, then try again to connection the host """
+        return get_request(url, stream, return_resp, POST, att_file, for_download, skip_captcha, data, allow_redirects)
     # +1 bad requests
     REQUEST_STATISTIC['failed_requests'].append(url)
     SESSIONS["localhost"].cookies = _get_cookies()
@@ -587,15 +589,40 @@ def delfile(file_name):
 
 
 def check_internet_connection():
-    """ Check internet connection and handle disconnection """
+    """ Check internet connection and handle disconnection
+        return Exception if not access to internet,
+               or number of attempts to connection
+    """
     logger.debug("Check internet connection.")
     resp = None
-    try:
-        resp = requests.get(CHECK_CONN_URL)
-        logger.debug("There is internet access.")
-        return True
-    except:
-        pass
-    if not resp or resp.status_code != 200:
-        logger.debug("Not access to the Internet, check the connection and try again.")
-        raise Exception("Not access to the Internet, check the connection and try again.")
+    connection_attempts = settings.DEFAULT_CONN_ATTEMPTS if not settings.PARAMS.get("connection_attempts") \
+        else settings.PARAMS.get("connection_attempts")
+    for attempt in range(connection_attempts + 1):
+        try:
+            if attempt > 0: 
+                msg = "Connection attempt #{} of {}...".format(attempt, connection_attempts)
+                logger.debug(msg)
+                settings.print_message(msg)
+            resp = requests.get(CHECK_CONN_URL)
+            logger.debug("There is internet access.")
+            return attempt
+        except:
+            pass
+        if not resp or resp.status_code != 200:
+            if attempt == 0: 
+                msg = "No access to the Internet."
+                settings.print_message(msg)
+                logger.info(msg)
+            if attempt < connection_attempts:
+                timeout = settings.DEFAULT_DISCONNECTION_TIMEOUT if not settings.PARAMS.get("disconnection_timeout") \
+                            else settings.PARAMS.get("disconnection_timeout")
+                logger.debug("Reconnection after {} seconds.".format(timeout))
+                for sec in range(timeout, 0, -1):
+                    fstr = "Reconnection after {} seconds...  \r".format(sec)
+                    settings.print_message(fstr, end="")
+                    time.sleep(1)
+                    if sec == 1: settings.print_message(" " * len(fstr), 3, "\r")
+    msg = "Not access to the Internet, check the connection and try again."
+    logger.error(msg)
+    settings.print_message(msg)
+    raise Exception(msg)

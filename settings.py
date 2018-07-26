@@ -60,16 +60,12 @@ _CONTROL_FILE = None
 PROXY_FILE = None
 _SUCCESSFUL_START_FLAG = False
 
-#INFORMATION_MODE = 1
-#TRANSACTION_MODE = 0
-#MODE = TRANSACTION_MODE
-#INFO_FILE = None
-
 DIR_CAPTCHA_IMG = r"captcha/"
 if not os.path.exists(DIR_CAPTCHA_IMG): os.mkdir(DIR_CAPTCHA_IMG)
 
 DEFAULT_TIMEOUT = 10
-
+DEFAULT_CONN_ATTEMPTS = 5
+DEFAULT_DISCONNECTION_TIMEOUT = 15
 LOG_LEVEL = logging.DEBUG
 
 RESULT = "SUCCESS"
@@ -89,6 +85,8 @@ CONTROL_KEYS = [
     "patents", 
     "citations",
     "papers",
+    "connection_attempts",
+    "disconnection_timeout",
     "max_tree_level",
     "max_cited_papers",
     "commit_iterations",

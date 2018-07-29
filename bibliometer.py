@@ -311,6 +311,12 @@ def get_references():
             papers_without_ref += 1
             continue
         total_references = len(references)
+        dbutils.update_paper(
+            {
+                "references_count":total_references,
+                "id":parent_paper_db_id
+            }
+            ) 
         for ref_index, reference in enumerate(references):
             if new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
             settings.print_message("Process paper #{} from references (total {}).".format(ref_index + 1, total_references), 2)

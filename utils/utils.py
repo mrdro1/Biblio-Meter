@@ -28,7 +28,6 @@ import PyPDF2
 import settings
 import dbutils
 import scihub
-print(settings.PARAMS)
 if settings.PARAMS.get("google_get_files") and\
     not settings.PARAMS.get("sci_hub_show_captcha") or\
     settings.PARAMS.get("command") == "getFiles":

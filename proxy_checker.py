@@ -15,12 +15,8 @@ import argparse
 
 
 
-TEST_URLS = [
-    "https://scholar.google.com/",
-    #"https://www.researchgate.net/search?q=test",
-    #"https://{0}/".format(CONST.SCIHUB_HOST_NAME)
-    ]
-
+TEST_URL = "https://scholar.google.ru/scholar?hl=ru&as_sdt=0%2C5&q={}&btnG="
+QUESTIONS = ["Cross entropy", "Computer vision", "CNN", "Neural networks", "Regression", "Clusterisation", "Classification", "Time siries"]
 DEFAULT_PROCESSES = 50
 DEFAULT_ATEEMPTS_COUNT = 2
 DEFAULT_REFILTERING_COUNT = 1
@@ -160,15 +156,15 @@ def init_worker():
 
 def check(proxy, total_good, total_bad, lock):
     try:
-        for url in TEST_URLS:
-            for i in range(ATTEMPTS_COUNT):
-                res = get_request(url, {"https":proxy}) 
-                if res != 0:
-                    lock.acquire()
-                    total_bad.value += 1
-                    lock.release()
-                    print_message("{0:23} {1:8} {2:5} Didn't pass the {3} test on the url '{4}'".format(proxy, "TIMEOUT" if res == 1 else "HTTP ERR" if res == 2 else "CAPTCHA", total_bad.value, i + 1, url))
-                    return
+        for i in range(ATTEMPTS_COUNT):
+            url = TEST_URL.format(random.choice(QUESTIONS))
+            res = get_request(url, {"https":proxy}) 
+            if res != 0:
+                lock.acquire()
+                total_bad.value += 1
+                lock.release()
+                print_message("{0:23} {1:8} {2:5} Didn't pass the {3} test on the url '{4}'".format(proxy, "TIMEOUT" if res == 1 else "HTTP ERR" if res == 2 else "CAPTCHA", total_bad.value, i + 1, url))
+                return
         lock.acquire()
         total_good.value += 1
         print_message("{0:23} {1:8} {2:5} Proxy pass all tests".format(proxy, "ADDED", total_good.value))

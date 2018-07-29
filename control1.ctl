@@ -1,13 +1,13 @@
 {
 "command" : "getPapersByKeyWords",
-"query" : "User location prediction by logical rules", 
+"query" : "Accurate mobility \"location prediction\"", 
 "patents" : false, 
 "citations" : false,
 "start_paper" : 1,
 
-"google_max_papers" : 50,
+"google_max_papers" : 10,
 
-"google_get_files" : true,
+"google_get_files" : false,
 "google_download_again" : true,
 "google_cluster_files" : true,
 

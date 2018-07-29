@@ -74,6 +74,20 @@ def create_tables_if_not_exists():
         );
         ''',
         '''
+        create table if not exists grobid_papers
+        (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
+         title varchar(1000) not null,
+         year integer,
+         DOI varchar(1000),
+         google_cluster_id varchar(1000),
+         r_paper INTEGER,
+         endnote TEXT,
+         r_transaction integer not null,
+         foreign key (r_paper) references papers(id),
+         foreign key (r_transaction) references transactions(id)
+        );
+        ''',
+        '''
         create table if not exists author_paper
         (r_author integer not null,
          r_paper integer not null,
@@ -337,26 +351,4 @@ def update_pdf_transaction(paper_id, source):
             source_pdf=:source_pdf
         WHERE id = :id
         """, **{"r_file_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "source_pdf":source, "id":paper_id})
-    return 0
-
-
-def delete_cookie_from_chrome_db():
-    logger.debug("Delete cookie from scholar cookie database")
-    sql = """
-        DELETE FROM cookies 
-        WHERE
-           --(
-           --   host_key LIKE "%accounts%" 
-           --OR host_key LIKE "%google%"
-           --) 
-           --AND 
-            name not in ('SSID', 'SID', 'HSID', 'GSP')
-          """
-    logger.debug("Execute sql: \n{}".format(sql))
-    cur = DB_CHROME_CONNECTION.cursor()
-    cur.execute(sql)
-    try:
-        DB_CHROME_CONNECTION.commit()
-    except sqlite3.OperationalError:
-        return -2
     return 0

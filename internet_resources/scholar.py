@@ -14,23 +14,13 @@ logger.setLevel(settings.LOG_LEVEL)
 
 _HOST = 'https://scholar.google.com'
 _DOMAIN = 'google.com'
-_AUTHSEARCH = '/citations?view_op=search_authors&hl=en&mauthors={0}'
 _CITATIONAUTH = '/citations?user={0}&hl=en'
-_CITATIONPUB = '/citations?view_op=view_citation&citation_for_view={0}'
-_KEYWORDSEARCH = '/citations?view_op=search_authors&hl=en&mauthors=label:{0}'
-_PUBSEARCH = '/scholar?q={0}'
-#_PUBADVANCEDSEARCH = '/scholar?as_q={0}&as_epq={1}&as_oq={2}&as_eq={3}&as_occt={4}&as_sauthors={5}&as_publication={6}&as_ylo={7}&as_yhi={8}&btnG=&hl=en&as_sdt={9}%2C5&as_vis={10}'
 _PUBADVANCEDSEARCH = '/scholar?start={11}&q={0}&as_epq={1}&as_oq={2}&as_eq={3}&as_occt={4}&as_sauthors={5}&as_publication={6}&as_ylo={7}&as_yhi={8}&btnG=&hl=en&as_sdt={9}%2C5&as_vis={10}'
-_SCHOLARPUB = '/scholar?oi=bibs&hl=en&cites={0}'
 _SCHOLARCLUSTER = '/scholar?cluster={0}&hl=en&as_sdt=1,5&as_vis=1'
 _FULLURL = r'{0}{1}'
+_SITIES_SEARCH_URL = "/scholar?start={1}&hl=en&cites={0}&as_vis={2}&as_sdt={3}&as_ylo={4}&as_yhi={5}"
 
 _CITATIONAUTHRE = r'user=([\w-]*)'
-_CITATIONPUBRE = r'citation_for_view=([\w-]*:[\w-]*)'
-_SCHOLARCITERE = r'gs_ocit\(event,\'([\w-]*)\''
-_SCHOLARPUBRE = r'cites=([\w-]*)'
-_SCHOLARCLUSTERRE = r'cluster=[0-9]*'
-
 
 def get_pdfs_link_from_cluster(cluster_id):
     logger.debug("Process papers from cluster %s." % (cluster_id))
@@ -103,13 +93,13 @@ def get_pdf(url, filename):
         raise
     return True
 
-def _get_info_from_resulting_selection(paper_soup):
+def _get_info_from_resulting_selection(paper_soup, print_level=0):
     """retrieving data about an article in the resulting selection"""
     # Full info about paper include general and addition information
     # MAYBE no one addition information, because this paper in cluster
     # and for each paper from cluster contains additional info
-    settings.print_message("Google scholar:", 2)
-    settings.print_message("Get general information.", 3)
+    #settings.print_message("Google scholar:", 2)
+    #settings.print_message("Get general information.", 3)
     full_info = dict()
     general_information = dict()
     databox = paper_soup.find('div', class_='gs_ri')
@@ -141,10 +131,10 @@ def _get_info_from_resulting_selection(paper_soup):
 
     # Save general info
     full_info["general_information"] = general_information
-    settings.print_message("Title: '%s'" % general_information['title'], 3)
+    settings.print_message("Title: '%s'" % general_information['title'], print_level + 1)
     # Get addition information (maybe paper in cluster then analysis cluster and get additional info for each unique paper in cluster)
     footer_links = databox.find('div', class_='gs_fl').find_all('a')
-    settings.print_message("Get additional information.", 3)
+    #settings.print_message("Get additional information.", 3)
   
     count_sim_papers = 0
     different_information = dict()
@@ -230,7 +220,7 @@ def get_info_from_EndNote(file_url, return_source = False):
     return EndNote_info
 
 
-def _search_scholar_soup(soup, max_papers_count, total_papers, start_paper):
+def _search_scholar_soup(soup, max_papers_count, total_papers, start_paper, print_level=0):
     """Generator that returns pub information dictionaries from the search page"""
     page_num = 1
     counter = 0
@@ -242,10 +232,10 @@ def _search_scholar_soup(soup, max_papers_count, total_papers, start_paper):
         for page_counter, paper in enumerate(paper_blocks):
             if counter >= max_papers_count: break;
             counter += 1
-            settings.print_message("Process paper #%i (total %i)" % (counter, total_papers))
-            logger.debug("Process paper #%i (total %i)" % (counter, total_papers))
+            settings.print_message("Process paper #{} (total {})".format(counter, total_papers), print_level)
+            logger.debug("Process paper #{} (total {})".format(counter, total_papers))
             logger.debug("Parse html and get info about paper #{0} on searching page (total {1} on page)".format(page_counter + 1, page_total))
-            yield _get_info_from_resulting_selection(paper)
+            yield _get_info_from_resulting_selection(paper, print_level)
         if soup.find(class_='gs_ico gs_ico_nav_next') and counter < max_papers_count:
             url = soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip()
             result = True
@@ -288,48 +278,45 @@ def get_about_count_results(soup):
 
 def search_pubs_query_with_control_params(params):
     """Advanced search by scholar query and return a generator of Publication objects"""
-    return search_pubs_query_with_params(
-        params['query'] if 'query' in params else '',
-        params['date_from'] if 'date_from' in params else '',
-        params['date_to'] if 'date_to' in params else '',
-        params['authored'] if 'authored' in params else '',
-        params['published'] if 'published' in params else '',
-        params['exact_phrase'] if 'exact_phrase' in params else '',
-        params['one_of_words'] if 'one_of_words' in params else '',
-        params['not_contained_words'] if 'not_contained_words' in params else '',
-        params['words_in_body'] if 'words_in_body' in params else True,
-        params['patents'] if 'patents' in params else True,
-        params['citations'] if 'citations' in params else True,
-        int(params["google_max_papers"]) if "google_max_papers" in params else float("inf") if "google_max_papers" in params else float("inf"),
-        params['start_paper'] if 'start_paper' in params else 1,
-    )
-
-
-def search_pubs_query_with_params(
-        query, date_from, date_to, authored, published,
-        exact_phrase, one_of_words, not_contained_words, words_in_body,
-        patents, citations, max_iter = float("inf"), start_paper = 1
-    ):
-    """Advanced search by scholar query and return a generator of Publication objects"""
+    one_of_words = params['one_of_words'] if 'one_of_words' in params else ''
+    not_contained_words = params['not_contained_words'] if 'not_contained_words' in params else ''
+    start_paper = params['start_paper'] if 'start_paper' in params else 1
+    max_iter = int(params["google_max_papers"]) \
+        if "google_max_papers" in params else float("inf") if "google_max_papers" in params else float("inf")
     url = _PUBADVANCEDSEARCH.format(
-        requests.utils.quote(query),
-        requests.utils.quote(exact_phrase),
+        requests.utils.quote(params['query'] if 'query' in params else ''),
+        requests.utils.quote(params['exact_phrase'] if 'exact_phrase' in params else ''),
         requests.utils.quote(one_of_words if one_of_words is str else '+'.join(one_of_words)),
         requests.utils.quote(not_contained_words if not_contained_words is str else '+'.join(not_contained_words)),
-        'any' if words_in_body else 'title',
-        requests.utils.quote(authored),
-        requests.utils.quote(published),
-        date_from,
-        date_to,
-        '0' if patents else '1',
-        '0' if citations else '1',
+        'any' if (params['words_in_body'] if 'words_in_body' in params else True) else 'title',
+        requests.utils.quote(params['authored'] if 'authored' in params else ''),
+        requests.utils.quote(params['published'] if 'published' in params else ''),
+        params['date_from'] if 'date_from' in params else '',
+        params['date_to'] if 'date_to' in params else '',
+        '0' if (params['patents'] if 'patents' in params else True) else '1',
+        '0' if (params['citations'] if 'citations' in params else True) else '1',
         start_paper if start_paper > 1 else ''
     )
-    #settings.print_message(url)
     return search_pubs_custom_url(url, max_iter, start_paper)
 
 
-def search_pubs_custom_url(url, max_iter, start_paper):
+def search_cities(cluster_id, params, print_level=0):
+    """ Search sities for paper """
+    start_paper = params['start_paper'] if 'start_paper' in params else 1
+    url = _SITIES_SEARCH_URL.format(
+        requests.utils.quote(cluster_id),
+        start_paper if start_paper > 1 else '',
+        '0' if (params['citations'] if 'citations' in params else True) else '1',
+        '0' if (params['patents'] if 'patents' in params else True) else '1',
+        params['date_from'] if 'date_from' in params else '',
+        params['date_to'] if 'date_to' in params else ''       
+    )
+    max_iter = int(params["google_max_papers"]) \
+        if "google_max_papers" in params else float("inf") if "google_max_papers" in params else float("inf")
+    return search_pubs_custom_url(url, max_iter, start_paper, print_level)
+
+
+def search_pubs_custom_url(url, max_iter, start_paper, print_level=0):
     """Search by custom URL and return a generator of Publication objects
     URL should be of the form '/scholar?q=...'"""
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, url))
@@ -338,7 +325,7 @@ def search_pubs_custom_url(url, max_iter, start_paper):
         logger.debug("Soup for generator publication page URL='{0}' is None.".format(url))
         return None, None
     about = get_about_count_results(soup)
-    return (_search_scholar_soup(soup, max_iter, about, start_paper), about)
+    return (_search_scholar_soup(soup, max_iter, about, start_paper, print_level), about)
 
 
 def get_info_from_author_page(author_id): 

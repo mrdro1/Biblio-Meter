@@ -400,6 +400,7 @@ def get_references():
                 settings.print_message("This grobid paper already exists, id = {}.".format(grobid_paper.grobid_db_id), 3)
             else:
                 new_grobid_papers_count += 1
+                grobid_paper.make_EndNote()
                 grobid_paper.add_to_database_as_grobid_paper(parent_paper_db_id)
     not_found = new_grobid_papers_count - many_results - many_versions
     logger.debug("STATISTIC ABOUT SEARCH ON GOOGLE:\nNot found papers: {}\nMany results: {}\nMany versions: {}")
@@ -617,7 +618,7 @@ def dispatch(command):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_references()
-                msg = "Processing was successful.\nAdded new papers: %i.\nAdded references as grobid papers: %i.\nAdded new authors: %i.Papers without references: %i.\nProcessed total papers: %i." % result
+                msg = "Processing was successful.\nAdded new papers: %i.\nAdded references as grobid papers: %i.\nAdded new authors: %i.\nPapers without references: %i.\nProcessed total papers: %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break

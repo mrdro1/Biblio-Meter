@@ -28,7 +28,10 @@ import PyPDF2
 import settings
 import dbutils
 import scihub
-if settings.PARAMS.get("google_get_files") and not settings.PARAMS.get("sci_hub_show_captcha"):
+print(settings.PARAMS)
+if settings.PARAMS.get("google_get_files") and\
+    not settings.PARAMS.get("sci_hub_show_captcha") or\
+    settings.PARAMS.get("command") == "getFiles":
     import compaund_model
 
 logger = logging.getLogger(__name__)

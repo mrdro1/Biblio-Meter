@@ -95,10 +95,10 @@ class Paper(object):
             logger.debug("Failed to load paper information") 
             return False
         logger.debug("Save info about paper (or its version)")
-        self.DOI = pdf_info["DOI"]
+        self.DOI = pdf_info["DOI"] if not self.DOI else self.DOI
         self.abstract = pdf_info["abstract"]
         self.abstract_ru = pdf_info["abstract_ru"]
-        self.year = pdf_info["pubdate"]
+        self.year = pdf_info["pubdate"] if not self.year else self.year
         dbutils.update_paper(
             {
                 "DOI":self.DOI,

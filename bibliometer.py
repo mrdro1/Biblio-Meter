@@ -475,10 +475,12 @@ def get_info_from_PDFs():
     unavailable_files_counter = 0
     nonempty_abstract = 0
     #
-    papers, columns, total = select_papers("id")
+    papers, columns, total = select_papers("id, year, doi")
     for paper_index, paper_info in enumerate(papers):
         settings.print_message("Process paper #{0} (total {1}).".format(paper_index + 1, len(papers)))
         id = paper_info[0]
+        year = paper_info[1]
+        doi = paper_info[2]
         file_name = "{0}{1}.pdf".format(settings.PDF_CATALOG, id)
         if not os.path.exists(file_name):
             settings.print_message('PDF "{}" not found, skip this paper.'.format(file_name), 2)
@@ -487,6 +489,8 @@ def get_info_from_PDFs():
             continue
         cur_paper = paper.Paper()
         cur_paper.db_id = id
+        cur_paper.year = year
+        cur_paper.DOI = doi
         if not cur_paper.get_data_from_grobid(file_name):
             settings.print_message('Process PFD "{}" is failed, skip.'.format(file_name), 2)
             logger.debug('Process PFD "{}" is failed, skip.'.format(file_name))

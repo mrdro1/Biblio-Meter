@@ -276,17 +276,134 @@ def add_adge_to_sitation_graph(parent_paper_db_id, child_paper_db_id, edge_type=
 
 def get_references():
     """This function loads links to articles for papers selected from the database"""
-    #            logger.debug("Paper #{0} not found on Researchgate, skip.".format(papers_counter))
-    #            settings.print_message("Paper #{0} not found on Researchgate, skip.".format(papers_counter), 2)
-    #            papers_without_list += 1
-    #            continue
-    #    settings.print_message("Get paper references. RGID={0}.".format(parent_paper_rg_id), 2)
-    #    ref_papers_list = researchgate.get_referring_papers(parent_paper_rg_id)
-    #    total_ref = 0
-    #    if ref_papers_list != None and len(ref_papers_list) != 0:
-    #        total_ref = len(ref_papers_list)
     # this paper -> other papers
-
+    # statistic for childs papers
+    new_authors_count = 0
+    new_papers_count = 0
+    new_grobid_papers_count = 0
+    total_processed = 0
+    papers_without_ref = 0
+    #
+    many_results = 0
+    many_versions = 0
+    not_found = 0
+    #
+    methods = [0, 0, 0, 0]
+    #
+    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    papers, columns, total = select_papers("title, id")
+    for parent_paper_index, parent_paper in enumerate(papers):
+        settings.print_message("Get references for paper #{} (total {}) - {}.".format(parent_paper_index + 1, total, parent_paper[columns['title']]))
+        logger.debug("Get references for paper #{} (total {}) - {}.".format(parent_paper_index + 1, total, parent_paper[columns['title']]))
+        parent_paper_db_id = parent_paper[columns["id"]]
+        title = parent_paper[columns["title"]]
+        # Get referensec from PDF
+        file_name = "{0}{1}.pdf".format(settings.PDF_CATALOG, parent_paper_db_id)
+        if not os.path.exists(file_name):
+            settings.print_message('PDF "{}" not found, skip this paper.'.format(file_name), 2)
+            logger.debug('PDF "{}" not found, skip this paper.'.format(file_name))
+            bad_pdfs += 1
+            continue
+        references = grobid.processReferencesDocument(file_name)
+        if not references:
+            settings.print_message('References from PFD "{}" is not extracted, skip.'.format(file_name), 2)
+            logger.debug('References from PFD "{}" is not extracted, skip.'.format(file_name))
+            papers_without_ref += 1
+            continue
+        total_references = len(references)
+        for ref_index, reference in enumerate(references):
+            if new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
+            settings.print_message("Process paper #{} from references (total {}).".format(ref_index + 1, total_references), 2)
+            logger.debug("Process paper #{} from references (total {}).".format(ref_index + 1, total_references))
+            if not reference["ref_title"] and not reference["journal_pubnote"]["journal_title"]:
+                settings.print_message("Title is empty, skip.", 3)
+                logger.debug("Reference paper #{} (total {}) has not title, skip.".format(ref_index + 1, total_references))
+                continue
+            logger.debug("Data about reference: {}".format(json.dumps(reference)))
+            grobid_paper = paper.Paper()
+            grobid_paper.authors = set(reference["authors"]) if reference["authors"] else []
+            grobid_paper.title = reference["ref_title"] if reference["ref_title"] else \
+                        reference["journal_pubnote"].get("journal_title")
+            grobid_paper.year = reference["journal_pubnote"].get("year")
+            grobid_paper.DOI = reference["journal_pubnote"].get("doi")
+            grobid_paper.start_page = reference["journal_pubnote"].get("start_page")
+            grobid_paper.end_page = reference["journal_pubnote"].get("end_page")
+            msg = "Search paper '{}' from google.scholar.".format(grobid_paper.title)
+            logger.debug(msg)
+            settings.print_message(msg, 3)
+            total_processed += 1
+            google_papers = None
+            for i in range(4):
+                logger.debug("Search with \"\"." if i < 2 else "Search without \"\".")
+                # 0 -         "" and         year
+                # 1 -         "" and without year
+                # 2 - without "" and         year
+                # 3 - without "" and without year
+                search_params = {
+                        "query" : ('intitle:"{}"' if i < 2 else 'intitle:{}').format(grobid_paper.title),
+                        "date_from" : grobid_paper.year if i % 2 == 0 else "",
+                        "date_to" : grobid_paper.year if i % 2 == 0 else "",
+                        "patents" : True,
+                        "citations" : False,
+                    }
+                methods[i] += 1
+                paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(search_params, skip_endnote=True, print_level=-1)
+                if about_res_count > settings.PARAMS["google_max_papers"]: continue
+                if not paper_generator: continue
+                google_papers = [paper for paper in paper_generator]
+                if google_papers: break
+            logger.debug("Methods STATISTIC: [{}]".format(", ".join(map(str, methods))))
+            # Check search results.
+            msg = "Papers not found, indentification unavailable. Add this reference to DB as grobid paper."
+            if google_papers:
+                # Check count papers from google search results.
+                if about_res_count <= settings.PARAMS["google_max_papers"]:
+                    logger.debug(about_res_count)
+                    logger.debug("Google: Found {0} papers.".format(about_res_count))
+                    # Check results on one paper (maybe average versions about one paper).
+                    papers_count = len({paper["general_information"]["title"].lower() for paper in google_papers})
+                    if papers_count == 1:
+                        best_paper = None
+                        for google_paper in google_papers:
+                            logger.debug("G paper\n{}\nBest paper\n{}".format(json.dumps(google_paper), json.dumps(best_paper)))
+                            EndNote = scholar.get_info_from_EndNote(google_paper["different_information"]["url_scholarbib"], True)
+                            if not EndNote: continue
+                            google_paper["different_information"].update(EndNote)
+                            if not best_paper or len(best_paper["different_information"]["EndNote"]) < len(google_paper["different_information"]["EndNote"]):
+                                best_paper =  google_paper
+                        if best_paper:
+                            logger.debug("Process content of EndNote file for paper from references\n{}\n{}".format(json.dumps(best_paper["general_information"]),
+                                json.dumps(best_paper["different_information"])))
+                            # Fill data from google scholar
+                            settings.print_message("Paper was identified on google.scholar and processed.".format(grobid_paper.db_id), 3)
+                            grobid_paper.get_info_from_sch(best_paper["general_information"], 
+                                                best_paper["different_information"], 1, best_paper['link_to_pdf'])
+                            if grobid_paper.in_database():
+                                settings.print_message("This paper already exists, id = {}.".format(grobid_paper.db_id), 3)
+                            else:
+                                new_papers_count += 1
+                                grobid_paper.add_to_database()
+                                new_authors_count += add_authors(grobid_paper.db_id, grobid_paper.authors, 4)
+                            add_adge_to_sitation_graph(parent_paper_db_id, grobid_paper.db_id)                       
+                            # Success identification, process next reference.
+                            continue
+                    elif papers_count > 1:
+                        many_versions += 1
+                        msg = "Found different papers on scholar, indentification unavailable. Add this reference to DB as grobid paper."
+                else:
+                    msg = "Found many papers on scholar, indentification unavailable. Add this reference to DB as grobid paper."
+                    many_results += 1
+            # Identification unavailable, add grobid paper to DB.
+            settings.print_message(msg, 3)
+            logger.debug(msg)
+            if grobid_paper.in_database_as_grobid_paper():
+                settings.print_message("This grobid paper already exists, id = {}.".format(grobid_paper.grobid_db_id), 3)
+            else:
+                new_grobid_papers_count += 1
+                grobid_paper.add_to_database_as_grobid_paper(parent_paper_db_id)
+    not_found = new_grobid_papers_count - many_results - many_versions
+    logger.debug("STATISTIC ABOUT SEARCH ON GOOGLE:\nNot found papers: {}\nMany results: {}\nMany versions: {}")
+    return (new_papers_count, new_grobid_papers_count, new_authors_count, papers_without_ref, total_processed)
 
 
 def get_cities():
@@ -312,7 +429,7 @@ def get_cities():
         # Search cities
         logger.debug("Search cities papers from google.scholar...")
         settings.print_message("Search cities papers from google.scholar.", 2)
-        paper_generator, about_res_count = scholar.search_cities(google_cluster_id, settings.PARAMS, 3)
+        paper_generator, about_res_count = scholar.search_cities(google_cluster_id, settings.PARAMS, print_level=3)
 
         if paper_generator is None:
             settings.print_message("Cities not found, skip.", 2)
@@ -500,7 +617,7 @@ def dispatch(command):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_references()
-                msg = "Processing was successful. Processed total papers: %i. Papers without references: %i. Added new papers: %i. Fails to get data about paper: %i. Added new authors: %i." % result
+                msg = "Processing was successful.\nAdded new papers: %i.\nAdded references as grobid papers: %i.\nAdded new authors: %i.Papers without references: %i.\nProcessed total papers: %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break

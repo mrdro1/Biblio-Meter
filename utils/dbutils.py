@@ -167,6 +167,23 @@ def get_paper_ID(params):
     return id
 
 
+def get_grobid_paper_ID(params):
+    logger.debug("Get paper from grobid id %s." % json.dumps(params))
+    res = execute_sql("""
+        select id from grobid_papers
+        where (
+              title = :title
+              and (year = :year or year is null or :year is null)
+              )
+              or
+              (doi = :doi)
+        """, **params)
+    id = None
+    if res != []: id = res[0][0]
+    logger.debug("Paper id = {0}.".format(id))
+    return id
+
+
 def check_exists_paper_paper_edge(params):
     logger.debug("Check exists paper-paper edge for %s." % json.dumps(params))
     res = execute_sql("""
@@ -214,6 +231,13 @@ def add_new_paper(params):
         INSERT INTO papers({}) VALUES(:{})
         """.format(", ".join(keys), ", :".join(keys)), **params)
 
+def add_new_grobid_paper(params):
+    logger.debug("Add new paper from grobid (title='%s')" % params["title"])
+    params.update({"r_transaction":_CURRENT_PROGRAM_TRANSACTION_ID})
+    keys = [key for key in params.keys() if key != "id"]
+    return execute_sql("""
+        INSERT INTO grobid_papers({}) VALUES(:{})
+        """.format(", ".join(keys), ", :".join(keys)), **params)
 
 def add_new_author(params):
     logger.debug("Add new author (GID = %s, Name = %s, Shortname = %s)" % (params["google_id"], params["name"], params["shortname"]))

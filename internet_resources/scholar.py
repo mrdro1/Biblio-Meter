@@ -93,7 +93,7 @@ def get_pdf(url, filename):
         raise
     return True
 
-def _get_info_from_resulting_selection(paper_soup, print_level=0):
+def _get_info_from_resulting_selection(paper_soup, skip_endnote=False, print_level=0):
     """retrieving data about an article in the resulting selection"""
     # Full info about paper include general and addition information
     # MAYBE no one addition information, because this paper in cluster
@@ -131,7 +131,8 @@ def _get_info_from_resulting_selection(paper_soup, print_level=0):
 
     # Save general info
     full_info["general_information"] = general_information
-    settings.print_message("Title: '%s'" % general_information['title'], print_level + 1)
+    if print_level >= 0:
+        settings.print_message("Title: '%s'" % general_information['title'], print_level + 1)
     # Get addition information (maybe paper in cluster then analysis cluster and get additional info for each unique paper in cluster)
     footer_links = databox.find('div', class_='gs_fl').find_all('a')
     #settings.print_message("Get additional information.", 3)
@@ -155,12 +156,13 @@ def _get_info_from_resulting_selection(paper_soup, print_level=0):
     for link in footer_links:
         if 'endnote' in link.text.strip().lower():
             is_end_note = True
-            end_note = get_info_from_EndNote(link['href'].strip(), True)
-            if end_note != None:
-                different_information.update(end_note)
-            else:
-                full_info["different_information"] = None
-                return full_info
+            if not skip_endnote:
+                end_note = get_info_from_EndNote(link['href'].strip(), True)
+                if end_note != None:
+                    different_information.update(end_note)
+                else:
+                    full_info["different_information"] = None
+                    return full_info
             different_information["url_scholarbib"] = link['href'].strip()
         if 'Cited by' in link.text or 'Цитируется' in link.text:
             #utils.get_soup(_HOST + link['href'].strip())
@@ -220,7 +222,7 @@ def get_info_from_EndNote(file_url, return_source = False):
     return EndNote_info
 
 
-def _search_scholar_soup(soup, max_papers_count, total_papers, start_paper, print_level=0):
+def _search_scholar_soup(soup, max_papers_count, total_papers, start_paper, skip_endnote=False, print_level=0):
     """Generator that returns pub information dictionaries from the search page"""
     page_num = 1
     counter = 0
@@ -232,10 +234,11 @@ def _search_scholar_soup(soup, max_papers_count, total_papers, start_paper, prin
         for page_counter, paper in enumerate(paper_blocks):
             if counter >= max_papers_count: break;
             counter += 1
-            settings.print_message("Process paper #{} (total {})".format(counter, total_papers), print_level)
+            if print_level >= 0:
+                settings.print_message("Process paper #{} (total {})".format(counter, total_papers), print_level)
             logger.debug("Process paper #{} (total {})".format(counter, total_papers))
             logger.debug("Parse html and get info about paper #{0} on searching page (total {1} on page)".format(page_counter + 1, page_total))
-            yield _get_info_from_resulting_selection(paper, print_level)
+            yield _get_info_from_resulting_selection(paper, skip_endnote, print_level)
         if soup.find(class_='gs_ico gs_ico_nav_next') and counter < max_papers_count:
             url = soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip()
             result = True
@@ -276,7 +279,7 @@ def get_about_count_results(soup):
         count_papers = 1
     return int(count_papers)
 
-def search_pubs_query_with_control_params(params):
+def search_pubs_query_with_control_params(params, skip_endnote=False, print_level=0):
     """Advanced search by scholar query and return a generator of Publication objects"""
     one_of_words = params['one_of_words'] if 'one_of_words' in params else ''
     not_contained_words = params['not_contained_words'] if 'not_contained_words' in params else ''
@@ -297,10 +300,10 @@ def search_pubs_query_with_control_params(params):
         '0' if (params['citations'] if 'citations' in params else True) else '1',
         start_paper if start_paper > 1 else ''
     )
-    return search_pubs_custom_url(url, max_iter, start_paper)
+    return search_pubs_custom_url(url, max_iter, start_paper, skip_endnote, print_level)
 
 
-def search_cities(cluster_id, params, print_level=0):
+def search_cities(cluster_id, params, skip_endnote=False, print_level=0):
     """ Search sities for paper """
     start_paper = params['start_paper'] if 'start_paper' in params else 1
     url = _SITIES_SEARCH_URL.format(
@@ -313,10 +316,10 @@ def search_cities(cluster_id, params, print_level=0):
     )
     max_iter = int(params["google_max_papers"]) \
         if "google_max_papers" in params else float("inf") if "google_max_papers" in params else float("inf")
-    return search_pubs_custom_url(url, max_iter, start_paper, print_level)
+    return search_pubs_custom_url(url, max_iter, start_paper, skip_endnote, print_level)
 
 
-def search_pubs_custom_url(url, max_iter, start_paper, print_level=0):
+def search_pubs_custom_url(url, max_iter, start_paper, skip_endnote=False, print_level=0):
     """Search by custom URL and return a generator of Publication objects
     URL should be of the form '/scholar?q=...'"""
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, url))
@@ -325,7 +328,7 @@ def search_pubs_custom_url(url, max_iter, start_paper, print_level=0):
         logger.debug("Soup for generator publication page URL='{0}' is None.".format(url))
         return None, None
     about = get_about_count_results(soup)
-    return (_search_scholar_soup(soup, max_iter, about, start_paper, print_level), about)
+    return (_search_scholar_soup(soup, max_iter, about, start_paper, skip_endnote, print_level), about)
 
 
 def get_info_from_author_page(author_id): 

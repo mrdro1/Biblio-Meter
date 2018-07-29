@@ -15,7 +15,6 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import hashlib
 from shutil import copyfile
 from PIL import Image
-import compaund_model
 import numpy as np
 #from selenium import webdriver
 #from selenium.webdriver.support import expected_conditions as ec
@@ -29,7 +28,8 @@ import PyPDF2
 import settings
 import dbutils
 import scihub
-
+if settings.PARAMS.get("google_get_files") and not settings.PARAMS.get("sci_hub_show_captcha"):
+    import compaund_model
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -47,6 +47,21 @@ CAPTCHA_STATISTIC = {
 dict_bad_status_code = collections.defaultdict(lambda: 0)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+
+class DoubleDict(dict):
+    """ Access and delete dictionary elements by key or value. """ 
+    def __getitem__(self, key):
+        if key not in self:
+            inv_dict = {v:k for k,v in self.items()}
+            return inv_dict[key]
+        return dict.__getitem__(self, key)
+
+    def __delitem__(self, key):
+        if key not in self:
+            inv_dict = {v:k for k,v in self.items()}
+            dict.__delitem__(self, inv_dict[key])
+        else:
+            dict.__delitem__(self, key)
 
 class Switch(object):
     """SWITCHER"""

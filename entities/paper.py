@@ -7,6 +7,7 @@ import scholar
 import settings
 import dbutils
 import grobid
+from endnoteparser import PARAMS as EndNote_params
 
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOG_LEVEL)
@@ -31,6 +32,7 @@ class Paper(object):
         self.references = None
         self.references_count = None
         self.db_id = None
+        self.grobid_db_id = None
         self.cluster = None
         self.EndNote = None
         self.paper_version = None
@@ -107,6 +109,22 @@ class Paper(object):
             }, True
             ) 
         return True
+
+    def make_EndNote(self, replace_EndNote=True):
+        param_template = "{param} {value}\n"
+        EndNote = \
+            param_template.format(param=EndNote_params["Type"], value="Generic") +\
+            param_template.format(param=EndNote_params["Title"], value=self.title) if self.title else "" +\
+            param_template.format(param=EndNote_params["Year"], value=self.year) if self.year else "" +\
+            param_template.format(param=EndNote_params["Publisher"], value=self.publisher) if self.publisher else "" +\
+            param_template.format(param=EndNote_params["Pages"], 
+                                  value="{}-{}".format(self.start_page, self.end_page)) if self.start_page else "" +\
+            param_template.format(param=EndNote_params["DOI"], value=self.DOI) if self.DOI else "" +\
+            param_template.format(param=EndNote_params["Abstract"], value=self.abstract) if self.abstract else ""
+        for author in self.authors:
+            EndNote += param_template.format(param=EndNote_params["Author"], value=author)
+        if replace_EndNote: self.EndNote = EndNote
+        return EndNote
 
     def add_to_database(self):
         self.db_id = dbutils.add_new_paper(
@@ -186,3 +204,27 @@ class Paper(object):
         param = { "id" : self.db_id }
         self.downloaded = dbutils.get_pdf_download_transaction(param) != None
         return self.downloaded
+
+
+    def in_database_as_grobid_paper(self):
+        #param = {
+        #        "doi":self.DOI, 
+        #        "title":self.title, 
+        #        "year":self.year, 
+        #    }
+        #self.grobid_db_id = dbutils.get_grobid_paper_ID(param)
+        #return self.grobid_db_id != None
+        return False
+
+
+    def add_to_database_as_grobid_paper(self, parent_paper_db_id):
+        self.grobid_db_id = dbutils.add_new_grobid_paper(
+            {
+                "title" : self.title,
+                "year" : self.year,
+                "doi" : self.DOI,     
+                "endnote" : self.EndNote,
+                "google_cluster_id" : None,
+                "r_paper" : parent_paper_db_id
+            }
+            )

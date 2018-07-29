@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys, traceback, logging
 #
+from utils import DoubleDict
 from settings import LOG_LEVEL
 
 logger = logging.getLogger(__name__)
@@ -9,7 +10,7 @@ logger.setLevel(LOG_LEVEL)
 _TYPECODE = "%0"
 _AUTHCODE = "%A"
 
-_PARAMS = {
+PARAMS = DoubleDict({
          _TYPECODE : "Type",
          "%A" : "Author",
          "%B" : "SecondaryTitle", # of a book or conference name
@@ -62,7 +63,7 @@ _PARAMS = {
          "%[" : "AccessDate",
          "%=" : "Custom8",
          "%~" : "NameOfDatabase",
-       }
+       })
 
 _TYPE = [
         "Generic",
@@ -123,7 +124,7 @@ def EndNote_parsing(SourceText, DecodeIdentifiers = True):
     """
     def trueCode(code):
         if DecodeIdentifiers:
-            return _PARAMS[code].lower()
+            return PARAMS[code].lower()
         return code
 
     resultDict = dict()
@@ -137,7 +138,7 @@ def EndNote_parsing(SourceText, DecodeIdentifiers = True):
         code = cmd_line[:2]
         value = cmd_line[3:]
         # check code name
-        if not code in _PARAMS:
+        if not code in PARAMS:
             logger.debug("Unknown code: %s." % code)
             return None
         # procces on type paper: valid name type

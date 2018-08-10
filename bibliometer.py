@@ -308,7 +308,6 @@ def get_references():
         if not os.path.exists(file_name):
             settings.print_message('PDF "{}" not found, skip this paper.'.format(file_name), 2)
             logger.debug('PDF "{}" not found, skip this paper.'.format(file_name))
-            bad_pdfs += 1
             continue
         references = grobid.processReferencesDocument(file_name)
         total_processed += 1

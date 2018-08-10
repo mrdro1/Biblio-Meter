@@ -80,6 +80,7 @@ def create_tables_if_not_exists():
          year integer,
          DOI varchar(1000),
          google_cluster_id varchar(1000),
+         serial_number INTEGER,
          r_paper INTEGER,
          endnote TEXT,
          r_transaction integer not null,
@@ -101,6 +102,7 @@ def create_tables_if_not_exists():
         create table if not exists paper_paper
         (r_paper1 integer not null,
          r_paper2 integer not null,
+         serial_number integer,
          type varchar(100) check (type in ('citied','related')),
          r_transaction integer not null,
          foreign key (r_transaction) references transactions(id),
@@ -269,11 +271,11 @@ def add_author_paper_edge(IDAuthor, IDPaper):
     """, *(IDAuthor, IDPaper, _CURRENT_PROGRAM_TRANSACTION_ID))
 
 
-def add_paper_paper_edge(IDPaper1, IDPaper2, Type):
+def add_paper_paper_edge(IDPaper1, IDPaper2, serial_number, Type):
     execute_sql("""
     INSERT INTO paper_paper
-    VALUES(?, ?, ?, ?)
-    """, *(IDPaper1, IDPaper2, Type, _CURRENT_PROGRAM_TRANSACTION_ID))
+    VALUES(?, ?, ?, ?, ?)
+    """, *(IDPaper1, IDPaper2, serial_number, Type, _CURRENT_PROGRAM_TRANSACTION_ID))
 
 def update_paper(params, update_addition_info=False):
     logger.debug("Update paper id={0}.".format(params["id"]))

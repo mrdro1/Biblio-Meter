@@ -40,6 +40,7 @@ class Paper(object):
         self.PDF_URL = None
         self.versions = None
         self.downloaded = False
+        self.serial_number = None
 
     def get_info_from_sch(self, general_information, additional_information, paper_version=1, pdf_url=None):
         # General
@@ -114,13 +115,13 @@ class Paper(object):
         param_template = "{param} {value}\n"
         EndNote = \
             param_template.format(param=EndNote_params["Type"], value="Generic") +\
-            param_template.format(param=EndNote_params["Title"], value=self.title) if self.title else "" +\
-            param_template.format(param=EndNote_params["Year"], value=self.year) if self.year else "" +\
-            param_template.format(param=EndNote_params["Publisher"], value=self.publisher) if self.publisher else "" +\
-            param_template.format(param=EndNote_params["Pages"], 
-                                  value="{}-{}".format(self.start_page, self.end_page)) if self.start_page else "" +\
-            param_template.format(param=EndNote_params["DOI"], value=self.DOI) if self.DOI else "" +\
-            param_template.format(param=EndNote_params["Abstract"], value=self.abstract) if self.abstract else ""
+            (param_template.format(param=EndNote_params["Title"], value=self.title) if self.title else "") +\
+            (param_template.format(param=EndNote_params["Year"], value=self.year) if self.year else "") +\
+            (param_template.format(param=EndNote_params["Publisher"], value=self.publisher) if self.publisher else "") +\
+            (param_template.format(param=EndNote_params["Pages"], 
+                                  value="{}-{}".format(self.start_page, self.end_page)) if self.start_page else "") +\
+            (param_template.format(param=EndNote_params["DOI"], value=self.DOI) if self.DOI else "") +\
+            (param_template.format(param=EndNote_params["Abstract"], value=self.abstract) if self.abstract else "")
         for author in self.authors:
             EndNote += param_template.format(param=EndNote_params["Author"], value=author)
         if replace_EndNote: self.EndNote = EndNote
@@ -225,6 +226,7 @@ class Paper(object):
                 "doi" : self.DOI,     
                 "endnote" : self.EndNote,
                 "google_cluster_id" : None,
-                "r_paper" : parent_paper_db_id
+                "r_paper" : parent_paper_db_id, 
+                "serial_number" : self.serial_number
             }
             )

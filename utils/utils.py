@@ -28,9 +28,8 @@ import PyPDF2
 import settings
 import dbutils
 import scihub
-if settings.PARAMS.get("google_get_files") and\
-    not settings.PARAMS.get("sci_hub_show_captcha") or\
-    settings.PARAMS.get("command") == "getFiles":
+if settings.PARAMS.get("sci_hub_files") and\
+    not settings.PARAMS.get("sci_hub_show_captcha"):
     import compaund_model
 
 logger = logging.getLogger(__name__)
@@ -86,6 +85,7 @@ class Switch(object):
 class ProxyManager:
     """ Class for manage with proxies for each host name: load, get current, set next from inf list """
     def __init__(self):
+        self.MIN_PROXIES_COUNT = settings.MIN_PROXIES_COUNT
         self.file_name = settings.PROXY_FILE
         self.current_proxy_num = 0
         self.proxies_count = 0
@@ -465,10 +465,10 @@ def _get_name_max_try_to_host(url):
     name_field_in_ctl_dict = name + '_captcha_retry_by_proxy_count'
     return name_field_in_ctl_dict
 
-def get_soup(url):
+def get_soup(url, post=False, data=None):
     """Return the BeautifulSoup for a page"""
     try:
-        request = get_request(url)
+        request = get_request(url, POST=post, data=data)
         if request == None:
             logger.debug("Request is empty, don't create soup.")
             return None

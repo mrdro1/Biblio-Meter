@@ -63,6 +63,7 @@ _SUCCESSFUL_START_FLAG = False
 DIR_CAPTCHA_IMG = r"captcha/"
 if not os.path.exists(DIR_CAPTCHA_IMG): os.mkdir(DIR_CAPTCHA_IMG)
 
+MIN_PROXIES_COUNT = 20
 DEFAULT_TIMEOUT = 10
 DEFAULT_CONN_ATTEMPTS = 5
 DEFAULT_DISCONNECTION_TIMEOUT = 15
@@ -96,7 +97,6 @@ CONTROL_KEYS = [
     "google_max_papers",
     "google_get_files",
     "google_cluster_files",
-    "google_download_again",
     "sci_hub_files",
     "sci_hub_download_captcha",
     "sci_hub_show_captcha",

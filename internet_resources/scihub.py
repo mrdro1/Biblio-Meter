@@ -20,7 +20,7 @@ def get_pdf_url(DOI):
     """Get link to a PDF if this available"""
     logger.debug("Get page from sci-hub for paper with DOI={0}.".format(DOI))
     url = _FULLURL.format(_HOST, DOI)
-    soup = utils.get_soup(url)
+    soup = utils.get_soup(url, post=True, data={"request":DOI, "sci-hub-plugin-check":None})
     captcha = soup.find('img', id="captcha")
     save_btn = soup.find('div', id='save')
     user_answer = None
@@ -28,12 +28,12 @@ def get_pdf_url(DOI):
         utils.handle_captcha(url)
         return get_pdf_url(DOI)
     '''if save_btn == None or user_answer != None:
-        logger.debug("PDF for this paper is anavailable.")
+        logger.debug("PDF for this paper is unavailable.")
         return None'''
 
 
     if user_answer != None:
-        logger.debug("PDF for this paper is anavailable.")
+        logger.debug("PDF for this paper is unavailable.")
         return None
     if save_btn == None:
         return url

@@ -56,7 +56,7 @@ def get_papers_by_key_words():
     
     if paper_generator is None:
         logger.debug("Soup from google.scholar is None. End command get_papers_by_key_words")
-        return (0, 0, 0, 0, 0, 0, 0, 0, 0)
+        return (0, 0, 0, 0, 0, 0, 0, 0)
 
     logger.debug(about_res_count)
     settings.print_message("Google: Found {0} papers.".format(about_res_count))
@@ -90,25 +90,23 @@ def get_papers_by_key_words():
             newpaper.add_to_database()
             #settings.print_message("Adding a paper to the database", 1)
             new_auth += add_authors(newpaper.db_id, newpaper.authors, 1)
-        
-        if settings.PARAMS["google_get_files"] and (not newpaper.downloaded or settings.PARAMS["google_download_again"]):
-            tmp = download_pdf(
-                newpaper.title,
-                newpaper.paper_URL,
-                newpaper.PDF_URL,
-                newpaper.cluster,
-                None, newpaper.db_id)
-            download_pdf_url, download_pdf_cluster, download_pdf_scihub = tmp
-            pdf_url_counter += 1 if download_pdf_url else 0
-            pdf_cluster_counter += 1 if download_pdf_cluster else 0
-            pdf_scihub_counter += 1 if download_pdf_scihub else 0
-            pdf_unavailable_counter += 1 if \
-                not download_pdf_url and \
-                not download_pdf_cluster and \
-                not download_pdf_scihub else 0
+        tmp = download_pdf(
+            newpaper.title,
+            newpaper.paper_URL,
+            newpaper.PDF_URL,
+            newpaper.cluster,
+            None, newpaper.db_id)
+        download_pdf_url, download_pdf_cluster, download_pdf_scihub = tmp
+        pdf_url_counter += 1 if download_pdf_url else 0
+        pdf_cluster_counter += 1 if download_pdf_cluster else 0
+        pdf_scihub_counter += 1 if download_pdf_scihub else 0
+        pdf_unavailable_counter += 1 if \
+            not download_pdf_url and \
+            not download_pdf_cluster and \
+            not download_pdf_scihub else 0
         # Commit transaction each commit_iterations iterations
         if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
-    return (about_res_count, new_papers, new_auth, papers_counter, new_auth + new_papers, 
+    return (about_res_count, new_papers, new_auth, papers_counter, 
             pdf_url_counter, pdf_cluster_counter, pdf_scihub_counter, pdf_unavailable_counter)
 
 def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
@@ -120,52 +118,53 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
     fn_tmp_pdf = '{0}tmp_{1}.pdf'.format(settings.PDF_CATALOG, paper_id)
     fn_pdf = '{0}{1}.pdf'.format(settings.PDF_CATALOG, paper_id)
     # load pdf from gs
-    if google_pdf_url:
-        settings.print_message("Try get pdf from Google Scholar.", 1)
-        settings.print_message(
-            "Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url), 2)
-        logger.debug("Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url))
-        try:
-            if scholar.get_pdf(google_pdf_url, fn_tmp_pdf):
-                settings.print_message("Complete!", 2)
-                dbutils.update_pdf_transaction(paper_id, "Google Scholar")
-                utils.rename_file(fn_tmp_pdf, fn_pdf)
-                download_pdf_url = True
-                success_download = True
-        except KeyboardInterrupt:
-            raise
-        except:
-            #settings.print_message(traceback.format_exc())
-            utils.REQUEST_STATISTIC['failed_requests'].append(google_pdf_url)
-            logger.debug("Failed get pdf from Google Scholar URL={0}".format(google_pdf_url))
-            settings.print_message("failed load PDF from Google Scholar.", 2)
-    # load pdf from google scholar cluster by paper url if does not exist 
-    if not success_download and google_cluster_id and settings.PARAMS["google_cluster_files"]:
-        settings.print_message("Try get pdf from Google Scholar cluster {}.".format(google_cluster_id), 1)
-        cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(google_cluster_id)
-        if cluster_pdfs_links is not None:
-            cluster_pdfs_links = [url for url in cluster_pdfs_links if google_pdf_url != url]
-            for google_pdf_url in cluster_pdfs_links:
-                settings.print_message(
-                    "Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url), 2)
-                logger.debug("Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url))
-                try:
-                    if scholar.get_pdf(google_pdf_url, fn_tmp_pdf,):
-                        settings.print_message("Complete!", 2)
-                        dbutils.update_pdf_transaction(paper_id, "Google Scholar Cluster")
-                        utils.rename_file(fn_tmp_pdf, fn_pdf)
-                        download_pdf_cluster = True
-                        success_download = True
-                        break
-                except KeyboardInterrupt:
-                    raise
-                except:
-                    utils.REQUEST_STATISTIC['failed_requests'].append(google_pdf_url)
-                    logger.debug("Failed get pdf from Google Scholar cluster URL={0}".format(google_pdf_url))
-                    settings.print_message("failed load PDF from Google Scholar cluster.", 2)
-        else:
-            logger.debug("Failed get pdf from Google Scholar cluster. Cluster hasn't links to PDFs.")
-            settings.print_message("failed load PDF from Google Scholar cluster. Cluster hasn't links to PDFs.", 2)
+    if settings.PARAMS["google_get_files"]:
+        if google_pdf_url:
+            settings.print_message("Try get pdf from Google Scholar.", 1)
+            settings.print_message(
+                "Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url), 2)
+            logger.debug("Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url))
+            try:
+                if scholar.get_pdf(google_pdf_url, fn_tmp_pdf):
+                    settings.print_message("Complete!", 2)
+                    dbutils.update_pdf_transaction(paper_id, "Google Scholar")
+                    utils.rename_file(fn_tmp_pdf, fn_pdf)
+                    download_pdf_url = True
+                    success_download = True
+            except KeyboardInterrupt:
+                raise
+            except:
+                #settings.print_message(traceback.format_exc())
+                utils.REQUEST_STATISTIC['failed_requests'].append(google_pdf_url)
+                logger.debug("Failed get pdf from Google Scholar URL={0}".format(google_pdf_url))
+                settings.print_message("failed load PDF from Google Scholar.", 2)
+        # load pdf from google scholar cluster by paper url if does not exist 
+        if not success_download and google_cluster_id and settings.PARAMS["google_cluster_files"]:
+            settings.print_message("Try get pdf from Google Scholar cluster {}.".format(google_cluster_id), 1)
+            cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(google_cluster_id)
+            if cluster_pdfs_links is not None:
+                cluster_pdfs_links = [url for url in cluster_pdfs_links if google_pdf_url != url]
+                for google_pdf_url in cluster_pdfs_links:
+                    settings.print_message(
+                        "Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url), 2)
+                    logger.debug("Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url))
+                    try:
+                        if scholar.get_pdf(google_pdf_url, fn_tmp_pdf,):
+                            settings.print_message("Complete!", 2)
+                            dbutils.update_pdf_transaction(paper_id, "Google Scholar Cluster")
+                            utils.rename_file(fn_tmp_pdf, fn_pdf)
+                            download_pdf_cluster = True
+                            success_download = True
+                            break
+                    except KeyboardInterrupt:
+                        raise
+                    except:
+                        utils.REQUEST_STATISTIC['failed_requests'].append(google_pdf_url)
+                        logger.debug("Failed get pdf from Google Scholar cluster URL={0}".format(google_pdf_url))
+                        settings.print_message("failed load PDF from Google Scholar cluster.", 2)
+            else:
+                logger.debug("Failed get pdf from Google Scholar cluster. Cluster hasn't links to PDFs.")
+                settings.print_message("failed load PDF from Google Scholar cluster. Cluster hasn't links to PDFs.", 2)
     # load pdf from scihub by paper url if does not exist
     if (google_url or DOI) and not success_download and settings.PARAMS["sci_hub_files"]:
         settings.print_message("Try get pdf by paper url on sci-hub.", 1)
@@ -174,7 +173,7 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
         try:
             if scihub.get_pdf(DOI, fn_tmp_pdf) or \
                scihub.get_pdf(google_url, fn_tmp_pdf) or \
-               scihub.get_pdf(title, fn_tmp_pdf) and settings.PARAMS["sci_hub_title_search"]:
+               settings.PARAMS["sci_hub_title_search"] and scihub.get_pdf(title, fn_tmp_pdf):
                 settings.print_message("Complete!", 2)
                 dbutils.update_pdf_transaction(paper_id, "Sci-hub")
                 utils.rename_file(fn_tmp_pdf, fn_pdf)
@@ -257,7 +256,7 @@ def get_PDFs():
     return result
 
 
-def add_adge_to_sitation_graph(parent_paper_db_id, child_paper_db_id, edge_type="citied"):
+def add_adge_to_sitation_graph(parent_paper_db_id, child_paper_db_id, serial_number, edge_type="citied"):
     """ Add new adge to citation graph. """
     # Add reference in DB
     edge_params = \
@@ -269,7 +268,7 @@ def add_adge_to_sitation_graph(parent_paper_db_id, child_paper_db_id, edge_type=
     logger.debug("Check exists edge and if not then insert into DB.")
     if not dbutils.check_exists_paper_paper_edge(edge_params):
         logger.debug("Add edge ({0}, {1}, {2}) in DB.".format(parent_paper_db_id, child_paper_db_id, edge_type))
-        dbutils.add_paper_paper_edge(parent_paper_db_id, child_paper_db_id, edge_type)
+        dbutils.add_paper_paper_edge(parent_paper_db_id, child_paper_db_id, serial_number, edge_type)
     else:
         logger.debug("This edge ({0}, {1}, {2}) already exists.".format(parent_paper_db_id, child_paper_db_id, edge_type))
 
@@ -282,7 +281,9 @@ def get_references():
     new_papers_count = 0
     new_grobid_papers_count = 0
     total_processed = 0
+    total_refereneces_from_all_pdfs = 0
     papers_without_ref = 0
+    identified_papers = 0
     #
     many_results = 0
     many_versions = 0
@@ -305,18 +306,21 @@ def get_references():
             bad_pdfs += 1
             continue
         references = grobid.processReferencesDocument(file_name)
+        total_processed += 1
         if not references:
             settings.print_message('References from PFD "{}" is not extracted, skip.'.format(file_name), 2)
             logger.debug('References from PFD "{}" is not extracted, skip.'.format(file_name))
             papers_without_ref += 1
             continue
         total_references = len(references)
+        total_refereneces_from_all_pdfs += total_references
         dbutils.update_paper(
             {
                 "references_count":total_references,
                 "id":parent_paper_db_id
             }
-            ) 
+            )
+        
         for ref_index, reference in enumerate(references):
             if new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
             settings.print_message("Process paper #{} from references (total {}).".format(ref_index + 1, total_references), 2)
@@ -337,7 +341,7 @@ def get_references():
             msg = "Search paper '{}' from google.scholar.".format(grobid_paper.title)
             logger.debug(msg)
             settings.print_message(msg, 3)
-            total_processed += 1
+            
             google_papers = None
             for i in range(4):
                 logger.debug("Search with \"\"." if i < 2 else "Search without \"\".")
@@ -390,7 +394,8 @@ def get_references():
                                 new_papers_count += 1
                                 grobid_paper.add_to_database()
                                 new_authors_count += add_authors(grobid_paper.db_id, grobid_paper.authors, 4)
-                            add_adge_to_sitation_graph(parent_paper_db_id, grobid_paper.db_id)                       
+                            add_adge_to_sitation_graph(parent_paper_db_id, grobid_paper.db_id, ref_index + 1)    
+                            identified_papers += 1                   
                             # Success identification, process next reference.
                             continue
                     elif papers_count > 1:
@@ -407,10 +412,11 @@ def get_references():
             else:
                 new_grobid_papers_count += 1
                 grobid_paper.make_EndNote()
+                grobid_paper.serial_number = ref_index + 1
                 grobid_paper.add_to_database_as_grobid_paper(parent_paper_db_id)
     not_found = new_grobid_papers_count - many_results - many_versions
     logger.debug("STATISTIC ABOUT SEARCH ON GOOGLE:\nNot found papers: {}\nMany results: {}\nMany versions: {}")
-    return (new_papers_count, new_grobid_papers_count, new_authors_count, papers_without_ref, total_processed)
+    return (total_processed, papers_without_ref, total_refereneces_from_all_pdfs, identified_papers, new_papers_count, new_authors_count, new_grobid_papers_count)
 
 
 def get_cities():
@@ -466,9 +472,9 @@ def get_cities():
                 new_authors_count += add_authors(newpaper.db_id, newpaper.authors, 4)
             total_processed += 1
             # other papers -> this paper
-            add_adge_to_sitation_graph(newpaper.db_id, parent_paper_db_id)
+            add_adge_to_sitation_graph(newpaper.db_id, parent_paper_db_id, None)
             if new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
-    return (new_papers_count, new_authors_count, total_processed)
+    return (total, total_processed, new_papers_count, new_authors_count)
 
 
 def get_info_from_PDFs():
@@ -582,6 +588,10 @@ def dispatch(command):
     start_time = datetime.now()
     msg = None
     try:
+        if utils.PROXY_OBJ.proxies_count < utils.PROXY_OBJ.MIN_PROXIES_COUNT:
+            msg = "Too few proxy servers. Requires a count of proxies >= {}".format(utils.PROXY_OBJ.MIN_PROXIES_COUNT)
+            settings.print_message(msg)
+            raise Exception(msg)
         for case in utils.Switch(command):
             if case('extractAbstractsFromPDF'):
                 logger.debug("Processing command '%s'." % command)
@@ -609,7 +619,7 @@ def dispatch(command):
                 result = get_papers_by_key_words()
                 msg = "Processing was successful.\nFounded papers in Google Scholar by keywords: %i\n" \
                              "Added new papers: %i.\nAdded new authors: %i.\n" \
-                             "Processed total papers: %i.\nChanges in DB: %i.\n Downloaded PDFs from URL %i.\n Downloaded PDFs from cluster %i.\n" \
+                             "Processed total papers: %i.\n Downloaded PDFs from URL %i.\n Downloaded PDFs from cluster %i.\n" \
                              " Downloaded PDFs from Sci-Hub %i.\n Unavailable PDFs %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
@@ -628,7 +638,7 @@ def dispatch(command):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_references()
-                msg = "Processing was successful.\nAdded new papers: %i.\nAdded references as grobid papers: %i.\nAdded new authors: %i.\nPapers without references: %i.\nProcessed total papers: %i." % result
+                msg = "Processing was successful.\nProcessed total papers: %i.\nPapers without references: %i.\nReceived from GROBID reference papers: %i.\nIdentified by Google Scholar reference papers: %i.\nAdded new papers: %i.\nAdded new authors: %i.\nAdded reference papers into grobid_papers table: %i" % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break
@@ -636,7 +646,7 @@ def dispatch(command):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_cities()
-                msg = "Processing was successful.\nAdded new papers: %i.\nAdded new authors: %i.\nProcessed total papers by citation: %i." % result
+                msg = "Processing was successful.\nProcessed total papers: %i.\nFounded and processed citing papers: %i.\nAdded new papers: %i.\nAdded new authors: %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break
@@ -664,13 +674,14 @@ def dispatch(command):
     settings.print_message("Run began on {0}".format(start_time))
     settings.print_message("Run ended on {0}".format(end_time))
     settings.print_message("Elapsed time was: {0}".format(end_time - start_time))
-    settings.print_message("Last used proxy-server {} (#{}, total {} proxies, proxies file scans: {})".format(
-        utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count, utils.PROXY_OBJ.scan_proxy_files_count))
     logger.debug("Run began on {0}".format(start_time))
     logger.debug("Run ended on {0}".format(end_time))
     logger.debug("Elapsed time was: {0}".format(end_time - start_time))
-    logger.debug("Last used proxy-server {} (#{}, total {} proxies, proxies file scans: {})".format(
-        utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count, utils.PROXY_OBJ.scan_proxy_files_count))
+    if utils.PROXY_OBJ.proxies_count >= utils.PROXY_OBJ.MIN_PROXIES_COUNT:
+        settings.print_message("Last used proxy-server {} (#{}, total {} proxies, proxies file scans: {})".format(
+            utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count, utils.PROXY_OBJ.scan_proxy_files_count))
+        logger.debug("Last used proxy-server {} (#{}, total {} proxies, proxies file scans: {})".format(
+            utils.PROXY_OBJ.current_proxy_ip, utils.PROXY_OBJ.current_proxy_num, utils.PROXY_OBJ.proxies_count, utils.PROXY_OBJ.scan_proxy_files_count))
     print_to_log_http_statistic()
     settings.DESCR_TRANSACTION = msg
 

@@ -96,14 +96,15 @@ def get_papers_by_key_words():
             newpaper.PDF_URL,
             newpaper.cluster,
             None, newpaper.db_id)
-        download_pdf_url, download_pdf_cluster, download_pdf_scihub = tmp
-        pdf_url_counter += 1 if download_pdf_url else 0
-        pdf_cluster_counter += 1 if download_pdf_cluster else 0
-        pdf_scihub_counter += 1 if download_pdf_scihub else 0
-        pdf_unavailable_counter += 1 if \
-            not download_pdf_url and \
-            not download_pdf_cluster and \
-            not download_pdf_scihub else 0
+        download_pdf_url, download_pdf_cluster, download_pdf_scihub, try_download = tmp
+        if try_download:
+            pdf_url_counter += 1 if download_pdf_url else 0
+            pdf_cluster_counter += 1 if download_pdf_cluster else 0
+            pdf_scihub_counter += 1 if download_pdf_scihub else 0
+            pdf_unavailable_counter += 1 if \
+                not download_pdf_url and \
+                not download_pdf_cluster and \
+                not download_pdf_scihub else 0
         # Commit transaction each commit_iterations iterations
         if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
     return (about_res_count, new_papers, new_auth, papers_counter, 
@@ -114,6 +115,7 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
     download_pdf_url = False
     download_pdf_cluster = False
     download_pdf_scihub = False
+    try_download = False
     success_download = False
     fn_tmp_pdf = '{0}tmp_{1}.pdf'.format(settings.PDF_CATALOG, paper_id)
     fn_pdf = '{0}{1}.pdf'.format(settings.PDF_CATALOG, paper_id)
@@ -125,6 +127,7 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
                 "Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url), 2)
             logger.debug("Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url))
             try:
+                try_download = True
                 if scholar.get_pdf(google_pdf_url, fn_tmp_pdf):
                     settings.print_message("Complete!", 2)
                     dbutils.update_pdf_transaction(paper_id, "Google Scholar")
@@ -149,6 +152,7 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
                         "Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url), 2)
                     logger.debug("Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url))
                     try:
+                        try_download = True
                         if scholar.get_pdf(google_pdf_url, fn_tmp_pdf,):
                             settings.print_message("Complete!", 2)
                             dbutils.update_pdf_transaction(paper_id, "Google Scholar Cluster")
@@ -166,11 +170,12 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
                 logger.debug("Failed get pdf from Google Scholar cluster. Cluster hasn't links to PDFs.")
                 settings.print_message("failed load PDF from Google Scholar cluster. Cluster hasn't links to PDFs.", 2)
     # load pdf from scihub by paper url if does not exist
-    if (google_url or DOI) and not success_download and settings.PARAMS["sci_hub_files"]:
+    if (google_url or DOI or settings.PARAMS["sci_hub_title_search"]) and not success_download and settings.PARAMS["sci_hub_files"]:
         settings.print_message("Try get pdf by paper url on sci-hub.", 1)
         settings.print_message("Getting PDF-file from Sci-Hub.", 2)
         logger.debug("Getting PDF-file on Sci-Hub.")
         try:
+            try_download = True
             if scihub.get_pdf(DOI, fn_tmp_pdf) or \
                scihub.get_pdf(google_url, fn_tmp_pdf) or \
                settings.PARAMS["sci_hub_title_search"] and scihub.get_pdf(title, fn_tmp_pdf):
@@ -188,10 +193,10 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
             logger.debug("Failed get pdf from sci-hub URL={0}".format(google_url))
             settings.print_message("failed load PDF from sci-hub URL={0}".format(google_url), 2)
             #continue
-    if not success_download:
-        settings.print_message("Downolad PDF unavaliable.", 1)
+    if not success_download and try_download:
+        settings.print_message("Downolad PDF unavailable.", 1)
         utils.delfile(fn_tmp_pdf)
-    return (download_pdf_url, download_pdf_cluster, download_pdf_scihub)
+    return (download_pdf_url, download_pdf_cluster, download_pdf_scihub, try_download)
 
 
 def select_papers(col_names):
@@ -242,35 +247,35 @@ def get_PDFs():
             pdf_google_cluster_URL,
             DOI, 
             id)
-        download_pdf_url, download_pdf_cluster, download_pdf_scihub = tmp
-        pdf_url_counter += 1 if download_pdf_url else 0
-        pdf_cluster_counter += 1 if download_pdf_cluster else 0
-        pdf_scihub_counter += 1 if download_pdf_scihub else 0
-        pdf_unavailable_counter += 1 if \
-            not download_pdf_url and \
-            not download_pdf_cluster and \
-            not download_pdf_scihub else 0
+        download_pdf_url, download_pdf_cluster, download_pdf_scihub, try_download = tmp
+        if try_download:
+            pdf_url_counter += 1 if download_pdf_url else 0
+            pdf_cluster_counter += 1 if download_pdf_cluster else 0
+            pdf_scihub_counter += 1 if download_pdf_scihub else 0
+            pdf_unavailable_counter += 1 if \
+                not download_pdf_url and \
+                not download_pdf_cluster and \
+                not download_pdf_scihub else 0
         if paper_index % commit_iterations == 0: dbutils.commit(paper_index)
     new_files_count = pdf_scihub_counter + pdf_cluster_counter + pdf_url_counter
     result = (True, new_files_count, pdf_unavailable_counter, pdf_unavailable_counter + new_files_count)
     return result
 
 
-def add_adge_to_sitation_graph(parent_paper_db_id, child_paper_db_id, serial_number, edge_type="citied"):
+def add_adge_to_sitation_graph(parent_paper_db_id, child_paper_db_id, serial_number):
     """ Add new adge to citation graph. """
     # Add reference in DB
     edge_params = \
     {
         "IDpaper1" : parent_paper_db_id,
         "IDpaper2" : child_paper_db_id,
-        "type" : edge_type
     }
     logger.debug("Check exists edge and if not then insert into DB.")
     if not dbutils.check_exists_paper_paper_edge(edge_params):
-        logger.debug("Add edge ({0}, {1}, {2}) in DB.".format(parent_paper_db_id, child_paper_db_id, edge_type))
-        dbutils.add_paper_paper_edge(parent_paper_db_id, child_paper_db_id, serial_number, edge_type)
+        logger.debug("Add edge ({0}, {1}) in DB.".format(parent_paper_db_id, child_paper_db_id))
+        dbutils.add_paper_paper_edge(parent_paper_db_id, child_paper_db_id, serial_number)
     else:
-        logger.debug("This edge ({0}, {1}, {2}) already exists.".format(parent_paper_db_id, child_paper_db_id, edge_type))
+        logger.debug("This edge ({0}, {1}) already exists.".format(parent_paper_db_id, child_paper_db_id))
 
 
 def get_references():
@@ -450,7 +455,9 @@ def get_cities():
             continue
         logger.debug(about_res_count)
         logger.debug("Google: Found {0} papers.".format(about_res_count))
+        child_processed = False
         for child_paper_index, paper_info in enumerate(paper_generator):
+            child_processed = True
             if not paper_info["different_information"]: 
                 settings.print_message("Not found information about child paper #{}, skipped.".format(child_paper_index + 1), 3)
                 continue
@@ -474,6 +481,9 @@ def get_cities():
             # other papers -> this paper
             add_adge_to_sitation_graph(newpaper.db_id, parent_paper_db_id, None)
             if new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
+        if not child_processed:
+            settings.print_message("Cities not found, skip.", 2)
+            logger.debug("Cities not found, skip.")
     return (total, total_processed, new_papers_count, new_authors_count)
 
 

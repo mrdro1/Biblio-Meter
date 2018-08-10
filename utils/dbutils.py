@@ -103,7 +103,6 @@ def create_tables_if_not_exists():
         (r_paper1 integer not null,
          r_paper2 integer not null,
          serial_number integer,
-         type varchar(100) check (type in ('citied','related')),
          r_transaction integer not null,
          foreign key (r_transaction) references transactions(id),
          foreign key (r_paper2) references papers(id),
@@ -191,7 +190,7 @@ def check_exists_paper_paper_edge(params):
     res = execute_sql("""
         SELECT count(*)
         FROM paper_paper
-        WHERE r_paper1 = :IDpaper1 and r_paper2 = :IDpaper2 and type = :type
+        WHERE r_paper1 = :IDpaper1 and r_paper2 = :IDpaper2
         """, **params)[0][0]
     return res != 0
 
@@ -271,11 +270,11 @@ def add_author_paper_edge(IDAuthor, IDPaper):
     """, *(IDAuthor, IDPaper, _CURRENT_PROGRAM_TRANSACTION_ID))
 
 
-def add_paper_paper_edge(IDPaper1, IDPaper2, serial_number, Type):
+def add_paper_paper_edge(IDPaper1, IDPaper2, serial_number):
     execute_sql("""
     INSERT INTO paper_paper
-    VALUES(?, ?, ?, ?, ?)
-    """, *(IDPaper1, IDPaper2, serial_number, Type, _CURRENT_PROGRAM_TRANSACTION_ID))
+    VALUES(?, ?, ?, ?)
+    """, *(IDPaper1, IDPaper2, serial_number, _CURRENT_PROGRAM_TRANSACTION_ID))
 
 def update_paper(params, update_addition_info=False):
     logger.debug("Update paper id={0}.".format(params["id"]))

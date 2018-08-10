@@ -16,17 +16,18 @@ logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOG_LEVEL)
 
 
-def get_pdf_url(DOI):
+def get_pdf_url(QUESTION):
     """Get link to a PDF if this available"""
-    logger.debug("Get page from sci-hub for paper with DOI={0}.".format(DOI))
-    url = _FULLURL.format(_HOST, DOI)
-    soup = utils.get_soup(url, post=True, data={"request":DOI, "sci-hub-plugin-check":None})
+    logger.debug("Get page from sci-hub for paper with question {0}.".format(QUESTION))
+    url = _FULLURL.format(_HOST, QUESTION)
+    soup = utils.get_soup(url, post=True, data={"request":QUESTION, "sci-hub-plugin-check":None})
+    if not soup: return None
     captcha = soup.find('img', id="captcha")
     save_btn = soup.find('div', id='save')
     user_answer = None
     if captcha != None:
         utils.handle_captcha(url)
-        return get_pdf_url(DOI)
+        return get_pdf_url(QUESTION)
     '''if save_btn == None or user_answer != None:
         logger.debug("PDF for this paper is unavailable.")
         return None'''
@@ -46,13 +47,13 @@ def get_pdf_url(DOI):
     return PDF_url
 
 
-def get_pdf(DOI, filename):
-    """Load pdf for paper with DOI and save to file filename"""
-    if not DOI: return False
-    url = get_pdf_url(DOI)
+def get_pdf(QUESTION, filename):
+    """Load pdf for paper with QUESTION and save to file filename"""
+    if not QUESTION: return False
+    url = get_pdf_url(QUESTION)
     if url == None: return False
     try:
-        settings.print_message("Download pdf from Sci-Hub by '{}'".format(DOI), 2)
+        settings.print_message("Download pdf from Sci-Hub by '{}'".format(QUESTION), 2)
         utils.download_file(url, filename) 
         return utils.check_pdf(filename)
     except KeyboardInterrupt:

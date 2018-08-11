@@ -571,81 +571,81 @@ def translate_abstracts():
     return (papers_counter, len(papers), bad_abstracts, translated_abstract)
 
 
-#def process_GROBID_papers():
-#    """ This function select grobid papers, find this on scholar and create new full paper """
-#    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
-#    # statistic
-#    bad_papers = 0
-#    new_papers = 0
-#    new_authors = 0
-#    #
-#    papers, columns, total_db_papers = select_papers("id, title, year, google_cluster_id, serial_number, r_paper", grobid_paper=True)
-#    for paper_index, paper_info in enumerate(papers):
-#        grobid_paper_db_id = paper_info[columns["id"]]
-#        title = paper_info[columns["title"]]
-#        year = paper_info[columns["year"]]
-#        google_cluster_id = paper_info[columns["google_cluster_id"]]
-#        serial_number = paper_info[columns["serial_number"]]
-#        parent_paper_db_id = paper_info[columns["r_paper"]]
+def process_GROBID_papers():
+    """ This function select grobid papers, find this on scholar and create new full paper """
+    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    # statistic
+    bad_papers = 0
+    new_papers = 0
+    new_authors = 0
+    #
+    papers, columns, total_db_papers = select_papers("id, title, year, google_cluster_id, serial_number, r_paper", grobid_paper=True)
+    for paper_index, paper_info in enumerate(papers):
+        grobid_paper_db_id = paper_info[columns["id"]]
+        title = paper_info[columns["title"]]
+        year = paper_info[columns["year"]]
+        google_cluster_id = paper_info[columns["google_cluster_id"]]
+        serial_number = paper_info[columns["serial_number"]]
+        parent_paper_db_id = paper_info[columns["r_paper"]]
 
-#        settings.print_message("Get info about paper #{} (total {}) {}{}.".format(parent_paper_index + 1, 
-#            total_db_papers, "- " + title if title else "",  ", " + str(year) if year and title else ""))
-#        if not google_cluster_id:
-#            msg = "Paper (id: {}) hasn't google_cluster_id, skip.".format(grobid_paper_db_id)
-#            settings.print_message(msg, 2)
-#            logger.debug(msg)
-#            bad_papers += 1
-#            continue
+        settings.print_message("Get info about paper #{} (total {}) {}{}.".format(paper_index + 1, 
+            total_db_papers, "- " + title if title else "",  ", " + str(year) if year and title else ""))
+        if not google_cluster_id:
+            msg = "Paper (id: {}) hasn't google_cluster_id, skip.".format(grobid_paper_db_id)
+            settings.print_message(msg, 2)
+            logger.debug(msg)
+            bad_papers += 1
+            continue
 
-#        # Check cluster id in DB. If exists, add adge and all.
-#        if not dbutils.check_exists_paper_with_cluster_id(google_cluster_id):
-#            msg = "Get information about paper from Google cluster (cluster id='{}')...".format(google_cluster_id)
-#            logger.debug(msg)
-#            settings.print_message(msg, 2)
+        # Check cluster id in DB. If exists, add adge and all.
+        if not dbutils.check_exists_paper_with_cluster_id(google_cluster_id):
+            msg = "Get info from Google cluster (cluster id='{}').".format(google_cluster_id)
+            logger.debug(msg)
+            settings.print_message(msg, 2)
 
-#            try:
-#                paper_info = scholar.get_paper_from_cluster(google_cluster_id)
-#            except KeyboardInterrupt:
-#                raise
-#            except:
-#                msg = "Failed get information from cluster, skip."
-#                settings.print_message(msg, 2)
-#                logger.debug(msg)
-#                bad_papers += 1
-#                continue
+            try:
+                paper_info = scholar.get_paper_from_cluster(google_cluster_id, print_level=1)
+            except KeyboardInterrupt:
+                raise
+            except:
+                msg = "Failed get information from cluster, skip."
+                settings.print_message(msg, 2)
+                logger.debug(msg)
+                bad_papers += 1
+                continue
 
-#            # Loop for different versions of paper
-#            if not paper_info or not paper_info["different_information"]: 
-#                settings.print_message("Not found information about paper, skip.", 1)
-#                continue
-#            paper_addition_information = paper_info["different_information"]
-#            logger.debug("Process content of EndNote file #{}\n{}\n{}".format(
-#            papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
+            # Loop for different versions of paper
+            if not paper_info or not paper_info["different_information"]: 
+                settings.print_message("Not found information about paper, skip.", 1)
+                continue
+            paper_addition_information = paper_info["different_information"]
+            logger.debug("Process content of EndNote file #{}\n{}\n{}".format(
+            paper_index + 1, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
 
-#            # Create new paper entity
-#            newpaper = paper.Paper()
-#            # Fill data from google scholar
-#            newpaper.get_info_from_sch(paper_info["general_information"], 
-#                             paper_addition_information, 1, paper_info['link_to_pdf'])
-#            if newpaper.in_database():
-#                settings.print_message("This paper already exists, id = {}.".format(newpaper.db_id), 1)
-#            else:
-#                new_papers += 1
-#                newpaper.add_to_database()
-#                new_authors += add_authors(newpaper.db_id, newpaper.authors, 1)
-#        else:
-#            msg = "Paper from cluster (cluster id='{}') already exists.".format(google_cluster_id)
-#            logger.debug(msg)
-#            settings.print_message(msg, 2)
-#        settings.print_message("Move grobid paper into main papers table.", 2)
-#        # Delete from grobid_papers
-#        logger.debug("Delete paper (grobid paper id={}) from grobid papers.".format(grobid_paper_db_id))
-#        dbutils.delete_paper_from_grobid_papers(grobid_paper_db_id)
-#        # Add adge in paper_paper
-#        add_adge_to_sitation_graph(parent_paper_db_id, newpaper.db_id, serial_number)
+            # Create new paper entity
+            newpaper = paper.Paper()
+            # Fill data from google scholar
+            newpaper.get_info_from_sch(paper_info["general_information"], 
+                             paper_addition_information, 1, paper_info['link_to_pdf'])
+            if newpaper.in_database():
+                settings.print_message("This paper already exists, id = {}.".format(newpaper.db_id), 1)
+            else:
+                new_papers += 1
+                newpaper.add_to_database()
+                new_authors += add_authors(newpaper.db_id, newpaper.authors, 2)
+        else:
+            msg = "Paper from cluster (cluster id='{}') already exists.".format(google_cluster_id)
+            logger.debug(msg)
+            settings.print_message(msg, 2)
+        settings.print_message("Move grobid paper into main papers table.", 2)
+        # Delete from grobid_papers
+        logger.debug("Delete paper (grobid paper id={}) from grobid papers.".format(grobid_paper_db_id))
+        dbutils.delete_paper_from_grobid_papers(grobid_paper_db_id)
+        # Add adge in paper_paper
+        add_adge_to_sitation_graph(parent_paper_db_id, newpaper.db_id, serial_number)
 
-#        if (paper_index + 1) % commit_iterations == 0: dbutils.commit(paper_index + 1)
-#    return (total_db_papers, total_db_papers - bad_papers, new_papers, new_authors)
+        if (paper_index + 1) % commit_iterations == 0: dbutils.commit(paper_index + 1)
+    return (total_db_papers, total_db_papers - bad_papers, new_papers, new_authors)
 
 
 def print_to_log_http_statistic():
@@ -741,14 +741,14 @@ def dispatch(command):
                 logger.debug(msg)
                 settings.print_message(msg)
                 break
-            #if case("processGROBIDpapers"):
-            #    logger.debug("Processing command '%s'." % command)
-            #    settings.print_message("Processing command '%s'." % command)
-            #    result = process_GROBID_papers()
-            #    msg = "Processing was successful.\nProcessed total grobid papers: %i.\nMoved grobid papers into main papers table: %i.\nAdded new papers: %i.\nAdded new authors: %i." % result
-            #    logger.debug(msg)
-            #    settings.print_message(msg)
-            #    break
+            if case("processGROBIDpapers"):
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
+                result = process_GROBID_papers()
+                msg = "Processing was successful.\nProcessed total grobid papers: %i.\nMoved grobid papers into main papers table: %i.\nAdded new papers: %i.\nAdded new authors: %i." % result
+                logger.debug(msg)
+                settings.print_message(msg)
+                break
             if case(): # default
                 logger.warn("Unknown command: %s" % command)
                 settings.print_message("Unknown command: %s" % command)

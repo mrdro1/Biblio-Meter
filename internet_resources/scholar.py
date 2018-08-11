@@ -68,7 +68,7 @@ def get_pdfs_link_from_cluster(cluster_id):
     return tuple(pdf_links)
 
 
-def get_paper_from_cluster(cluster_id, paper_number=1):
+def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1):
     logger.debug("Process papers from cluster {}.".format(cluster_id))
     url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
     logger.debug("Get cluster page URL='{0}'.".format(url))
@@ -89,7 +89,7 @@ def get_paper_from_cluster(cluster_id, paper_number=1):
         for counter, paper in enumerate(paper_blocks):
             if counter + 1 != paper_number: continue;
             logger.debug("Process paper #{}".format(counter + 1))
-            return _get_info_from_resulting_selection(paper, print_level=-1)
+            return _get_info_from_resulting_selection(paper, print_level=print_level)
     # Process failed
     return None
 

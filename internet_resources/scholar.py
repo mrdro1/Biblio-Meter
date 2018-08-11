@@ -67,6 +67,32 @@ def get_pdfs_link_from_cluster(cluster_id):
         return None
     return tuple(pdf_links)
 
+
+def get_paper_from_cluster(cluster_id, paper_number=1):
+    logger.debug("Process papers from cluster {}.".format(cluster_id))
+    url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
+    logger.debug("Get cluster page URL='{0}'.".format(url))
+    # Loop on pages
+    MAX_PAGES = 15
+    for page in range(1, MAX_PAGES + 1):           
+        result = True
+        soup = None
+        while result and soup is None:
+            soup = utils.get_soup(url)
+            if soup is None:
+                result = None
+        if soup is None:
+            logger.debug("Soup for cluster page URL='{0}' is None.".format(url))
+            return None
+        paper_blocks = soup.find_all('div', 'gs_r')
+        logger.debug("Find papers {} on page #{} in cluster {}".format(len(paper_blocks), page, cluster_id))
+        for counter, paper in enumerate(paper_blocks):
+            if counter + 1 != paper_number: continue;
+            logger.debug("Process paper #{}".format(counter + 1))
+            return _get_info_from_resulting_selection(paper, print_level=-1)
+    # Process failed
+    return None
+
 def _get_url_pdf(databox):
     """ Функция поиска ссылки на pdf статьи"""
     link_to_pdf = None
@@ -98,8 +124,6 @@ def _get_info_from_resulting_selection(paper_soup, skip_endnote=False, print_lev
     # Full info about paper include general and addition information
     # MAYBE no one addition information, because this paper in cluster
     # and for each paper from cluster contains additional info
-    #settings.print_message("Google scholar:", 2)
-    #settings.print_message("Get general information.", 3)
     full_info = dict()
     general_information = dict()
     databox = paper_soup.find('div', class_='gs_ri')
@@ -132,7 +156,7 @@ def _get_info_from_resulting_selection(paper_soup, skip_endnote=False, print_lev
     # Save general info
     full_info["general_information"] = general_information
     if print_level >= 0:
-        settings.print_message("Title: '%s'" % general_information['title'], print_level + 1)
+        settings.print_message("Title: '{}'{}".format(general_information['title'], ", " + str(year[0]) if len(year) != 0 else ""), print_level + 1)
     # Get addition information (maybe paper in cluster then analysis cluster and get additional info for each unique paper in cluster)
     footer_links = databox.find('div', class_='gs_fl').find_all('a')
     #settings.print_message("Get additional information.", 3)

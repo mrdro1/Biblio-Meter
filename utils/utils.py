@@ -352,7 +352,7 @@ def handle_captcha(response):
     return 0
 
 
-def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False, skip_captcha=False, data=None, allow_redirects=True):
+def get_request(url, stream=False, return_resp=False, POST=False, att_file=None, for_download=False, skip_captcha=False, data=None, allow_redirects=True, timeout=settings.DEFAULT_TIMEOUT):
     """Send get request [, catch errors, try again]* & return data"""
     global REQUEST_STATISTIC
     host = urlparse(url).hostname
@@ -362,7 +362,6 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
     MAX_CAPTCHAS_HANDLED = PROXY_OBJ.proxies_count
     use_proxy = not (POST and not host.endswith(scihub.SCIHUB_HOST_NAME) or for_download)
     while bad_requests_counter < settings.PARAMS["http_contiguous_requests"]:
-        TIMEOUT = 10
         resp = None
         try:
             ip = "localhost"
@@ -375,9 +374,9 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
                     SESSIONS[ip] = create_new_session()
                 logger.debug("Use proxy #{} (total {}): {}. Successfull HTTP requests: {}".format(PROXY_OBJ.current_proxy_num, PROXY_OBJ.proxies_count, ip, SESSIONS[ip].HTTP_requests))
             if POST:
-                resp = SESSIONS[ip].post(url=url, proxies=proxy, files=att_file, stream=stream, timeout=TIMEOUT, verify=False, data=data, allow_redirects=allow_redirects)
+                resp = SESSIONS[ip].post(url=url, proxies=proxy, files=att_file, stream=stream, timeout=timeout, verify=False, data=data, allow_redirects=allow_redirects)
             else:
-                resp = SESSIONS[ip].get(url=url, proxies=proxy, files=att_file, stream=stream, timeout=TIMEOUT, verify=False, data=data, allow_redirects=allow_redirects)
+                resp = SESSIONS[ip].get(url=url, proxies=proxy, files=att_file, stream=stream, timeout=timeout, verify=False, data=data, allow_redirects=allow_redirects)
             REQUEST_STATISTIC['count_requests'] += 1
             if resp.headers.get('Content-Type') and 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha

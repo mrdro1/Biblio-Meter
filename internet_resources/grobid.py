@@ -29,7 +29,7 @@ class ConnectionError(Exception): pass
 
 def get_data_from_grobid(command, pdf_file):
     """ Send post request to grobid and returned data """
-    return utils.get_request("{}{}".format(GROBID_SERVER, command), POST=True, att_file={'input': pdf_file})
+    return utils.get_request("{}{}".format(GROBID_SERVER, command), POST=True, att_file={'input': pdf_file}, timeout=30, data={"timeout":300})
 
 
 def processHeaderDocument(pdf_file_name):
@@ -37,7 +37,9 @@ def processHeaderDocument(pdf_file_name):
     data = get_data_from_grobid(GROBID_PROCESSED_HEADER_COMMAND, open(pdf_file_name, 'rb'))
     settings.print_message("Check data.", 2)
     logger.debug("Check data.")
-    if not data: raise Exception("Empty data.")
+    if not data: 
+        logger.debug("Server returned empty response (File processing failed), skip.")
+        return None
     settings.print_message("Processing TEI data.", 2)
     logger.debug("Convert tei to dictionary.")
     dictData = tei2dict.tei_to_dict(data)
@@ -63,7 +65,9 @@ def processReferencesDocument(pdf_file_name):
     data = get_data_from_grobid(GROBID_PROCESSED_REFERENCES_COMMAND, open(pdf_file_name, 'rb'))
     settings.print_message("Check data", 2)
     logger.debug("Check data")
-    if not data: raise Exception("Empty data")
+    if not data: 
+        logger.debug("Server returned empty response (File processing failed), skip.")
+        return None
     settings.print_message("Processing TEI data", 2)
     logger.debug("Convert tei to dictionary")
     dictData = tei2dict.tei_to_dict(data)

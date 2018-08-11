@@ -70,6 +70,8 @@ def create_tables_if_not_exists():
          ignore boolean not null,
          r_transaction integer not null,
          r_file_transaction integer,
+        r_get_references_transaction integer,
+        r_get_cities_transaction integer,
          foreign key (r_transaction) references transactions(id)
         );
         ''',
@@ -192,6 +194,16 @@ def check_exists_paper_paper_edge(params):
         FROM paper_paper
         WHERE r_paper1 = :IDpaper1 and r_paper2 = :IDpaper2
         """, **params)[0][0]
+    return res != 0
+
+
+def check_exists_paper_with_cluster_id(google_cluster_id):
+    logger.debug("Check exists cluster id= in papers.".format(google_cluster_id))
+    res = execute_sql("""
+        SELECT count(*)
+        FROM papers
+        WHERE google_cluster_id = :google_cluster_id
+        """, **{"google_cluster_id":google_cluster_id})[0][0]
     return res != 0
 
 
@@ -368,6 +380,14 @@ def get_sql_columns(SQL):
     return res
 
 
+def delete_paper_from_grobid_papers(paper_id):
+    logger.debug("Delete paper with id={0} from grobid_papers.".format(paper_id))
+    return execute_sql("""
+        DELETE FROM grobid_papers 
+        WHERE id = :id
+        """, **{"id":paper_id})
+
+
 def update_pdf_transaction(paper_id, source):
     logger.debug("Update pdf_transaction for paper id={0}.".format(paper_id))
     execute_sql("""
@@ -376,4 +396,24 @@ def update_pdf_transaction(paper_id, source):
             source_pdf=:source_pdf
         WHERE id = :id
         """, **{"r_file_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "source_pdf":source, "id":paper_id})
+    return 0
+
+
+def update_references_transaction(paper_id):
+    logger.debug("Update r_get_references_transaction for paper id={0}.".format(paper_id))
+    execute_sql("""
+        UPDATE papers 
+        SET r_get_references_transaction=:r_get_references_transaction
+        WHERE id = :id
+        """, **{"r_get_references_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "id":paper_id})
+    return 0
+
+
+def update_cities_transaction(paper_id):
+    logger.debug("Update r_get_cities_transaction for paper id={0}.".format(paper_id))
+    execute_sql("""
+        UPDATE papers 
+        SET r_get_cities_transaction=:r_get_cities_transaction
+        WHERE id = :id
+        """, **{"r_get_cities_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "id":paper_id})
     return 0

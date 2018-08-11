@@ -95,6 +95,9 @@ class Paper(object):
             logger.error(traceback.format_exc()) 
             logger.debug("Failed to load paper information") 
             return False
+        if not pdf_info:
+            logger.debug("Empty info about paper.") 
+            return False
         logger.debug("Save info about paper (or its version)")
         self.DOI = pdf_info["DOI"] if not self.DOI else self.DOI
         self.abstract = pdf_info["abstract"]

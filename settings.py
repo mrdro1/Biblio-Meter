@@ -103,6 +103,7 @@ CONTROL_KEYS = [
     "sci_hub_timeout",
     "sci_hub_capcha_autosolve",
     "sci_hub_title_search",
+    "max_references_per_paper",
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())

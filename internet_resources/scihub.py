@@ -49,9 +49,9 @@ def get_pdf_url(QUESTION):
 
 def get_pdf(QUESTION, filename):
     """Load pdf for paper with QUESTION and save to file filename"""
-    if not QUESTION: return False
+    if not QUESTION: return None
     url = get_pdf_url(QUESTION)
-    if url == None: return False
+    if url == None: return None
     try:
         settings.print_message("Download pdf from Sci-Hub by '{}'".format(QUESTION), 2)
         utils.download_file(url, filename) 
@@ -62,4 +62,4 @@ def get_pdf(QUESTION, filename):
         logger.warn(traceback.format_exc())
         #return False
         raise
-    return True
+    return 0

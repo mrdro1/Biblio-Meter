@@ -65,6 +65,7 @@ def create_tables_if_not_exists():
          authors integer,
          endnote text,
          source_pdf varchar(1000),
+         pdf_pages_count integer,
          notes varchar(1000),
          score integer,
          ignore boolean not null,
@@ -78,7 +79,7 @@ def create_tables_if_not_exists():
         '''
         create table if not exists grobid_papers
         (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
-         title varchar(1000) not null,
+         title varchar(1000),
          year integer,
          DOI varchar(1000),
          google_cluster_id varchar(1000),
@@ -388,14 +389,15 @@ def delete_paper_from_grobid_papers(paper_id):
         """, **{"id":paper_id})
 
 
-def update_pdf_transaction(paper_id, source):
+def update_pdf_transaction(paper_id, num_pages, source):
     logger.debug("Update pdf_transaction for paper id={0}.".format(paper_id))
     execute_sql("""
         UPDATE papers 
         SET r_file_transaction=:r_file_transaction,
-            source_pdf=:source_pdf
+            source_pdf=:source_pdf,
+            pdf_pages_count =:pdf_pages_count 
         WHERE id = :id
-        """, **{"r_file_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "source_pdf":source, "id":paper_id})
+        """, **{"r_file_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "source_pdf":source, "pdf_pages_count":num_pages, "id":paper_id})
     return 0
 
 

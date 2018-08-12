@@ -548,20 +548,22 @@ def download_file(url, output_filename):
     return download
 
 def check_pdf(filename):
+    pages = None
     try:
         logger.debug('Check PDF "{}" on valid.'.format(filename))
         if not os.path.exists(filename): 
             logger.debug('PDF file "{}" is not exists.'.format(filename))
-            return False
+            return pages
         with open(filename, "rb") as pdf:
-            PyPDF2.PdfFileReader(pdf)
+            pdf = PyPDF2.PdfFileReader(pdf)
+            pages = pdf.numPages
     except PyPDF2.utils.PdfReadError:
         logger.debug('Invalid PDF file "{}".'.format(filename))
         os.remove(filename)
-        return False
+        return pages
     else:
         logger.debug('PDF file "{}" is valid.'.format(filename))
-        return True
+        return pages
 
 
 def is_doi(DOI):

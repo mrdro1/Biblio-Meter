@@ -106,7 +106,7 @@ def _get_url_pdf(databox):
 def get_pdf(url, filename):
     """Load pdf for paper with DOI and save to file filename"""
     settings.print_message("PDF-file found in google scholar.", 2)
-    if url == None: return False
+    if url == None: return None
     try:
         settings.print_message("Download pdf...", 2)
         utils.download_file(url, filename)
@@ -117,7 +117,7 @@ def get_pdf(url, filename):
         logger.warn(traceback.format_exc())
         #return False
         raise
-    return True
+    return 0
 
 def _get_info_from_resulting_selection(paper_soup, skip_endnote=False, print_level=0):
     """retrieving data about an article in the resulting selection"""

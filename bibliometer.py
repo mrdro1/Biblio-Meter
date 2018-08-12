@@ -128,9 +128,10 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
             logger.debug("Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url))
             try:
                 try_download = True
-                if scholar.get_pdf(google_pdf_url, fn_tmp_pdf):
+                num_pages = scholar.get_pdf(google_pdf_url, fn_tmp_pdf)
+                if num_pages:
                     settings.print_message("Complete!", 2)
-                    dbutils.update_pdf_transaction(paper_id, "Google Scholar")
+                    dbutils.update_pdf_transaction(paper_id, num_pages, "Google Scholar")
                     utils.rename_file(fn_tmp_pdf, fn_pdf)
                     download_pdf_url = True
                     success_download = True
@@ -153,9 +154,10 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
                     logger.debug("Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url))
                     try:
                         try_download = True
-                        if scholar.get_pdf(google_pdf_url, fn_tmp_pdf,):
+                        num_pages = scholar.get_pdf(google_pdf_url, fn_tmp_pdf)
+                        if num_pages:
                             settings.print_message("Complete!", 2)
-                            dbutils.update_pdf_transaction(paper_id, "Google Scholar Cluster")
+                            dbutils.update_pdf_transaction(paper_id, num_pages, "Google Scholar Cluster")
                             utils.rename_file(fn_tmp_pdf, fn_pdf)
                             download_pdf_cluster = True
                             success_download = True
@@ -176,11 +178,14 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
         logger.debug("Getting PDF-file on Sci-Hub.")
         try:
             try_download = True
-            if scihub.get_pdf(DOI, fn_tmp_pdf) or \
-               scihub.get_pdf(google_url, fn_tmp_pdf) or \
-               settings.PARAMS["sci_hub_title_search"] and scihub.get_pdf(title, fn_tmp_pdf):
+            num_pages = scihub.get_pdf(DOI, fn_tmp_pdf)
+            if not num_pages:
+                num_pages = scihub.get_pdf(google_url, fn_tmp_pdf)
+            if not num_pages and settings.PARAMS["sci_hub_title_search"]:
+                num_pages = scihub.get_pdf(title, fn_tmp_pdf)
+            if num_pages:
                 settings.print_message("Complete!", 2)
-                dbutils.update_pdf_transaction(paper_id, "Sci-hub")
+                dbutils.update_pdf_transaction(paper_id, num_pages, "Sci-hub")
                 utils.rename_file(fn_tmp_pdf, fn_pdf)
                 success_download = True
                 download_pdf_scihub = True
@@ -290,6 +295,7 @@ def get_references():
     total_refereneces_from_all_pdfs = 0
     papers_without_ref = 0
     identified_papers = 0
+    many_references = 0
     #
     many_results = 0
     many_versions = 0
@@ -320,6 +326,12 @@ def get_references():
             papers_without_ref += 1
             continue
         total_references = len(references)
+        if settings.PARAMS["max_references_per_paper"] < total_references:
+            msg = 'References from PFD "{}" is so much (>{}), skip.'.format(file_name, settings.PARAMS["max_references_per_paper"])
+            settings.print_message(msg, 2)
+            logger.debug(msg)
+            many_references += 1
+            continue
         total_refereneces_from_all_pdfs += total_references
         dbutils.update_paper(
             {
@@ -422,7 +434,7 @@ def get_references():
         dbutils.update_references_transaction(parent_paper_db_id)
     not_found = new_grobid_papers_count - many_results - many_versions
     logger.debug("STATISTIC ABOUT SEARCH ON GOOGLE:\nNot found papers: {}\nMany results: {}\nMany versions: {}")
-    return (total_processed, papers_without_ref, total_refereneces_from_all_pdfs, identified_papers, new_papers_count, new_authors_count, new_grobid_papers_count)
+    return (total_processed, papers_without_ref, total_refereneces_from_all_pdfs, identified_papers, new_papers_count, new_authors_count, new_grobid_papers_count, many_references)
 
 
 def get_cities():
@@ -729,7 +741,7 @@ def dispatch(command):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_references()
-                msg = "Processing was successful.\nProcessed total papers: %i.\nPapers without references: %i.\nReceived from GROBID reference papers: %i.\nIdentified by Google Scholar reference papers: %i.\nAdded new papers: %i.\nAdded new authors: %i.\nAdded reference papers into grobid_papers table: %i" % result
+                msg = "Processing was successful.\nProcessed total papers: %i.\nPapers without references: %i.\nReceived from GROBID reference papers: %i.\nIdentified by Google Scholar reference papers: %i.\nAdded new papers: %i.\nAdded new authors: %i.\nAdded reference papers into grobid_papers table: %i\nSkipped papers with too many references: %i" % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break

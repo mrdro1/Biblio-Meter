@@ -1,6 +1,6 @@
 {
 "command" : "getReferences",
-"papers" : "select * from papers where source_pdf is not null and r_file_transaction is not null limit 4",
+"papers" : "select * from papers where source_pdf is not null and r_file_transaction is not null limit 1000",
 
 "google_max_papers" : 15,
 

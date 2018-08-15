@@ -52,7 +52,7 @@ def add_authors(paper_db_id, authors, print_level=2):
 def get_papers_by_key_words():
     logger.debug("Search papers from google.scholar.")
     settings.print_message("Search papers from google.scholar.")
-    paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(settings.PARAMS)
+    paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(settings.PARAMS, skip_endnote=True)
     
     if paper_generator is None:
         logger.debug("Soup from google.scholar is None. End command get_papers_by_key_words")
@@ -73,23 +73,31 @@ def get_papers_by_key_words():
         if not paper_info["different_information"]: 
             settings.print_message("Not found information about paper #%i, skip." % papers_counter, 1)
             continue
-        paper_addition_information = paper_info["different_information"]
         papers_counter += 1
+        google_cluster_id = paper_info["general_information"].get("cluster")
+        if google_cluster_id:
+            db_id = dbutils.check_exists_paper_with_cluster_id(str(google_cluster_id))
+            if db_id:
+                settings.print_message("This paper already exists, id = {}.".format(db_id), 1)
+                continue
+        EndNote = scholar.get_info_from_EndNote(paper_info["different_information"]["url_scholarbib"], True)
+        if not EndNote:
+            settings.print_message("Not found information about paper #%i, skip." % papers_counter, 1)
+            continue
+        paper_info["different_information"].update(EndNote)
         logger.debug("Process content of EndNote file #%i\n%s\n%s" % (
-        papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
+        papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_info["different_information"])))
         # Create new paper entity
         newpaper = paper.Paper()
         # Fill data from google scholar
         newpaper.get_info_from_sch(paper_info["general_information"], 
-                         paper_addition_information, 1, paper_info['link_to_pdf'])
+                            paper_info["different_information"], 1, paper_info['link_to_pdf'])
         if newpaper.in_database():
             settings.print_message("This paper already exists, id = {}.".format(newpaper.db_id), 1)
-            newpaper.is_downloaded()
-        else:
-            new_papers += 1
-            newpaper.add_to_database()
-            #settings.print_message("Adding a paper to the database", 1)
-            new_auth += add_authors(newpaper.db_id, newpaper.authors, 1)
+            continue
+        new_papers += 1
+        newpaper.add_to_database()
+        new_auth += add_authors(newpaper.db_id, newpaper.authors, 1)
         tmp = download_pdf(
             newpaper.title,
             newpaper.paper_URL,
@@ -462,7 +470,7 @@ def get_cities():
         # Search cities
         logger.debug("Search cities papers from google.scholar...")
         settings.print_message("Search cities papers from google.scholar.", 2)
-        paper_generator, about_res_count = scholar.search_cities(google_cluster_id, settings.PARAMS, print_level=3)
+        paper_generator, about_res_count = scholar.search_cities(google_cluster_id, skip_endnote=True, params=settings.PARAMS, print_level=3)
 
         if paper_generator is None:
             settings.print_message("Cities not found, skip.", 2)
@@ -474,17 +482,30 @@ def get_cities():
         for child_paper_index, paper_info in enumerate(paper_generator):
             child_processed = True
             if not paper_info["different_information"]: 
-                settings.print_message("Not found information about child paper #{}, skipped.".format(child_paper_index + 1), 3)
+                settings.print_message("Not found information about child paper #{}, skip.".format(child_paper_index + 1), 3)
                 continue
-            paper_addition_information = paper_info["different_information"]
+            google_cluster_id = paper_info["general_information"].get("cluster")
+            if google_cluster_id:
+                db_id = dbutils.check_exists_paper_with_cluster_id(str(google_cluster_id))
+                if db_id:
+                    settings.print_message("This paper already exists, id = {}.".format(db_id), 3)
+                    total_processed += 1
+                    # other papers -> this paper
+                    add_adge_to_sitation_graph(db_id, parent_paper_db_id, None)
+                    continue
+            EndNote = scholar.get_info_from_EndNote(paper_info["different_information"]["url_scholarbib"], True)
+            if not EndNote:
+                settings.print_message("Not found information about paper #%i, skip." % (child_paper_index + 1), 1)
+                continue
+            paper_info["different_information"].update(EndNote)
             logger.debug("Process content of EndNote file #{} for root paper #{}\n{}\n{}".format(
                 child_paper_index + 1, parent_paper_index + 1, json.dumps(paper_info["general_information"]), 
-                json.dumps(paper_addition_information)))
+                json.dumps(paper_info["different_information"])))
             # Create new paper entity
             newpaper = paper.Paper()
             # Fill data from google scholar
             newpaper.get_info_from_sch(paper_info["general_information"], 
-                             paper_addition_information, 1, paper_info['link_to_pdf'])
+                             paper_info["different_information"], 1, paper_info['link_to_pdf'])
             if newpaper.in_database():
                 settings.print_message("This paper already exists, id = {}.".format(newpaper.db_id), 3)
             else:

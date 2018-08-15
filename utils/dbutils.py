@@ -199,13 +199,18 @@ def check_exists_paper_paper_edge(params):
 
 
 def check_exists_paper_with_cluster_id(google_cluster_id):
-    logger.debug("Check exists cluster id= in papers.".format(google_cluster_id))
+    logger.debug("Check exists paper by cluster id={} in papers.".format(google_cluster_id))
     res = execute_sql("""
-        SELECT count(*)
+        SELECT id
         FROM papers
         WHERE google_cluster_id = :google_cluster_id
-        """, **{"google_cluster_id":google_cluster_id})[0][0]
-    return res != 0
+        """, **{"google_cluster_id":google_cluster_id})
+    id = None
+    if res != []: 
+        id = res[0][0]
+        logger.debug("Paper id = {0}.".format(id))
+    else: logger.debug("Paper not found.")
+    return id
 
 
 def set_program_transaction(Command, Params):

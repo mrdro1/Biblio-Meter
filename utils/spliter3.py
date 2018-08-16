@@ -3,6 +3,7 @@ import time
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
+from settings import MAIN_DIR
 
 
 min_x, max_x = 45,125
@@ -50,7 +51,7 @@ def char_spliter(fn):
         char = img[x1:x2, y1:y2]
         chars.append(char)
     for i in range(len(chars)):
-        cv2.imwrite(f'captcha\\symbols\\{i}.jpg', chars[i])
+        cv2.imwrite(f'{MAIN_DIR}/captcha/symbols/{i}.jpg', chars[i])
 
     #img = cv2.medianBlur(img, 3)
     # for i in range(len(sides)-1):
@@ -70,7 +71,7 @@ if __name__ == '__main__':
 
     for fn in os.listdir('captcha')[20:]:
         name = fn.split('.')[0]
-        fn = f'captcha//{fn}'
+        fn = f'{MAIN_DIR}/captcha/{fn}'
         chars = char_spliter(fn)
         for i, char in enumerate(chars):
             cv2.imwrite(f'{name}_{i}.jpg', char)

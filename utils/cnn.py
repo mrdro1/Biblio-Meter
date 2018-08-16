@@ -9,31 +9,31 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Activation, Dropout, Flatten, Dense
 from keras.callbacks import TerminateOnNaN, ModelCheckpoint
 #
-from settings import print_message
+from settings import print_message, MAIN_DIR
 
 # 1 save models after each step
 # 2 fit => labeling => check => hard mining for validation\\
 
 
 def save_pipeline(model):
-    BASE_DIR = 'model'
+    BASE_DIR = '/model'
     # RNN
     model_json = model.to_json()
-    with open(f"{BASE_DIR}\\cnn.json", "w") as json_file:
+    with open(f"{MAIN_DIR}{BASE_DIR}\\cnn.json", "w") as json_file:
         json_file.write(model_json)
-    model.save_weights(f"{BASE_DIR}\\cnn.h5")
+    model.save_weights(f"{MAIN_DIR}{BASE_DIR}\\cnn.h5")
     print_message("Saved CNN model to disk.")
     return 0
 
 def load_pipeline():
-    BASE_DIR = 'model'
+    BASE_DIR = '/model'
     # CNN
-    json_file = open(f'{BASE_DIR}\\cnn.json', 'r')
+    json_file = open(f'{MAIN_DIR}{BASE_DIR}/cnn.json', 'r')
     loaded_model_json = json_file.read()
     json_file.close()
     loaded_model = model_from_json(loaded_model_json)
-    #loaded_model.load_weights(f'{BASE_DIR}\\cnn.h5')
-    loaded_model.load_weights(f'{BASE_DIR}\\weights.hdf5')
+    #loaded_model.load_weights(f'{MAIN_DIR}{BASE_DIR}/cnn.h5')
+    loaded_model.load_weights(f'{MAIN_DIR}{BASE_DIR}/weights.hdf5')
     loaded_model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
     print_message("Loaded CNN model from disk.")
     return loaded_model
@@ -50,31 +50,31 @@ def create_dataset(count_img_on_class=40):
             fill_mode='nearest')
     for fn in os.listdir('gold'):
         class_name = fn.split('.')[0]
-        fn = f'gold\\{fn}'
+        fn = f'{MAIN_DIR}\\gold\\{fn}'
         #img = load_img('data/train/cats/cat.0.jpg')  # this is a PIL image
         x = cv2.imread(fn)#img_to_array(img)  # this is a Numpy array with shape (3, 150, 150)
         x = x.reshape((1,) + x.shape)  # this is a Numpy array with shape (1, 3, 150, 150)
-        if not os.path.exists(f'train\\{class_name}'):
-            os.mkdir(f'train\\{class_name}')
+        if not os.path.exists(f'{MAIN_DIR}\\train\\{class_name}'):
+            os.mkdir(f'{MAIN_DIR}\\train\\{class_name}')
         # the .flow() command below generates batches of randomly transformed images
         # and saves the results to the `preview/` directory
         i = 0
         for batch in datagen.flow(x, batch_size=1,
-                                  save_to_dir=f'train\\{class_name}', save_prefix=class_name, save_format='jpg'):
+                                  save_to_dir=f'{MAIN_DIR}\\train\\{class_name}', save_prefix=class_name, save_format='jpg'):
             i += 1
             if i > count_img_on_class:
                 break
 
 def create_validate():
-    for dir in os.listdir('train'):
+    for dir in os.listdir('{MAIN_DIR}\\train'):
         #fns = [random.choice() for i in range(10)]
-        for fn in os.listdir(f'train\\{dir}')[:10]:
+        for fn in os.listdir(f'{MAIN_DIR}\\train\\{dir}')[:10]:
             class_name = dir
-            if not os.path.exists(f'validat\\{class_name}'):
-                os.mkdir(f'validat\\{class_name}')
-            to_fn = f'validat\\{class_name}\\{fn}'
-            shutil.copyfile(f'train\\{class_name}\\{fn}', to_fn)
-            os.remove(f'train\\{class_name}\\{fn}')
+            if not os.path.exists(f'{MAIN_DIR}\\validat\\{class_name}'):
+                os.mkdir(f'{MAIN_DIR}\\validat\\{class_name}')
+            to_fn = f'{MAIN_DIR}\\validat\\{class_name}\\{fn}'
+            shutil.copyfile(f'{MAIN_DIR}\\train\\{class_name}\\{fn}', to_fn)
+            os.remove(f'{MAIN_DIR}\\train\\{class_name}\\{fn}')
 
 
 def add_padding(img, ts=(100, 100), rgb=False):
@@ -108,9 +108,9 @@ def add_padding(img, ts=(100, 100), rgb=False):
 
 
 def convert_ds_to_gray_scale():
-    for dir in os.listdir('train'):
-        for fn in os.listdir(f'train\\{dir}'):
-            fn = f'train\\{dir}\\{fn}'
+    for dir in os.listdir('{MAIN_DIR}\\train'):
+        for fn in os.listdir(f'{MAIN_DIR}\\train\\{dir}'):
+            fn = f'{MAIN_DIR}\\train\\{dir}\\{fn}'
             #convert_to_target_size(fn)
             img = cv2.imread(fn, 0)
             img = add_padding(img)

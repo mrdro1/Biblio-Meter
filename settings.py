@@ -8,10 +8,12 @@ import re
 import subprocess
 from math import inf
 #
-_main_dir = os.path.dirname(__file__)
-sys.path.insert(0, os.path.join(_main_dir, 'utils/'))
-sys.path.insert(0, os.path.join(_main_dir, 'entities/'))
-sys.path.insert(0, os.path.join(_main_dir, 'internet_resources/'))
+MAIN_DIR = os.path.dirname(__file__)
+sys.path.insert(0, os.path.join(MAIN_DIR, 'utils/'))
+sys.path.insert(0, os.path.join(MAIN_DIR, 'model/'))
+sys.path.insert(0, os.path.join(MAIN_DIR, 'captcha/'))
+sys.path.insert(0, os.path.join(MAIN_DIR, 'entities/'))
+sys.path.insert(0, os.path.join(MAIN_DIR, 'internet_resources/'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, \
                     close_connection
@@ -241,7 +243,7 @@ else:
 #if MODE == INFORMATION_MODE:
 #    INFO_FILE = InfoFile("{0}.{1}".format(os.path.splitext(_DB_FILE)[0], 'txt'))
 
-DB_PATH = _main_dir
+DB_PATH = MAIN_DIR
 if os.path.split(_DB_FILE)[0] != "":
     DB_PATH = os.path.split(_DB_FILE)[0]
 

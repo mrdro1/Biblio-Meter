@@ -4,7 +4,6 @@ import re
 import traceback
 #
 import utils
-import mtranslate
 
 GOOGLE_TRANSLATE_URL = r"http://translate.google.com/m?hl={}&sl={}&q={}"
 

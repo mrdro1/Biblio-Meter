@@ -1,9 +1,11 @@
 browser-cookie3
 browser-cookie
-mtranslate
 arrow
 pypdf2
 docx2txt
-conda install -c conda-forge opencv #install cv2
+bs4
+Pillow
+conda install -c conda-forge opencv #install cv2 OR keras, tensorflow, opencv-python==3.4.1
 conda install h5py==2.8.0
 pip install pycryptodome==3.4.3
+matplotlib

@@ -7,8 +7,6 @@ from datetime import datetime
 import time
 import json
 #
-from mtranslate import translate
-#
 import tei2dict
 import settings
 import utils

@@ -106,6 +106,7 @@ CONTROL_KEYS = [
     "sci_hub_capcha_autosolve",
     "sci_hub_title_search",
     "max_references_per_paper",
+    "open_browser_if_captcha",
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())

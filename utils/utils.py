@@ -338,16 +338,36 @@ def handle_captcha(response):
                 answer = input("Press Enter to try load again. For skip this paper type 'skip' and press Enter.")
                 if answer != 'skip': return -1
     else:
-        if SESSIONS.get(PROXY_OBJ.current_proxy_ip) is not None:
-            SESSIONS[PROXY_OBJ.current_proxy_ip].HTTP_requests = 0
-        PROXY_OBJ.get_proxy()
-        ip = PROXY_OBJ.current_proxy_ip
-        if SESSIONS.get(ip) is None:
-            logger.debug("Create new session for proxy {}".format(ip))
-            SESSIONS[ip] = create_new_session()
-        logger.debug("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(
+    ##
+        if settings.PARAMS.get("open_browser_if_captcha"):
+            logger.debug("CAPTCHA was found.")
+            settings.print_message("CAPTCHA was found.")
+            cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
+            os.popen(cline.format(response.request.url, "-proxy-server={0}".format(PROXY_OBJ.current_proxy_ip)
+            ans = input("Press Enter after entering to continue. Type 'c' and press Enter to change proxy and continue.")
+            if ans == "c": 
+                PROXY_OBJ.get_proxy()
+                logger.debug("Change proxy to #{} (total {}): {}".format(
                                                 PROXY_OBJ.current_proxy_num, PROXY_OBJ.proxies_count, ip))
-        settings.print_message("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(
+                settings.print_message("Change proxy to #{} (total {}): {}".format(
+                                                PROXY_OBJ.current_proxy_num, PROXY_OBJ.proxies_count, ip))
+                
+            ip = PROXY_OBJ.current_proxy_ip
+            if SESSIONS.get(ip) is None:
+                logger.debug("Create new session for proxy {}".format(ip))
+                SESSIONS[ip] = create_new_session()
+    ##
+        else:
+            if SESSIONS.get(PROXY_OBJ.current_proxy_ip) is not None:
+                SESSIONS[PROXY_OBJ.current_proxy_ip].HTTP_requests = 0
+            PROXY_OBJ.get_proxy()
+            ip = PROXY_OBJ.current_proxy_ip
+            if SESSIONS.get(ip) is None:
+                logger.debug("Create new session for proxy {}".format(ip))
+                SESSIONS[ip] = create_new_session()
+            logger.debug("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(
+                                                PROXY_OBJ.current_proxy_num, PROXY_OBJ.proxies_count, ip))
+            settings.print_message("CAPTCHA was found. Change proxy to #{} (total {}): {}".format(
                                                 PROXY_OBJ.current_proxy_num, PROXY_OBJ.proxies_count, ip))
     return 0
 

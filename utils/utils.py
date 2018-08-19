@@ -343,9 +343,8 @@ def handle_captcha(response):
             logger.debug("CAPTCHA was found.")
             settings.print_message("CAPTCHA was found.")
             cline = 'start chrome {1} "{0}" --user-data-dir="%LOCALAPPDATA%\\Google\\Chrome\\User Data"'
-            os.popen(cline.format(response.request.url, "-proxy-server={0}".format(PROXY_OBJ.current_proxy_ip)
-            ans = input("Press Enter after entering to continue. Type 'c' and press Enter to change proxy and continue.")
-            if ans == "c": 
+            os.popen(cline.format(response.request.url, "-proxy-server={0}".format(PROXY_OBJ.current_proxy_ip)))
+            if input("Press Enter after entering to continue. Type 'c' and press Enter to change proxy and continue.") == "c": 
                 PROXY_OBJ.get_proxy()
                 logger.debug("Change proxy to #{} (total {}): {}".format(
                                                 PROXY_OBJ.current_proxy_num, PROXY_OBJ.proxies_count, ip))

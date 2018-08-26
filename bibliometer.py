@@ -349,7 +349,6 @@ def get_references():
             )
         
         for ref_index, reference in enumerate(references):
-            if new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
             settings.print_message("Process paper #{} from references (total {}).".format(ref_index + 1, total_references), 2)
             logger.debug("Process paper #{} from references (total {}).".format(ref_index + 1, total_references))
             logger.debug("Data about reference: {}".format(json.dumps(reference)))
@@ -383,8 +382,8 @@ def get_references():
                         }
                     methods[i] += 1
                     paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(search_params, skip_endnote=True, print_level=-1)
-                    if about_res_count > settings.PARAMS["google_max_papers"]: continue
                     if not paper_generator: continue
+                    if about_res_count > settings.PARAMS["google_max_papers"]: continue
                     google_papers = [paper for paper in paper_generator]
                     if google_papers: break
                 logger.debug("Methods STATISTIC: [{}]".format(", ".join(map(str, methods))))
@@ -417,6 +416,7 @@ def get_references():
                                     settings.print_message("This paper already exists, id = {}.".format(grobid_paper.db_id), 3)
                                 else:
                                     new_papers_count += 1
+                                    if new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
                                     grobid_paper.add_to_database()
                                     new_authors_count += add_authors(grobid_paper.db_id, grobid_paper.authors, 4)
                                 add_adge_to_sitation_graph(parent_paper_db_id, grobid_paper.db_id, ref_index + 1)    
@@ -516,7 +516,7 @@ def get_cities():
             total_processed += 1
             # other papers -> this paper
             add_adge_to_sitation_graph(newpaper.db_id, parent_paper_db_id, None)
-            if new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
+            if new_papers_count > 0 and new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
         if not child_processed:
             settings.print_message("Cities not found, skip.", 2)
             logger.debug("Cities not found, skip.")

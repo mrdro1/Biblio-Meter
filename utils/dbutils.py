@@ -111,6 +111,48 @@ def create_tables_if_not_exists():
          foreign key (r_paper2) references papers(id),
          foreign key (r_paper2) references papers(id)
         );
+        ''',
+        '''
+        create index if not exists authors$name$id on authors(name,id);
+        ''',
+        '''
+        create index if not exists authors$shortname$id on authors(shortname,id);
+        ''',
+        '''
+        create index if not exists authors$google_id$id on authors(google_id,id);
+        ''',
+        '''
+        create index if not exists author_paper$r_author$r_paper on author_paper(r_author,r_paper);
+        ''',
+        '''
+        create index if not exists author_paper$r_paper$r_author on author_paper(r_paper,r_author);
+        ''',
+        '''
+        create index if not exists grobid_papers$title$id on grobid_papers(title,id);
+        ''',
+        '''
+        create index if not exists grobid_papers$DOI$id on grobid_papers(DOI,id);
+        ''',
+        '''
+        create index if not exists grobid_papers$google_cluster_id$id on grobid_papers(google_cluster_id,id);
+        ''',
+        '''
+        create index if not exists grobid_papers$r_paper$id on grobid_papers(r_paper,id);
+        ''',
+        '''
+        create index if not exists papers$title$year$id on papers(title,year,id);
+        ''',
+        '''
+        create index if not exists papers$DOI$id on papers(DOI,id);
+        ''',
+        '''
+        create index if not exists papers$google_cluster_id$id on papers(google_cluster_id,id);
+        ''',
+        '''
+        create index if not exists paper_paper$r_paper1$r_paper2 on paper_paper(r_paper1,r_paper2);
+        ''',
+        '''
+        create index if not exists paper_paper$r_paper2$r_paper1 on paper_paper(r_paper2,r_paper1);
         ''']
     cur = DB_CONNECTION.cursor()
     for sql_op in create_tables_sql:
@@ -283,15 +325,31 @@ def add_new_author(params):
 
 def add_author_paper_edge(IDAuthor, IDPaper):
     execute_sql("""
-    INSERT INTO author_paper 
-    VALUES(?, ?, ?)
+    INSERT INTO author_paper (
+        r_author,
+        r_paper,
+        r_transaction
+    ) VALUES (
+     ?,
+     ?,
+     ?
+    )
     """, *(IDAuthor, IDPaper, _CURRENT_PROGRAM_TRANSACTION_ID))
 
 
 def add_paper_paper_edge(IDPaper1, IDPaper2, serial_number):
     execute_sql("""
-    INSERT INTO paper_paper
-    VALUES(?, ?, ?, ?)
+    INSERT INTO paper_paper(
+        r_paper1,
+        r_paper2,
+        serial_number,
+        r_transaction
+    ) VALUES (
+     ?,
+     ?,
+     ?,
+     ?
+    )
     """, *(IDPaper1, IDPaper2, serial_number, _CURRENT_PROGRAM_TRANSACTION_ID))
 
 def update_paper(params, update_addition_info=False):

@@ -392,6 +392,9 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
                     logger.debug("Create new session for proxy {}".format(ip))
                     SESSIONS[ip] = create_new_session()
                 logger.debug("Use proxy #{} (total {}): {}. Successfull HTTP requests: {}".format(PROXY_OBJ.current_proxy_num, PROXY_OBJ.proxies_count, ip, SESSIONS[ip].HTTP_requests))
+            if settings.DEFAULT_REQUESTS_TIMEOUT > 0:
+                logger.debug("Sleep {} seconds to get request.".format(settings.DEFAULT_REQUESTS_TIMEOUT))
+                time.sleep(settings.DEFAULT_REQUESTS_TIMEOUT)
             if POST:
                 resp = SESSIONS[ip].post(url=url, proxies=proxy, files=att_file, stream=stream, timeout=timeout, verify=False, data=data, allow_redirects=allow_redirects)
             else:

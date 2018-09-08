@@ -379,7 +379,7 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
     # var for control count handled capthas, this help avoid inf cycle
     capthas_handled = 0
     MAX_CAPTCHAS_HANDLED = PROXY_OBJ.proxies_count
-    use_proxy = not (POST and not host.endswith(scihub.SCIHUB_HOST_NAME) or for_download)
+    use_proxy = not (POST and not host.endswith(scihub.SCIHUB_HOST_NAME) or for_download and not url_throw_proxy(host))
     while bad_requests_counter < settings.PARAMS["http_contiguous_requests"]:
         resp = None
         try:
@@ -666,3 +666,12 @@ def check_internet_connection():
     logger.error(msg)
     settings.print_message(msg)
     raise Exception(msg)
+
+def url_throw_proxy(host_name):
+    """ Check host_name in list of hosts for downloading from the proxy """
+    warnhost_list = settings.PARAMS.get("google_get_files_through_proxy")
+    result = False
+    if warnhost_list:
+        for warnhost in warnhost_list:
+            result |= host_name.endswith(warnhost)
+    return result

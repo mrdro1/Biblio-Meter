@@ -108,6 +108,7 @@ CONTROL_KEYS = [
     "sci_hub_title_search",
     "max_references_per_paper",
     "open_browser_if_captcha",
+    "google_get_files_through_proxy",
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())

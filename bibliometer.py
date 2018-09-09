@@ -19,6 +19,7 @@ import author
 import scholar
 import scihub
 import grobid
+import crossref
 from translator import translate
 
 logger = logging.getLogger(__name__)
@@ -604,6 +605,38 @@ def translate_abstracts():
     return (papers_counter, len(papers), bad_abstracts, translated_abstract)
 
 
+def get_DOI_by_title():
+    """ Get DOI for papers by title (use crossref.org). """
+    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    # statistic
+    papers_counter = 0
+    non_empty_DOI = 0
+    #
+    papers, columns, total = select_papers("id, title")
+    for paper_index, paper_info in enumerate(papers):
+        id = paper_info[columns["id"]]
+        title = paper_info[columns["title"]]
+        settings.print_message("Process paper #{0} - '{2}' (total {1}).".format(paper_index + 1, len(papers), title))
+        msg = "Get DOI from crossref.org..."
+        logger.debug(msg)
+        settings.print_message(msg, 2)
+        DOI = crossref.get_DOI_by_title(title)
+        if DOI:
+            dbutils.update_paper({"id":id, "DOI":DOI,}, True)
+            msg = "DOI: {}.".format(DOI)
+            logger.debug(msg)
+            settings.print_message(msg, 2)
+            non_empty_DOI += 1
+        else:
+            msg = "DOI is unavailable."
+            logger.debug(msg)
+            settings.print_message(msg, 2)
+            continue
+        papers_counter += 1
+        if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
+    return (papers_counter, non_empty_DOI, papers_counter - non_empty_DOI)
+
+
 def process_GROBID_papers():
     """ This function select grobid papers, find this on scholar and create new full paper """
     commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
@@ -779,6 +812,16 @@ def dispatch(command):
                 settings.print_message("Processing command '%s'." % command)
                 result = process_GROBID_papers()
                 msg = "Processing was successful.\nProcessed total grobid papers: %i.\nMoved grobid papers into main papers table: %i.\nAdded new papers: %i.\nAdded new authors: %i." % result
+                logger.debug(msg)
+                settings.print_message(msg)
+                break
+            if case("getDOIbyTitle"):
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
+                result = get_DOI_by_title()
+                msg = "Processing was successful.\nProcessing papers: %i.\n" \
+                            "Non-empty DOI: %i\n" \
+                            "Unavailable DOI: %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break

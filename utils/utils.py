@@ -403,10 +403,15 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
             if resp.headers.get('Content-Type') and 'text/html' in resp.headers['Content-Type']:
                 if _check_captcha(BeautifulSoup(resp.text, 'html.parser')):  # maybe captcha
                     if not skip_captcha and capthas_handled < MAX_CAPTCHAS_HANDLED \
-                    and (host.endswith(scihub.SCIHUB_HOST_NAME) \
-                        and (not settings.PARAMS["sci_hub_show_captcha"] and capthas_handled < settings.PARAMS["sci_hub_capcha_autosolve"] \
-                             or settings.PARAMS["sci_hub_show_captcha"])
-                    or not host.endswith(scihub.SCIHUB_HOST_NAME)):
+                        and (
+                            host.endswith(scihub.SCIHUB_HOST_NAME)
+                            and (
+                                not settings.PARAMS["sci_hub_show_captcha"] 
+                                and capthas_handled < settings.PARAMS["sci_hub_capcha_autosolve"] 
+                                or settings.PARAMS["sci_hub_show_captcha"]
+                                )
+                            or not host.endswith(scihub.SCIHUB_HOST_NAME) and not for_download
+                            ):
                         # handle captcha
                         if host.endswith(scihub.SCIHUB_HOST_NAME):
                             if capthas_handled == 0:

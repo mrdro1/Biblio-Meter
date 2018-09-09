@@ -31,6 +31,7 @@ def get_data_from_grobid(command, pdf_file):
 
 
 def processHeaderDocument(pdf_file_name):
+    """ Get info from header PDF """
     settings.print_message("Send to grobid service.", 2)
     data = get_data_from_grobid(GROBID_PROCESSED_HEADER_COMMAND, open(pdf_file_name, 'rb'))
     settings.print_message("Check data.", 2)
@@ -59,6 +60,7 @@ def processHeaderDocument(pdf_file_name):
 
 
 def processReferencesDocument(pdf_file_name):
+    """ Get references from article PDF """
     settings.print_message("Send to grobid service..", 2)
     data = get_data_from_grobid(GROBID_PROCESSED_REFERENCES_COMMAND, open(pdf_file_name, 'rb'))
     settings.print_message("Check data", 2)

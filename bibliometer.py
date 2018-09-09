@@ -631,7 +631,6 @@ def get_DOI_by_title():
             msg = "DOI is unavailable."
             logger.debug(msg)
             settings.print_message(msg, 2)
-            continue
         papers_counter += 1
         if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
     return (papers_counter, non_empty_DOI, papers_counter - non_empty_DOI)

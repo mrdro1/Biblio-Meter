@@ -28,6 +28,8 @@ import PyPDF2
 import settings
 import dbutils
 import scihub
+import crossref
+
 if settings.PARAMS.get("sci_hub_files") and\
     not settings.PARAMS.get("sci_hub_show_captcha"):
     import compaund_model
@@ -379,7 +381,7 @@ def get_request(url, stream=False, return_resp=False, POST=False, att_file=None,
     # var for control count handled capthas, this help avoid inf cycle
     capthas_handled = 0
     MAX_CAPTCHAS_HANDLED = PROXY_OBJ.proxies_count
-    use_proxy = not (POST and not host.endswith(scihub.SCIHUB_HOST_NAME) or for_download and not url_throw_proxy(host))
+    use_proxy = not (POST and not host.endswith(scihub.SCIHUB_HOST_NAME) or for_download and not url_throw_proxy(host) or  host.endswith(crossref.CROSSREF_HOST_NAME))
     while bad_requests_counter < settings.PARAMS["http_contiguous_requests"]:
         resp = None
         try:

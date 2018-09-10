@@ -24,6 +24,13 @@ def get_pdf_url(QUESTION):
     if not soup: return None
     captcha = soup.find('img', id="captcha")
     save_btn = soup.find('div', id='save')
+    if not save_btn:
+        buttons = soup.find('div', id='buttons')
+        if buttons:
+            save_btn = [i for i in buttons.find_all("a") if "хранить" in i.text]
+            if save_btn: save_btn = save_btn[0]
+    else:
+        save_btn = save_btn.find("a")
     user_answer = None
     if captcha != None:
         utils.handle_captcha(url)
@@ -40,7 +47,7 @@ def get_pdf_url(QUESTION):
         return url
 
 
-    PDF_url = save_btn.find("a")["onclick"].split("href='")[1].strip("'")
+    PDF_url = save_btn["onclick"].split("href='")[1][:-1]
     if PDF_url.startswith("//"):
         PDF_url = PDF_url.replace("//", "https://")
     logger.debug("URL for PDF: {0}.".format(PDF_url))

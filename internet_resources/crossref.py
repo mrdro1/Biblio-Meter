@@ -45,10 +45,14 @@ def get_DOI_by_title(title):
 
         result_count = int(soup.find('h6', class_='number').text.split('of')[1].strip().split(' ')[0].replace(',', ''))
         logger.debug(f"Results count: {result_count}.") 
+        if result_count > settings.PARAMS["crossref_max_papers"]: 
+            logger.debug(f"Many results: {} > {}.".format(result_count, settings.PARAMS["crossref_max_papers"])) 
+            return None
+
         articles_are_equal = False
         for href in hrefs[:slice_size]:
-            scrap_doi = regular.search(href['href'])[0].strip('()').split('\'')[1].strip()
-            scrap_title = regular.search(href['href'])[0].strip('()').split('\'')[3].strip()
+            scrap_doi = regular.search(href['href'])[0].strip('()').split('\', \'')[0].strip('\' ')
+            scrap_title = regular.search(href['href'])[0].strip('()').split('\', \'')[1].strip('\' ')
             logger.debug(f"'{scrap_title}', DOI: {scrap_doi}.") 
             if title_to_vector(scrap_title.lower()) == vector_title:
                 return scrap_doi.split(r'doi.org/')[-1].strip()

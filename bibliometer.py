@@ -187,11 +187,12 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
         logger.debug("Getting PDF-file on Sci-Hub.")
         try:
             try_download = True
-            num_pages = scihub.get_pdf(DOI, fn_tmp_pdf)
-            if not num_pages:
+            if DOI:
+                num_pages = scihub.get_pdf(DOI, fn_tmp_pdf)
+            else:
                 num_pages = scihub.get_pdf(google_url, fn_tmp_pdf)
-            if not num_pages and settings.PARAMS["sci_hub_title_search"]:
-                num_pages = scihub.get_pdf(title, fn_tmp_pdf)
+                if not num_pages and settings.PARAMS["sci_hub_title_search"]:
+                    num_pages = scihub.get_pdf(title, fn_tmp_pdf)
             if num_pages:
                 settings.print_message("Complete!", 2)
                 dbutils.update_pdf_transaction(paper_id, num_pages, "Sci-hub")

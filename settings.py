@@ -109,6 +109,7 @@ CONTROL_KEYS = [
     "max_references_per_paper",
     "open_browser_if_captcha",
     "google_get_files_through_proxy",
+    "crossref_max_papers",
     ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())

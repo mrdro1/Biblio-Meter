@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-import sys, traceback, logging
+import sys
+import traceback
+import logging
 import datetime
 import sqlite3
 import re
@@ -15,8 +17,10 @@ DB_CHROME_CONNECTION = None
 
 _CURRENT_PROGRAM_TRANSACTION_ID = -1
 
+
 def set_Loglevel(Loglevel):
     logger.setLevel(LOG_LEVEL)
+
 
 def create_tables_if_not_exists():
     create_tables_sql = ['''
@@ -29,7 +33,7 @@ def create_tables_if_not_exists():
          result varchar(10000) not null,
          description text
         );''',
-        '''
+                         '''
         create table if not exists authors
         (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
          name varchar(1000),
@@ -43,7 +47,7 @@ def create_tables_if_not_exists():
          foreign key (r_transaction) references transactions(id)
         );
         ''',
-        '''
+                         '''
         create table if not exists papers
         (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
          title varchar(1000) not null,
@@ -76,7 +80,7 @@ def create_tables_if_not_exists():
          foreign key (r_transaction) references transactions(id)
         );
         ''',
-        '''
+                         '''
         create table if not exists grobid_papers
         (id INTEGER PRIMARY KEY AUTOINCREMENT not null,
          title varchar(1000),
@@ -91,7 +95,7 @@ def create_tables_if_not_exists():
          foreign key (r_transaction) references transactions(id)
         );
         ''',
-        '''
+                         '''
         create table if not exists author_paper
         (r_author integer not null,
          r_paper integer not null,
@@ -101,7 +105,7 @@ def create_tables_if_not_exists():
          foreign key (r_paper) references papers(id)
         );
         ''',
-        '''
+                         '''
         create table if not exists paper_paper
         (r_paper1 integer not null,
          r_paper2 integer not null,
@@ -112,46 +116,46 @@ def create_tables_if_not_exists():
          foreign key (r_paper2) references papers(id)
         );
         ''',
-        '''
+                         '''
         create index if not exists authors$name$id on authors(name,id);
         ''',
-        '''
+                         '''
         create index if not exists authors$shortname$id on authors(shortname,id);
         ''',
-        '''
+                         '''
         create index if not exists authors$google_id$id on authors(google_id,id);
         ''',
-        '''
+                         '''
         create index if not exists author_paper$r_author$r_paper on author_paper(r_author,r_paper);
         ''',
-        '''
+                         '''
         create index if not exists author_paper$r_paper$r_author on author_paper(r_paper,r_author);
         ''',
-        '''
+                         '''
         create index if not exists grobid_papers$title$id on grobid_papers(title,id);
         ''',
-        '''
+                         '''
         create index if not exists grobid_papers$DOI$id on grobid_papers(DOI,id);
         ''',
-        '''
+                         '''
         create index if not exists grobid_papers$google_cluster_id$id on grobid_papers(google_cluster_id,id);
         ''',
-        '''
+                         '''
         create index if not exists grobid_papers$r_paper$id on grobid_papers(r_paper,id);
         ''',
-        '''
+                         '''
         create index if not exists papers$title$year$id on papers(title,year,id);
         ''',
-        '''
+                         '''
         create index if not exists papers$DOI$id on papers(DOI,id);
         ''',
-        '''
+                         '''
         create index if not exists papers$google_cluster_id$id on papers(google_cluster_id,id);
         ''',
-        '''
+                         '''
         create index if not exists paper_paper$r_paper1$r_paper2 on paper_paper(r_paper1,r_paper2);
         ''',
-        '''
+                         '''
         create index if not exists paper_paper$r_paper2$r_paper1 on paper_paper(r_paper2,r_paper1);
         ''']
     cur = DB_CONNECTION.cursor()
@@ -169,12 +173,13 @@ def get_columns_names(tablename):
 def get_author_ID(params):
     logger.debug("Get author id %s." % json.dumps(params))
     res = execute_sql("""
-        SELECT id 
-        FROM authors 
+        SELECT id
+        FROM authors
         WHERE google_id = :google_id OR name = :name OR shortname = :shortname
         """, **params)
     id = None
-    if res != []: id = res[0][0]
+    if res != []:
+        id = res[0][0]
     logger.debug("Author id = {0}.".format(id))
     return id
 
@@ -186,7 +191,8 @@ def get_pdf_download_transaction(params):
         where id = :id
         """, **params)
     tr = None
-    if res != []: tr = res[0][0]
+    if res != []:
+        tr = res[0][0]
     logger.debug("r_file_transaction = {0}.".format(tr))
     return tr
 
@@ -208,7 +214,8 @@ def get_paper_ID(params):
               (DOI = :DOI)
         """, **params)
     id = None
-    if res != []: id = res[0][0]
+    if res != []:
+        id = res[0][0]
     logger.debug("Paper id = {0}.".format(id))
     return id
 
@@ -225,7 +232,8 @@ def get_grobid_paper_ID(params):
               (doi = :doi)
         """, **params)
     id = None
-    if res != []: id = res[0][0]
+    if res != []:
+        id = res[0][0]
     logger.debug("Paper id = {0}.".format(id))
     return id
 
@@ -241,17 +249,19 @@ def check_exists_paper_paper_edge(params):
 
 
 def check_exists_paper_with_cluster_id(google_cluster_id):
-    logger.debug("Check exists paper by cluster id={} in papers.".format(google_cluster_id))
+    logger.debug(
+        "Check exists paper by cluster id={} in papers.".format(google_cluster_id))
     res = execute_sql("""
         SELECT id
         FROM papers
         WHERE google_cluster_id = :google_cluster_id
-        """, **{"google_cluster_id":google_cluster_id})
+        """, **{"google_cluster_id": google_cluster_id})
     id = None
-    if res != []: 
+    if res != []:
         id = res[0][0]
         logger.debug("Paper id = {0}.".format(id))
-    else: logger.debug("Paper not found.")
+    else:
+        logger.debug("Paper not found.")
     return id
 
 
@@ -271,38 +281,43 @@ def set_program_transaction(Command, Params):
                 :parameters,
                 \"USER STOPPED\"
                 )
-            """, **{"from_date":datetime.datetime.now(), "to_date":datetime.datetime.now(), "command":Command, "parameters":Params})
+            """, **{"from_date": datetime.datetime.now(), "to_date": datetime.datetime.now(), "command": Command, "parameters": Params})
     Transactional(ADD_Transaction)
-    
+
 
 def close_program_transaction(result, description):
     def UPDATE_Transaction():
         execute_sql("""
-            UPDATE transactions 
+            UPDATE transactions
             SET to_date = :to_date, result = :result, description = :description WHERE ID = :ID
-            """, **{"to_date":datetime.datetime.now(), "result":result, "ID":_CURRENT_PROGRAM_TRANSACTION_ID, "description":description})
+            """, **{"to_date": datetime.datetime.now(), "result": result, "ID": _CURRENT_PROGRAM_TRANSACTION_ID, "description": description})
     Transactional(UPDATE_Transaction)
 
 
 def add_new_paper(params):
     logger.debug("Add new paper (title='%s')" % params["title"])
-    params.update({"ignore":False, "r_transaction":_CURRENT_PROGRAM_TRANSACTION_ID})
+    params.update(
+        {"ignore": False, "r_transaction": _CURRENT_PROGRAM_TRANSACTION_ID})
     keys = [key for key in params.keys() if key != "id"]
     return execute_sql("""
         INSERT INTO papers({}) VALUES(:{})
         """.format(", ".join(keys), ", :".join(keys)), **params)
 
+
 def add_new_grobid_paper(params):
     logger.debug("Add new paper from grobid (title='%s')" % params["title"])
-    params.update({"r_transaction":_CURRENT_PROGRAM_TRANSACTION_ID})
+    params.update({"r_transaction": _CURRENT_PROGRAM_TRANSACTION_ID})
     keys = [key for key in params.keys() if key != "id"]
     return execute_sql("""
         INSERT INTO grobid_papers({}) VALUES(:{})
         """.format(", ".join(keys), ", :".join(keys)), **params)
 
+
 def add_new_author(params):
-    logger.debug("Add new author (GID = %s, Name = %s, Shortname = %s)" % (params["google_id"], params["name"], params["shortname"]))
-    params.update({"transaction":_CURRENT_PROGRAM_TRANSACTION_ID})
+    logger.debug(
+        "Add new author (GID = %s, Name = %s, Shortname = %s)" %
+        (params["google_id"], params["name"], params["shortname"]))
+    params.update({"transaction": _CURRENT_PROGRAM_TRANSACTION_ID})
     return execute_sql("""
         INSERT INTO authors(
             name,
@@ -352,6 +367,7 @@ def add_paper_paper_edge(IDPaper1, IDPaper2, serial_number):
     )
     """, *(IDPaper1, IDPaper2, serial_number, _CURRENT_PROGRAM_TRANSACTION_ID))
 
+
 def update_paper(params, update_addition_info=False):
     logger.debug("Update paper id={0}.".format(params["id"]))
     execute_sql("""
@@ -360,14 +376,18 @@ def update_paper(params, update_addition_info=False):
         WHERE id=:id
         """.format(", ".join([key + "=:" + key for key in params.keys() if key != "id"])), **params)
 
+
 def execute_sql(SQL, *args, **options):
     cur = DB_CONNECTION.cursor()
     operator_type = SQL.strip().lower().split(" ")[0]
     if args != () or options != {}:
-        logger.debug("Execute sql with params: type={2} sql='{0}'; params={1}".format(SQL, args if args != () else options, operator_type))
+        logger.debug("Execute sql with params: type={2} sql='{0}'; params={1}".format(
+            SQL, args if args != () else options, operator_type))
         cur.execute(SQL, args if args != () else options)
-    else: 
-        logger.debug("Execute sql: type={1} sql='{0}'".format(SQL, operator_type))
+    else:
+        logger.debug(
+            "Execute sql: type={1} sql='{0}'".format(
+                SQL, operator_type))
         cur.execute(SQL)
     # variables for checking len row, this need for logging
     len_row = 0
@@ -375,9 +395,11 @@ def execute_sql(SQL, *args, **options):
         res = cur.fetchall()
         if res:
             len_row = len(res[0])
-    elif operator_type == "insert": res = cur.lastrowid
-    else: res = None
-    if len_row>3:
+    elif operator_type == "insert":
+        res = cur.lastrowid
+    else:
+        res = None
+    if len_row > 3:
         res_for_logging = [row[:3] for row in res]
     else:
         res_for_logging = res
@@ -401,10 +423,12 @@ def Transactional(func, *args, **kwargs):
     """Executes the transaction. If successful, fixes the changes. In case of failure, it rolls back."""
     result = None
     try:
-        logger.debug("Enters transaction proxy for function: %s." % func.__name__)
+        logger.debug(
+            "Enters transaction proxy for function: %s." %
+            func.__name__)
         result = func(*args, **kwargs)
         commit("for function: %s" % func.__name__)
-    except:
+    except BaseException:
         logger.warn(traceback.format_exc())
         rollback("for function: %s" % func.__name__)
     return result
@@ -412,25 +436,31 @@ def Transactional(func, *args, **kwargs):
 
 def connect(DBPath):
     global DB_CONNECTION
-    logger.info("Initializing connection to sqlite database, version: %i.%i.%i." % sqlite3.version_info)
+    logger.info(
+        "Initializing connection to sqlite database, version: %i.%i.%i." %
+        sqlite3.version_info)
     DB_CONNECTION = sqlite3.connect(DBPath)
     create_tables_if_not_exists()
 
 
 def connect_to_cookies_database(DBPath):
     global DB_CHROME_CONNECTION
-    logger.info("Initializing connection to sqlite chrome database, version: %i.%i.%i." % sqlite3.version_info)
+    logger.info(
+        "Initializing connection to sqlite chrome database, version: %i.%i.%i." %
+        sqlite3.version_info)
     DB_CHROME_CONNECTION = sqlite3.connect(DBPath)
 
 
 def close_connection():
     logger.info("Close database.")
-    if DB_CONNECTION: DB_CONNECTION.close()
+    if DB_CONNECTION:
+        DB_CONNECTION.close()
 
 
 def close_connection_to_cookies_database():
     logger.info("Close database.")
-    if DB_CHROME_CONNECTION: DB_CHROME_CONNECTION.close()
+    if DB_CHROME_CONNECTION:
+        DB_CHROME_CONNECTION.close()
 
 
 def get_sql_columns(SQL):
@@ -445,40 +475,43 @@ def get_sql_columns(SQL):
 
 
 def delete_paper_from_grobid_papers(paper_id):
-    logger.debug("Delete paper with id={0} from grobid_papers.".format(paper_id))
+    logger.debug(
+        "Delete paper with id={0} from grobid_papers.".format(paper_id))
     return execute_sql("""
-        DELETE FROM grobid_papers 
+        DELETE FROM grobid_papers
         WHERE id = :id
-        """, **{"id":paper_id})
+        """, **{"id": paper_id})
 
 
 def update_pdf_transaction(paper_id, num_pages, source):
     logger.debug("Update pdf_transaction for paper id={0}.".format(paper_id))
     execute_sql("""
-        UPDATE papers 
+        UPDATE papers
         SET r_file_transaction=:r_file_transaction,
             source_pdf=:source_pdf,
-            pdf_pages_count =:pdf_pages_count 
+            pdf_pages_count =:pdf_pages_count
         WHERE id = :id
-        """, **{"r_file_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "source_pdf":source, "pdf_pages_count":num_pages, "id":paper_id})
+        """, **{"r_file_transaction": _CURRENT_PROGRAM_TRANSACTION_ID, "source_pdf": source, "pdf_pages_count": num_pages, "id": paper_id})
     return 0
 
 
 def update_references_transaction(paper_id):
-    logger.debug("Update r_get_references_transaction for paper id={0}.".format(paper_id))
+    logger.debug(
+        "Update r_get_references_transaction for paper id={0}.".format(paper_id))
     execute_sql("""
-        UPDATE papers 
+        UPDATE papers
         SET r_get_references_transaction=:r_get_references_transaction
         WHERE id = :id
-        """, **{"r_get_references_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "id":paper_id})
+        """, **{"r_get_references_transaction": _CURRENT_PROGRAM_TRANSACTION_ID, "id": paper_id})
     return 0
 
 
 def update_cities_transaction(paper_id):
-    logger.debug("Update r_get_cities_transaction for paper id={0}.".format(paper_id))
+    logger.debug(
+        "Update r_get_cities_transaction for paper id={0}.".format(paper_id))
     execute_sql("""
-        UPDATE papers 
+        UPDATE papers
         SET r_get_cities_transaction=:r_get_cities_transaction
         WHERE id = :id
-        """, **{"r_get_cities_transaction":_CURRENT_PROGRAM_TRANSACTION_ID, "id":paper_id})
+        """, **{"r_get_cities_transaction": _CURRENT_PROGRAM_TRANSACTION_ID, "id": paper_id})
     return 0

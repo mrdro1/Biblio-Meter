@@ -35,7 +35,11 @@ def add_authors(paper_db_id, authors, print_level=2):
         # Create new author entity
         newauthor = author.Author()
         newauthor.get_base_info_from_sch(author_info)
-        settings.print_message("Process author '%s'." % (newauthor.shortname if newauthor.name == None else newauthor.name), print_level + 2)
+        settings.print_message(
+            "Process author '%s'." %
+            (newauthor.shortname if newauthor.name is None else newauthor.name),
+            print_level +
+            2)
         logger.debug("Check exists author and if not then insert into DB.")
         if not newauthor.in_database():
             newauthor.get_info_from_sch()
@@ -44,7 +48,9 @@ def add_authors(paper_db_id, authors, print_level=2):
             newauthor.save_to_database()
             new_authors_count += 1
         else:
-            settings.print_message("This author already exists, id = %i." % newauthor.db_id, print_level + 2)
+            settings.print_message(
+                "This author already exists, id = %i." %
+                newauthor.db_id, print_level + 2)
         # Insert into DB reference
         dbutils.add_author_paper_edge(newauthor.db_id, paper_db_id)
     return new_authors_count
@@ -53,17 +59,20 @@ def add_authors(paper_db_id, authors, print_level=2):
 def get_papers_by_key_words():
     logger.debug("Search papers from google.scholar.")
     settings.print_message("Search papers from google.scholar.")
-    paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(settings.PARAMS, skip_endnote=True)
-    
+    paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(
+        settings.PARAMS, skip_endnote=True)
+
     if paper_generator is None:
-        logger.debug("Soup from google.scholar is None. End command get_papers_by_key_words")
+        logger.debug(
+            "Soup from google.scholar is None. End command get_papers_by_key_words")
         return (0, 0, 0, 0, 0, 0, 0, 0)
 
     logger.debug(about_res_count)
     settings.print_message("Google: Found {0} papers.".format(about_res_count))
     new_papers = 0
     new_auth = 0
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    commit_iterations = int(
+        settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
     papers_counter = 0
     pdf_url_counter = 0
     pdf_cluster_counter = 0
@@ -71,30 +80,39 @@ def get_papers_by_key_words():
     pdf_unavailable_counter = 0
     for paper_info in paper_generator:
         # Loop for different versions of paper
-        if not paper_info["different_information"]: 
-            settings.print_message("Not found information about paper #%i, skip." % papers_counter, 1)
+        if not paper_info["different_information"]:
+            settings.print_message(
+                "Not found information about paper #%i, skip." %
+                papers_counter, 1)
             continue
         papers_counter += 1
         google_cluster_id = paper_info["general_information"].get("cluster")
         if google_cluster_id:
-            db_id = dbutils.check_exists_paper_with_cluster_id(str(google_cluster_id))
+            db_id = dbutils.check_exists_paper_with_cluster_id(
+                str(google_cluster_id))
             if db_id:
-                settings.print_message("This paper already exists, id = {}.".format(db_id), 1)
+                settings.print_message(
+                    "This paper already exists, id = {}.".format(db_id), 1)
                 continue
-        EndNote = scholar.get_info_from_EndNote(paper_info["different_information"]["url_scholarbib"], True)
+        EndNote = scholar.get_info_from_EndNote(
+            paper_info["different_information"]["url_scholarbib"], True)
         if not EndNote:
-            settings.print_message("Not found information about paper #%i, skip." % papers_counter, 1)
+            settings.print_message(
+                "Not found information about paper #%i, skip." %
+                papers_counter, 1)
             continue
         paper_info["different_information"].update(EndNote)
         logger.debug("Process content of EndNote file #%i\n%s\n%s" % (
-        papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_info["different_information"])))
+            papers_counter, json.dumps(paper_info["general_information"]), json.dumps(paper_info["different_information"])))
         # Create new paper entity
         newpaper = paper.Paper()
         # Fill data from google scholar
-        newpaper.get_info_from_sch(paper_info["general_information"], 
-                            paper_info["different_information"], 1, paper_info['link_to_pdf'])
+        newpaper.get_info_from_sch(paper_info["general_information"],
+                                   paper_info["different_information"], 1, paper_info['link_to_pdf'])
         if newpaper.in_database():
-            settings.print_message("This paper already exists, id = {}.".format(newpaper.db_id), 1)
+            settings.print_message(
+                "This paper already exists, id = {}.".format(
+                    newpaper.db_id), 1)
             continue
         new_papers += 1
         newpaper.add_to_database()
@@ -115,11 +133,14 @@ def get_papers_by_key_words():
                 not download_pdf_cluster and \
                 not download_pdf_scihub else 0
         # Commit transaction each commit_iterations iterations
-        if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
-    return (about_res_count, new_papers, new_auth, papers_counter, 
+        if papers_counter % commit_iterations == 0:
+            dbutils.commit(papers_counter)
+    return (about_res_count, new_papers, new_auth, papers_counter,
             pdf_url_counter, pdf_cluster_counter, pdf_scihub_counter, pdf_unavailable_counter)
 
-def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, paper_id):
+
+def download_pdf(title, google_url, google_pdf_url,
+                 google_cluster_id, DOI, paper_id):
     # Download pdf for paper (first paper if use google cluster)
     download_pdf_url = False
     download_pdf_cluster = False
@@ -134,54 +155,71 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
             settings.print_message("Try get pdf from Google Scholar.", 1)
             settings.print_message(
                 "Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url), 2)
-            logger.debug("Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url))
+            logger.debug(
+                "Getting PDF-file from Google Scholar by url : {0}.".format(google_pdf_url))
             try:
                 try_download = True
                 num_pages = scholar.get_pdf(google_pdf_url, fn_tmp_pdf)
                 if num_pages:
                     settings.print_message("Complete!", 2)
-                    dbutils.update_pdf_transaction(paper_id, num_pages, "Google Scholar")
+                    dbutils.update_pdf_transaction(
+                        paper_id, num_pages, "Google Scholar")
                     utils.rename_file(fn_tmp_pdf, fn_pdf)
                     download_pdf_url = True
                     success_download = True
             except KeyboardInterrupt:
                 raise
-            except:
-                #settings.print_message(traceback.format_exc())
-                utils.REQUEST_STATISTIC['failed_requests'].append(google_pdf_url)
-                logger.debug("Failed get pdf from Google Scholar URL={0}".format(google_pdf_url))
-                settings.print_message("failed load PDF from Google Scholar.", 2)
-        # load pdf from google scholar cluster by paper url if does not exist 
-        if not success_download and google_cluster_id and settings.PARAMS["google_cluster_files"]:
-            settings.print_message("Try get pdf from Google Scholar cluster {}.".format(google_cluster_id), 1)
-            cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(google_cluster_id)
+            except BaseException:
+                # settings.print_message(traceback.format_exc())
+                utils.REQUEST_STATISTIC['failed_requests'].append(
+                    google_pdf_url)
+                logger.debug(
+                    "Failed get pdf from Google Scholar URL={0}".format(google_pdf_url))
+                settings.print_message(
+                    "failed load PDF from Google Scholar.", 2)
+        # load pdf from google scholar cluster by paper url if does not exist
+        if not success_download and google_cluster_id and settings.PARAMS[
+                "google_cluster_files"]:
+            settings.print_message(
+                "Try get pdf from Google Scholar cluster {}.".format(google_cluster_id), 1)
+            cluster_pdfs_links = scholar.get_pdfs_link_from_cluster(
+                google_cluster_id)
             if cluster_pdfs_links is not None:
-                cluster_pdfs_links = [url for url in cluster_pdfs_links if google_pdf_url != url]
+                cluster_pdfs_links = [
+                    url for url in cluster_pdfs_links if google_pdf_url != url]
                 for google_pdf_url in cluster_pdfs_links:
                     settings.print_message(
                         "Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url), 2)
-                    logger.debug("Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url))
+                    logger.debug(
+                        "Getting PDF-file from cluster Google Scholar by url: {0}.".format(google_pdf_url))
                     try:
                         try_download = True
                         num_pages = scholar.get_pdf(google_pdf_url, fn_tmp_pdf)
                         if num_pages:
                             settings.print_message("Complete!", 2)
-                            dbutils.update_pdf_transaction(paper_id, num_pages, "Google Scholar Cluster")
+                            dbutils.update_pdf_transaction(
+                                paper_id, num_pages, "Google Scholar Cluster")
                             utils.rename_file(fn_tmp_pdf, fn_pdf)
                             download_pdf_cluster = True
                             success_download = True
                             break
                     except KeyboardInterrupt:
                         raise
-                    except:
-                        utils.REQUEST_STATISTIC['failed_requests'].append(google_pdf_url)
-                        logger.debug("Failed get pdf from Google Scholar cluster URL={0}".format(google_pdf_url))
-                        settings.print_message("failed load PDF from Google Scholar cluster.", 2)
+                    except BaseException:
+                        utils.REQUEST_STATISTIC['failed_requests'].append(
+                            google_pdf_url)
+                        logger.debug(
+                            "Failed get pdf from Google Scholar cluster URL={0}".format(google_pdf_url))
+                        settings.print_message(
+                            "failed load PDF from Google Scholar cluster.", 2)
             else:
-                logger.debug("Failed get pdf from Google Scholar cluster. Cluster hasn't links to PDFs.")
-                settings.print_message("failed load PDF from Google Scholar cluster. Cluster hasn't links to PDFs.", 2)
+                logger.debug(
+                    "Failed get pdf from Google Scholar cluster. Cluster hasn't links to PDFs.")
+                settings.print_message(
+                    "failed load PDF from Google Scholar cluster. Cluster hasn't links to PDFs.", 2)
     # load pdf from scihub by paper url if does not exist
-    if (google_url or DOI or settings.PARAMS["sci_hub_title_search"]) and not success_download and settings.PARAMS["sci_hub_files"]:
+    if (google_url or DOI or settings.PARAMS["sci_hub_title_search"]
+            ) and not success_download and settings.PARAMS["sci_hub_files"]:
         settings.print_message("Try get pdf by paper url on sci-hub.", 1)
         settings.print_message("Getting PDF-file from Sci-Hub.", 2)
         logger.debug("Getting PDF-file on Sci-Hub.")
@@ -203,15 +241,18 @@ def download_pdf(title, google_url, google_pdf_url, google_cluster_id, DOI, pape
                 settings.print_message("PDF unavailable on sci-hub.", 2)
         except KeyboardInterrupt:
             raise
-        except:
+        except BaseException:
             utils.REQUEST_STATISTIC['failed_requests'].append(google_url)
-            logger.debug("Failed get pdf from sci-hub URL={0}".format(google_url))
-            settings.print_message("failed load PDF from sci-hub URL={0}".format(google_url), 2)
-            #continue
+            logger.debug(
+                "Failed get pdf from sci-hub URL={0}".format(google_url))
+            settings.print_message(
+                "failed load PDF from sci-hub URL={0}".format(google_url), 2)
+            # continue
     if not success_download and try_download:
         settings.print_message("Downolad PDF unavailable.", 1)
         utils.delfile(fn_tmp_pdf)
-    return (download_pdf_url, download_pdf_cluster, download_pdf_scihub, try_download)
+    return (download_pdf_url, download_pdf_cluster,
+            download_pdf_scihub, try_download)
 
 
 def select_papers(col_names, grobid_paper=False):
@@ -220,8 +261,8 @@ def select_papers(col_names, grobid_paper=False):
     settings.print_message("Select papers from database.")
     PAPERS_SQL = settings.PARAMS["papers"]
     # get conditions and create standart query
-    PAPERS_SQL = "SELECT {} FROM {} {}".format(col_names, 
-        "grobid_papers" if grobid_paper else "papers", PAPERS_SQL[PAPERS_SQL.lower().find("where"):])
+    PAPERS_SQL = "SELECT {} FROM {} {}".format(col_names,
+                                               "grobid_papers" if grobid_paper else "papers", PAPERS_SQL[PAPERS_SQL.lower().find("where"):])
     papers = dbutils.execute_sql(PAPERS_SQL)
     total_papers = len(papers)
     settings.print_message("{0} papers selected.".format(total_papers))
@@ -229,6 +270,7 @@ def select_papers(col_names, grobid_paper=False):
     # Get columns from query
     columns = dict([(word, i) for i, word in enumerate(col_names.split(', '))])
     return (papers, columns, total_papers)
+
 
 def get_papers_of_authors():
     pass
@@ -242,17 +284,21 @@ def get_PDFs():
     pdf_scihub_counter = 0
     pdf_unavailable_counter = 0
     #
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
-    papers, columns, total = select_papers("id, doi, google_url, google_file_url, google_cluster_id, title")
+    commit_iterations = int(
+        settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    papers, columns, total = select_papers(
+        "id, doi, google_url, google_file_url, google_cluster_id, title")
     for paper_index, newpaper in enumerate(papers):
-        settings.print_message("Process paper #{} (total {}) - {}.".format(paper_index + 1, total, newpaper[columns['title']]))
+        settings.print_message("Process paper #{} (total {}) - {}.".format(
+            paper_index + 1, total, newpaper[columns['title']]))
         id = newpaper[columns["id"]]
         title = newpaper[columns["title"]]
         DOI = newpaper[columns["doi"]]
         google_URL = newpaper[columns["google_url"]]
         pdf_google_URL = newpaper[columns["google_file_url"]]
         pdf_google_cluster_URL = newpaper[columns["google_cluster_id"]]
-        if (google_URL is None) and (pdf_google_URL is None) and (pdf_google_cluster_URL is None) and (DOI is None):
+        if (google_URL is None) and (pdf_google_URL is None) and (
+                pdf_google_cluster_URL is None) and (DOI is None):
             settings.print_message('DOI and URLs is empty, skip this paper.')
             logger.debug("DOI and URLs is empty, skip this paper.")
             continue
@@ -261,7 +307,7 @@ def get_PDFs():
             google_URL,
             pdf_google_URL,
             pdf_google_cluster_URL,
-            DOI, 
+            DOI,
             id)
         download_pdf_url, download_pdf_cluster, download_pdf_scihub, try_download = tmp
         if try_download:
@@ -272,26 +318,42 @@ def get_PDFs():
                 not download_pdf_url and \
                 not download_pdf_cluster and \
                 not download_pdf_scihub else 0
-        if paper_index % commit_iterations == 0: dbutils.commit(paper_index)
+        if paper_index % commit_iterations == 0:
+            dbutils.commit(paper_index)
     new_files_count = pdf_scihub_counter + pdf_cluster_counter + pdf_url_counter
-    result = (True, new_files_count, pdf_unavailable_counter, pdf_unavailable_counter + new_files_count)
+    result = (
+        True,
+        new_files_count,
+        pdf_unavailable_counter,
+        pdf_unavailable_counter +
+        new_files_count)
     return result
 
 
-def add_adge_to_sitation_graph(parent_paper_db_id, child_paper_db_id, serial_number):
+def add_adge_to_sitation_graph(
+        parent_paper_db_id, child_paper_db_id, serial_number):
     """ Add new adge to citation graph. """
     # Add reference in DB
     edge_params = \
-    {
-        "IDpaper1" : parent_paper_db_id,
-        "IDpaper2" : child_paper_db_id,
-    }
+        {
+            "IDpaper1": parent_paper_db_id,
+            "IDpaper2": child_paper_db_id,
+        }
     logger.debug("Check exists edge and if not then insert into DB.")
     if not dbutils.check_exists_paper_paper_edge(edge_params):
-        logger.debug("Add edge ({0}, {1}) in DB.".format(parent_paper_db_id, child_paper_db_id))
-        dbutils.add_paper_paper_edge(parent_paper_db_id, child_paper_db_id, serial_number)
+        logger.debug(
+            "Add edge ({0}, {1}) in DB.".format(
+                parent_paper_db_id,
+                child_paper_db_id))
+        dbutils.add_paper_paper_edge(
+            parent_paper_db_id,
+            child_paper_db_id,
+            serial_number)
     else:
-        logger.debug("This edge ({0}, {1}) already exists.".format(parent_paper_db_id, child_paper_db_id))
+        logger.debug(
+            "This edge ({0}, {1}) already exists.".format(
+                parent_paper_db_id,
+                child_paper_db_id))
 
 
 def get_references():
@@ -313,31 +375,40 @@ def get_references():
     #
     methods = [0, 0, 0, 0]
     #
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    commit_iterations = int(
+        settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
     papers, columns, total = select_papers("title, id, year")
     for parent_paper_index, parent_paper in enumerate(papers):
         year = parent_paper[columns['year']]
         parent_paper_db_id = parent_paper[columns["id"]]
         title = parent_paper[columns["title"]]
-        settings.print_message("Get references for paper #{} (total {}) - {}{}.".format(parent_paper_index + 1, 
-            total, title,  ", " + str(year) if year else ""))
-        logger.debug("Get references for paper #{} (total {}) - {}.".format(parent_paper_index + 1, total, title))
+        settings.print_message("Get references for paper #{} (total {}) - {}{}.".format(parent_paper_index + 1,
+                                                                                        total, title, ", " + str(year) if year else ""))
+        logger.debug(
+            "Get references for paper #{} (total {}) - {}.".format(
+                parent_paper_index + 1, total, title))
         # Get referensec from PDF
-        file_name = "{0}{1}.pdf".format(settings.PDF_CATALOG, parent_paper_db_id)
+        file_name = "{0}{1}.pdf".format(
+            settings.PDF_CATALOG, parent_paper_db_id)
         if not os.path.exists(file_name):
-            settings.print_message('PDF "{}" not found, skip this paper.'.format(file_name), 2)
-            logger.debug('PDF "{}" not found, skip this paper.'.format(file_name))
+            settings.print_message(
+                'PDF "{}" not found, skip this paper.'.format(file_name), 2)
+            logger.debug(
+                'PDF "{}" not found, skip this paper.'.format(file_name))
             continue
         references = grobid.processReferencesDocument(file_name)
         total_processed += 1
         if not references:
-            settings.print_message('References from PFD "{}" is not extracted, skip.'.format(file_name), 2)
-            logger.debug('References from PFD "{}" is not extracted, skip.'.format(file_name))
+            settings.print_message(
+                'References from PFD "{}" is not extracted, skip.'.format(file_name), 2)
+            logger.debug(
+                'References from PFD "{}" is not extracted, skip.'.format(file_name))
             papers_without_ref += 1
             continue
         total_references = len(references)
         if settings.PARAMS["max_references_per_paper"] < total_references:
-            msg = 'References from PFD "{}" is so much (>{}), skip.'.format(file_name, settings.PARAMS["max_references_per_paper"])
+            msg = 'References from PFD "{}" is so much (>{}), skip.'.format(
+                file_name, settings.PARAMS["max_references_per_paper"])
             settings.print_message(msg, 2)
             logger.debug(msg)
             many_references += 1
@@ -345,85 +416,119 @@ def get_references():
         total_refereneces_from_all_pdfs += total_references
         dbutils.update_paper(
             {
-                "references_count":total_references,
-                "id":parent_paper_db_id
+                "references_count": total_references,
+                "id": parent_paper_db_id
             }
-            )
-        
+        )
+
         for ref_index, reference in enumerate(references):
-            settings.print_message("Process paper #{} from references (total {}).".format(ref_index + 1, total_references), 2)
-            logger.debug("Process paper #{} from references (total {}).".format(ref_index + 1, total_references))
-            logger.debug("Data about reference: {}".format(json.dumps(reference)))
+            settings.print_message(
+                "Process paper #{} from references (total {}).".format(
+                    ref_index + 1, total_references), 2)
+            logger.debug(
+                "Process paper #{} from references (total {}).".format(
+                    ref_index + 1, total_references))
+            logger.debug(
+                "Data about reference: {}".format(
+                    json.dumps(reference)))
             grobid_paper = paper.Paper()
-            grobid_paper.authors = set(reference["authors"]) if reference["authors"] else []
+            grobid_paper.authors = set(
+                reference["authors"]) if reference["authors"] else []
             grobid_paper.title = reference["ref_title"] if reference["ref_title"] else \
-                        reference["journal_pubnote"].get("journal_title")
+                reference["journal_pubnote"].get("journal_title")
             grobid_paper.year = reference["journal_pubnote"].get("year")
             grobid_paper.DOI = reference["journal_pubnote"].get("doi")
-            grobid_paper.start_page = reference["journal_pubnote"].get("start_page")
-            grobid_paper.end_page = reference["journal_pubnote"].get("end_page")
+            grobid_paper.start_page = reference["journal_pubnote"].get(
+                "start_page")
+            grobid_paper.end_page = reference["journal_pubnote"].get(
+                "end_page")
             msg = "Reference paper has not title. Add this reference to DB as grobid paper."
             if reference["ref_title"] or reference["journal_pubnote"]["journal_title"]:
-                msg = "Search paper '{}'{} from google.scholar.".format(grobid_paper.title, grobid_paper.year if grobid_paper.year else "")
+                msg = "Search paper '{}'{} from google.scholar.".format(
+                    grobid_paper.title, grobid_paper.year if grobid_paper.year else "")
                 logger.debug(msg)
                 settings.print_message(msg, 3)
-            
+
                 google_papers = None
                 for i in range(4):
-                    logger.debug("Search with \"\"." if i < 2 else "Search without \"\".")
+                    logger.debug("Search with \"\"." if i <
+                                 2 else "Search without \"\".")
                     # 0 -         "" and         year
                     # 1 -         "" and without year
                     # 2 - without "" and         year
                     # 3 - without "" and without year
                     search_params = {
-                            "query" : ('intitle:"{}"' if i < 2 else 'intitle:{}').format(grobid_paper.title),
-                            "date_from" : grobid_paper.year if i % 2 == 0 else "",
-                            "date_to" : grobid_paper.year if i % 2 == 0 else "",
-                            "patents" : True,
-                            "citations" : False,
-                        }
+                        "query": ('intitle:"{}"' if i < 2 else 'intitle:{}').format(grobid_paper.title),
+                        "date_from": grobid_paper.year if i % 2 == 0 else "",
+                        "date_to": grobid_paper.year if i % 2 == 0 else "",
+                        "patents": True,
+                        "citations": False,
+                    }
                     methods[i] += 1
-                    paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(search_params, skip_endnote=True, print_level=-1)
-                    if not paper_generator: continue
-                    if about_res_count > settings.PARAMS["google_max_papers"]: continue
+                    paper_generator, about_res_count = scholar.search_pubs_query_with_control_params(
+                        search_params, skip_endnote=True, print_level=-1)
+                    if not paper_generator:
+                        continue
+                    if about_res_count > settings.PARAMS["google_max_papers"]:
+                        continue
                     google_papers = [paper for paper in paper_generator]
-                    if google_papers: break
-                logger.debug("Methods STATISTIC: [{}]".format(", ".join(map(str, methods))))
+                    if google_papers:
+                        break
+                logger.debug("Methods STATISTIC: [{}]".format(
+                    ", ".join(map(str, methods))))
                 # Check search results.
                 msg = "Papers not found, indentification unavailable. Add this reference to DB as grobid paper."
                 if google_papers:
                     # Check count papers from google search results.
                     if about_res_count <= settings.PARAMS["google_max_papers"]:
                         logger.debug(about_res_count)
-                        logger.debug("Google: Found {0} papers.".format(about_res_count))
-                        # Check results on one paper (maybe average versions about one paper).
-                        papers_count = len({paper["general_information"]["title"].lower() for paper in google_papers})
+                        logger.debug(
+                            "Google: Found {0} papers.".format(about_res_count))
+                        # Check results on one paper (maybe average versions
+                        # about one paper).
+                        papers_count = len(
+                            {paper["general_information"]["title"].lower() for paper in google_papers})
                         if papers_count == 1:
                             best_paper = None
                             for google_paper in google_papers:
-                                logger.debug("G paper\n{}\nBest paper\n{}".format(json.dumps(google_paper), json.dumps(best_paper)))
-                                EndNote = scholar.get_info_from_EndNote(google_paper["different_information"]["url_scholarbib"], True)
-                                if not EndNote: continue
-                                google_paper["different_information"].update(EndNote)
-                                if not best_paper or len(best_paper["different_information"]["EndNote"]) < len(google_paper["different_information"]["EndNote"]):
-                                    best_paper =  google_paper
+                                logger.debug(
+                                    "G paper\n{}\nBest paper\n{}".format(
+                                        json.dumps(google_paper),
+                                        json.dumps(best_paper)))
+                                EndNote = scholar.get_info_from_EndNote(
+                                    google_paper["different_information"]["url_scholarbib"], True)
+                                if not EndNote:
+                                    continue
+                                google_paper["different_information"].update(
+                                    EndNote)
+                                if not best_paper or len(best_paper["different_information"]["EndNote"]) < len(
+                                        google_paper["different_information"]["EndNote"]):
+                                    best_paper = google_paper
                             if best_paper:
                                 logger.debug("Process content of EndNote file for paper from references\n{}\n{}".format(json.dumps(best_paper["general_information"]),
-                                    json.dumps(best_paper["different_information"])))
+                                                                                                                        json.dumps(best_paper["different_information"])))
                                 # Fill data from google scholar
-                                settings.print_message("Paper was identified on google.scholar and processed.".format(grobid_paper.db_id), 3)
-                                grobid_paper.get_info_from_sch(best_paper["general_information"], 
-                                                    best_paper["different_information"], 1, best_paper['link_to_pdf'])
+                                settings.print_message(
+                                    "Paper was identified on google.scholar and processed.".format(
+                                        grobid_paper.db_id), 3)
+                                grobid_paper.get_info_from_sch(best_paper["general_information"],
+                                                               best_paper["different_information"], 1, best_paper['link_to_pdf'])
                                 if grobid_paper.in_database():
-                                    settings.print_message("This paper already exists, id = {}.".format(grobid_paper.db_id), 3)
+                                    settings.print_message(
+                                        "This paper already exists, id = {}.".format(
+                                            grobid_paper.db_id), 3)
                                 else:
                                     new_papers_count += 1
-                                    if new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
+                                    if new_papers_count % commit_iterations == 0:
+                                        dbutils.commit(new_papers_count)
                                     grobid_paper.add_to_database()
-                                    new_authors_count += add_authors(grobid_paper.db_id, grobid_paper.authors, 4)
-                                add_adge_to_sitation_graph(parent_paper_db_id, grobid_paper.db_id, ref_index + 1)    
-                                identified_papers += 1                   
-                                # Success identification, process next reference.
+                                    new_authors_count += add_authors(
+                                        grobid_paper.db_id, grobid_paper.authors, 4)
+                                add_adge_to_sitation_graph(
+                                    parent_paper_db_id, grobid_paper.db_id, ref_index + 1)
+                                identified_papers += 1
+                                # Success identification, process next
+                                # reference.
                                 continue
                         elif papers_count > 1:
                             many_versions += 1
@@ -435,16 +540,21 @@ def get_references():
             settings.print_message(msg, 3)
             logger.debug(msg)
             if grobid_paper.in_database_as_grobid_paper():
-                settings.print_message("This grobid paper already exists, id = {}.".format(grobid_paper.grobid_db_id), 3)
+                settings.print_message(
+                    "This grobid paper already exists, id = {}.".format(
+                        grobid_paper.grobid_db_id), 3)
             else:
                 new_grobid_papers_count += 1
                 grobid_paper.make_EndNote()
                 grobid_paper.serial_number = ref_index + 1
-                grobid_paper.add_to_database_as_grobid_paper(parent_paper_db_id)
+                grobid_paper.add_to_database_as_grobid_paper(
+                    parent_paper_db_id)
         dbutils.update_references_transaction(parent_paper_db_id)
     not_found = new_grobid_papers_count - many_results - many_versions
-    logger.debug("STATISTIC ABOUT SEARCH ON GOOGLE:\nNot found papers: {}\nMany results: {}\nMany versions: {}")
-    return (total_processed, papers_without_ref, total_refereneces_from_all_pdfs, identified_papers, new_papers_count, new_authors_count, new_grobid_papers_count, many_references)
+    logger.debug(
+        "STATISTIC ABOUT SEARCH ON GOOGLE:\nNot found papers: {}\nMany results: {}\nMany versions: {}")
+    return (total_processed, papers_without_ref, total_refereneces_from_all_pdfs, identified_papers,
+            new_papers_count, new_authors_count, new_grobid_papers_count, many_references)
 
 
 def get_cities():
@@ -455,24 +565,29 @@ def get_cities():
     new_papers_count = 0
     total_processed = 0
     #
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
-    papers, columns, total = select_papers("title, id, google_cluster_id, year")
+    commit_iterations = int(
+        settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    papers, columns, total = select_papers(
+        "title, id, google_cluster_id, year")
     for parent_paper_index, parent_paper in enumerate(papers):
         year = parent_paper[columns["year"]]
         parent_paper_db_id = parent_paper[columns["id"]]
         google_cluster_id = parent_paper[columns["google_cluster_id"]]
         title = parent_paper[columns["title"]]
-        settings.print_message("Get cities for paper #{} (total {}) - {}{}.".format(parent_paper_index + 1, 
-            total, title, ", " + str(year) if year else ""))
-        logger.debug("Get cities for paper #{} (total {}) - {}.".format(parent_paper_index + 1, total, title))
+        settings.print_message("Get cities for paper #{} (total {}) - {}{}.".format(parent_paper_index + 1,
+                                                                                    total, title, ", " + str(year) if year else ""))
+        logger.debug(
+            "Get cities for paper #{} (total {}) - {}.".format(parent_paper_index + 1, total, title))
         if (google_cluster_id is None):
-            settings.print_message("Google cluster id is empty, skip this paper.")
+            settings.print_message(
+                "Google cluster id is empty, skip this paper.")
             logger.debug("Google cluster id is empty, skip this paper.")
             continue
         # Search cities
         logger.debug("Search cities papers from google.scholar...")
         settings.print_message("Search cities papers from google.scholar.", 2)
-        paper_generator, about_res_count = scholar.search_cities(google_cluster_id, skip_endnote=True, params=settings.PARAMS, print_level=3)
+        paper_generator, about_res_count = scholar.search_cities(
+            google_cluster_id, skip_endnote=True, params=settings.PARAMS, print_level=3)
 
         if paper_generator is None:
             settings.print_message("Cities not found, skip.", 2)
@@ -483,42 +598,56 @@ def get_cities():
         child_processed = False
         for child_paper_index, paper_info in enumerate(paper_generator):
             child_processed = True
-            if not paper_info["different_information"]: 
-                settings.print_message("Not found information about child paper #{}, skip.".format(child_paper_index + 1), 3)
+            if not paper_info["different_information"]:
+                settings.print_message(
+                    "Not found information about child paper #{}, skip.".format(
+                        child_paper_index + 1), 3)
                 continue
-            google_cluster_id = paper_info["general_information"].get("cluster")
+            google_cluster_id = paper_info["general_information"].get(
+                "cluster")
             if google_cluster_id:
-                db_id = dbutils.check_exists_paper_with_cluster_id(str(google_cluster_id))
+                db_id = dbutils.check_exists_paper_with_cluster_id(
+                    str(google_cluster_id))
                 if db_id:
-                    settings.print_message("This paper already exists, id = {}.".format(db_id), 3)
+                    settings.print_message(
+                        "This paper already exists, id = {}.".format(db_id), 3)
                     total_processed += 1
                     # other papers -> this paper
                     add_adge_to_sitation_graph(db_id, parent_paper_db_id, None)
                     continue
-            EndNote = scholar.get_info_from_EndNote(paper_info["different_information"]["url_scholarbib"], True)
+            EndNote = scholar.get_info_from_EndNote(
+                paper_info["different_information"]["url_scholarbib"], True)
             if not EndNote:
-                settings.print_message("Not found information about paper #%i, skip." % (child_paper_index + 1), 1)
+                settings.print_message(
+                    "Not found information about paper #%i, skip." %
+                    (child_paper_index + 1), 1)
                 continue
             paper_info["different_information"].update(EndNote)
             logger.debug("Process content of EndNote file #{} for root paper #{}\n{}\n{}".format(
-                child_paper_index + 1, parent_paper_index + 1, json.dumps(paper_info["general_information"]), 
+                child_paper_index + 1, parent_paper_index +
+                1, json.dumps(paper_info["general_information"]),
                 json.dumps(paper_info["different_information"])))
             # Create new paper entity
             newpaper = paper.Paper()
             # Fill data from google scholar
-            newpaper.get_info_from_sch(paper_info["general_information"], 
-                             paper_info["different_information"], 1, paper_info['link_to_pdf'])
+            newpaper.get_info_from_sch(paper_info["general_information"],
+                                       paper_info["different_information"], 1, paper_info['link_to_pdf'])
             if newpaper.in_database():
-                settings.print_message("This paper already exists, id = {}.".format(newpaper.db_id), 3)
+                settings.print_message(
+                    "This paper already exists, id = {}.".format(
+                        newpaper.db_id), 3)
             else:
                 new_papers_count += 1
                 newpaper.add_to_database()
                 #settings.print_message("Adding a paper to the database", 3)
-                new_authors_count += add_authors(newpaper.db_id, newpaper.authors, 4)
+                new_authors_count += add_authors(newpaper.db_id,
+                                                 newpaper.authors, 4)
             total_processed += 1
             # other papers -> this paper
-            add_adge_to_sitation_graph(newpaper.db_id, parent_paper_db_id, None)
-            if new_papers_count > 0 and new_papers_count % commit_iterations == 0: dbutils.commit(new_papers_count)
+            add_adge_to_sitation_graph(
+                newpaper.db_id, parent_paper_db_id, None)
+            if new_papers_count > 0 and new_papers_count % commit_iterations == 0:
+                dbutils.commit(new_papers_count)
         if not child_processed:
             settings.print_message("Cities not found, skip.", 2)
             logger.debug("Cities not found, skip.")
@@ -528,7 +657,8 @@ def get_cities():
 
 def get_info_from_PDFs():
     """ This function get info from PDFs by GROBID """
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    commit_iterations = int(
+        settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
     # statistic
     papers_counter = 0
     bad_papers = 0
@@ -538,14 +668,18 @@ def get_info_from_PDFs():
     #
     papers, columns, total = select_papers("id, year, doi")
     for paper_index, paper_info in enumerate(papers):
-        settings.print_message("Process paper #{0} (total {1}).".format(paper_index + 1, len(papers)))
+        settings.print_message(
+            "Process paper #{0} (total {1}).".format(
+                paper_index + 1, len(papers)))
         id = paper_info[0]
         year = paper_info[1]
         doi = paper_info[2]
         file_name = "{0}{1}.pdf".format(settings.PDF_CATALOG, id)
         if not os.path.exists(file_name):
-            settings.print_message('PDF "{}" not found, skip this paper.'.format(file_name), 2)
-            logger.debug('PDF "{}" not found, skip this paper.'.format(file_name))
+            settings.print_message(
+                'PDF "{}" not found, skip this paper.'.format(file_name), 2)
+            logger.debug(
+                'PDF "{}" not found, skip this paper.'.format(file_name))
             bad_pdfs += 1
             continue
         cur_paper = paper.Paper()
@@ -553,22 +687,27 @@ def get_info_from_PDFs():
         cur_paper.year = year
         cur_paper.DOI = doi
         if not cur_paper.get_data_from_grobid(file_name):
-            settings.print_message('Process PFD "{}" is failed, skip.'.format(file_name), 2)
+            settings.print_message(
+                'Process PFD "{}" is failed, skip.'.format(file_name), 2)
             logger.debug('Process PFD "{}" is failed, skip.'.format(file_name))
             bad_papers += 1
             continue
         papers_counter += 1
         #translated_abstract += 1 if cur_paper.abstract and cur_paper.abstract_ru else 0
-        nonempty_abstract +=  1 if cur_paper.abstract else 0
-        settings.print_message('Success processed PFD "{}".'.format(file_name), 2)
+        nonempty_abstract += 1 if cur_paper.abstract else 0
+        settings.print_message(
+            'Success processed PFD "{}".'.format(file_name), 2)
         logger.debug('Success processed PFD "{}".'.format(file_name))
-        if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
-    return (papers_counter, bad_pdfs, bad_papers, len(papers), nonempty_abstract)
+        if papers_counter % commit_iterations == 0:
+            dbutils.commit(papers_counter)
+    return (papers_counter, bad_pdfs, bad_papers,
+            len(papers), nonempty_abstract)
 
 
 def translate_abstracts():
     """ Get papers with abstract and translate this. """
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    commit_iterations = int(
+        settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
     # statistic
     papers_counter = 0
     bad_abstracts = 0
@@ -576,11 +715,14 @@ def translate_abstracts():
     #
     papers, columns, total = select_papers("id, abstract")
     for paper_index, paper_info in enumerate(papers):
-        settings.print_message("Process paper #{0} (total {1}).".format(paper_index + 1, len(papers)))
+        settings.print_message(
+            "Process paper #{0} (total {1}).".format(
+                paper_index + 1, len(papers)))
         id = paper_info[columns["id"]]
         abstract = paper_info[columns["abstract"]]
         if not abstract:
-            msg = "Paper (id: {}) hasn't abstract, skip.".format(paper_index + 1, id)
+            msg = "Paper (id: {}) hasn't abstract, skip.".format(
+                paper_index + 1, id)
             settings.print_message(msg, 2)
             logger.debug(msg)
             bad_abstracts += 1
@@ -590,7 +732,8 @@ def translate_abstracts():
         settings.print_message(msg, 2)
         abstract_ru = translate(abstract, to_language='ru')
         if abstract_ru:
-            dbutils.update_paper({"id":id, "abstract_ru":abstract_ru,}, True)
+            dbutils.update_paper(
+                {"id": id, "abstract_ru": abstract_ru, }, True)
             msg = "Successful translated."
             logger.debug(msg)
             settings.print_message(msg, 2)
@@ -602,13 +745,15 @@ def translate_abstracts():
             bad_abstracts += 1
             continue
         papers_counter += 1
-        if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
+        if papers_counter % commit_iterations == 0:
+            dbutils.commit(papers_counter)
     return (papers_counter, len(papers), bad_abstracts, translated_abstract)
 
 
 def get_DOI_by_title():
     """ Get DOI for papers by title (use crossref.org). """
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    commit_iterations = int(
+        settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
     # statistic
     papers_counter = 0
     non_empty_DOI = 0
@@ -617,13 +762,14 @@ def get_DOI_by_title():
     for paper_index, paper_info in enumerate(papers):
         id = paper_info[columns["id"]]
         title = paper_info[columns["title"]]
-        settings.print_message("Process paper #{0} - '{2}' (total {1}).".format(paper_index + 1, len(papers), title))
+        settings.print_message(
+            "Process paper #{0} - '{2}' (total {1}).".format(paper_index + 1, len(papers), title))
         msg = "Get DOI from crossref.org..."
         logger.debug(msg)
         settings.print_message(msg, 2)
         DOI = crossref.get_DOI_by_title(title)
         if DOI:
-            dbutils.update_paper({"id":id, "DOI":DOI,}, True)
+            dbutils.update_paper({"id": id, "DOI": DOI, }, True)
             msg = "DOI: {}.".format(DOI)
             logger.debug(msg)
             settings.print_message(msg, 2)
@@ -633,19 +779,22 @@ def get_DOI_by_title():
             logger.debug(msg)
             settings.print_message(msg, 2)
         papers_counter += 1
-        if papers_counter % commit_iterations == 0: dbutils.commit(papers_counter)
+        if papers_counter % commit_iterations == 0:
+            dbutils.commit(papers_counter)
     return (papers_counter, non_empty_DOI, papers_counter - non_empty_DOI)
 
 
 def process_GROBID_papers():
     """ This function select grobid papers, find this on scholar and create new full paper """
-    commit_iterations = int(settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    commit_iterations = int(
+        settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
     # statistic
     bad_papers = 0
     new_papers = 0
     new_authors = 0
     #
-    papers, columns, total_db_papers = select_papers("id, title, year, google_cluster_id, serial_number, r_paper", grobid_paper=True)
+    papers, columns, total_db_papers = select_papers(
+        "id, title, year, google_cluster_id, serial_number, r_paper", grobid_paper=True)
     for paper_index, paper_info in enumerate(papers):
         grobid_paper_db_id = paper_info[columns["id"]]
         title = paper_info[columns["title"]]
@@ -654,10 +803,11 @@ def process_GROBID_papers():
         serial_number = paper_info[columns["serial_number"]]
         parent_paper_db_id = paper_info[columns["r_paper"]]
 
-        settings.print_message("Get info about paper #{} (total {}) {}{}.".format(paper_index + 1, 
-            total_db_papers, "- " + title if title else "",  ", " + str(year) if year and title else ""))
+        settings.print_message("Get info about paper #{} (total {}) {}{}.".format(paper_index + 1,
+                                                                                  total_db_papers, "- " + title if title else "", ", " + str(year) if year and title else ""))
         if not google_cluster_id:
-            msg = "Paper (id: {}) hasn't google_cluster_id, skip.".format(grobid_paper_db_id)
+            msg = "Paper (id: {}) hasn't google_cluster_id, skip.".format(
+                grobid_paper_db_id)
             settings.print_message(msg, 2)
             logger.debug(msg)
             bad_papers += 1
@@ -665,15 +815,17 @@ def process_GROBID_papers():
 
         # Check cluster id in DB. If exists, add adge and all.
         if not dbutils.check_exists_paper_with_cluster_id(google_cluster_id):
-            msg = "Get info from Google cluster (cluster id='{}').".format(google_cluster_id)
+            msg = "Get info from Google cluster (cluster id='{}').".format(
+                google_cluster_id)
             logger.debug(msg)
             settings.print_message(msg, 2)
 
             try:
-                paper_info = scholar.get_paper_from_cluster(google_cluster_id, print_level=1)
+                paper_info = scholar.get_paper_from_cluster(
+                    google_cluster_id, print_level=1)
             except KeyboardInterrupt:
                 raise
-            except:
+            except BaseException:
                 msg = "Failed get information from cluster, skip."
                 settings.print_message(msg, 2)
                 logger.debug(msg)
@@ -681,47 +833,58 @@ def process_GROBID_papers():
                 continue
 
             # Loop for different versions of paper
-            if not paper_info or not paper_info["different_information"]: 
-                settings.print_message("Not found information about paper, skip.", 1)
+            if not paper_info or not paper_info["different_information"]:
+                settings.print_message(
+                    "Not found information about paper, skip.", 1)
                 continue
             paper_addition_information = paper_info["different_information"]
             logger.debug("Process content of EndNote file #{}\n{}\n{}".format(
-            paper_index + 1, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
+                paper_index + 1, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
 
             # Create new paper entity
             newpaper = paper.Paper()
             # Fill data from google scholar
-            newpaper.get_info_from_sch(paper_info["general_information"], 
-                             paper_addition_information, 1, paper_info['link_to_pdf'])
+            newpaper.get_info_from_sch(paper_info["general_information"],
+                                       paper_addition_information, 1, paper_info['link_to_pdf'])
             if newpaper.in_database():
-                settings.print_message("This paper already exists, id = {}.".format(newpaper.db_id), 1)
+                settings.print_message(
+                    "This paper already exists, id = {}.".format(
+                        newpaper.db_id), 1)
             else:
                 new_papers += 1
                 newpaper.add_to_database()
                 new_authors += add_authors(newpaper.db_id, newpaper.authors, 2)
         else:
-            msg = "Paper from cluster (cluster id='{}') already exists.".format(google_cluster_id)
+            msg = "Paper from cluster (cluster id='{}') already exists.".format(
+                google_cluster_id)
             logger.debug(msg)
             settings.print_message(msg, 2)
         settings.print_message("Move grobid paper into main papers table.", 2)
         # Delete from grobid_papers
-        logger.debug("Delete paper (grobid paper id={}) from grobid papers.".format(grobid_paper_db_id))
+        logger.debug("Delete paper (grobid paper id={}) from grobid papers.".format(
+            grobid_paper_db_id))
         dbutils.delete_paper_from_grobid_papers(grobid_paper_db_id)
         # Add adge in paper_paper
-        add_adge_to_sitation_graph(parent_paper_db_id, newpaper.db_id, serial_number)
+        add_adge_to_sitation_graph(
+            parent_paper_db_id,
+            newpaper.db_id,
+            serial_number)
 
-        if (paper_index + 1) % commit_iterations == 0: dbutils.commit(paper_index + 1)
-    return (total_db_papers, total_db_papers - bad_papers, new_papers, new_authors)
+        if (paper_index + 1) % commit_iterations == 0:
+            dbutils.commit(paper_index + 1)
+    return (total_db_papers, total_db_papers -
+            bad_papers, new_papers, new_authors)
 
 
 def print_to_log_http_statistic():
     """ This function print statistic of http requests in log. """
     logger.info('HTTP-requests: {0}({1} failed)'.format(utils.REQUEST_STATISTIC['count_requests'],
-                                                            len(utils.REQUEST_STATISTIC['failed_requests'])))
+                                                        len(utils.REQUEST_STATISTIC['failed_requests'])))
     settings.print_message('HTTP-requests: {0} ({1} failed)'.format(utils.REQUEST_STATISTIC['count_requests'],
-                                                            len(utils.REQUEST_STATISTIC['failed_requests'])))
+                                                                    len(utils.REQUEST_STATISTIC['failed_requests'])))
     if len(utils.REQUEST_STATISTIC['failed_requests']) > 0:
-        logger.info('List failed HTTP-requests:\n{0}'.format("\n".join(utils.REQUEST_STATISTIC['failed_requests'])))
+        logger.info('List failed HTTP-requests:\n{0}'.format(
+            "\n".join(utils.REQUEST_STATISTIC['failed_requests'])))
 
 
 def print_to_log_captcha_statistic():
@@ -729,12 +892,19 @@ def print_to_log_captcha_statistic():
     if utils.CAPTCHA_STATISTIC["total"] > 0:
         msg = "CAPTCHA solve statistic:\n Total: {}\n Solved: {} ({:.3f}%)\n At once solved: {} ({:.3f}%)\n Several attempts: {:.1f}".format(
             utils.CAPTCHA_STATISTIC["total"],
-            utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["not_solved"],
-            (utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["not_solved"]) * 100. / utils.CAPTCHA_STATISTIC["total"],
-            utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["solved_by_several_attempts"],
-            (utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["solved_by_several_attempts"]) * 100. / utils.CAPTCHA_STATISTIC["total"],
+            utils.CAPTCHA_STATISTIC["total"] -
+            utils.CAPTCHA_STATISTIC["not_solved"],
+            (utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["not_solved"]
+             ) * 100. / utils.CAPTCHA_STATISTIC["total"],
+            utils.CAPTCHA_STATISTIC["total"] -
+            utils.CAPTCHA_STATISTIC["solved_by_several_attempts"],
+            (utils.CAPTCHA_STATISTIC["total"] - utils.CAPTCHA_STATISTIC["solved_by_several_attempts"]
+             ) * 100. / utils.CAPTCHA_STATISTIC["total"],
             utils.CAPTCHA_STATISTIC["total_attempts"] * 1. / utils.CAPTCHA_STATISTIC["total"])
-        logger.debug("Cur captcha statistic: {}".format(json.dumps(utils.CAPTCHA_STATISTIC)))
+        logger.debug(
+            "Cur captcha statistic: {}".format(
+                json.dumps(
+                    utils.CAPTCHA_STATISTIC)))
         logger.info(msg)
         settings.print_message(msg)
 
@@ -746,7 +916,8 @@ def dispatch(command):
     msg = None
     try:
         if utils.PROXY_OBJ.proxies_count < utils.PROXY_OBJ.MIN_PROXIES_COUNT:
-            msg = "Too few proxy servers. Requires a count of proxies >= {}".format(utils.PROXY_OBJ.MIN_PROXIES_COUNT)
+            msg = "Too few proxy servers. Requires a count of proxies >= {}".format(
+                utils.PROXY_OBJ.MIN_PROXIES_COUNT)
             settings.print_message(msg)
             raise Exception(msg)
         for case in utils.Switch(command):
@@ -755,8 +926,8 @@ def dispatch(command):
                 settings.print_message("Processing command '%s'." % command)
                 result = get_info_from_PDFs()
                 msg = "Processing was successful.\nSuccess updated: %i.\nBad PDFs: %i." \
-                        "\nFailed processing: %i.\nTotal papers: %i\n" \
-                        "Non-empty abstracts: %i." % result
+                    "\nFailed processing: %i.\nTotal papers: %i\n" \
+                    "Non-empty abstracts: %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break
@@ -765,8 +936,8 @@ def dispatch(command):
                 settings.print_message("Processing command '%s'." % command)
                 result = translate_abstracts()
                 msg = "Processing was successful.\nProcessing papers: %i.\n" \
-                            "Total papers: %i.\nNon-translated abstracts: %i\n" \
-                            "Translated abstracts: %i." % result
+                    "Total papers: %i.\nNon-translated abstracts: %i\n" \
+                    "Translated abstracts: %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break
@@ -775,9 +946,9 @@ def dispatch(command):
                 settings.print_message("Processing command '%s'." % command)
                 result = get_papers_by_key_words()
                 msg = "Processing was successful.\nFounded papers in Google Scholar by keywords: %i\n" \
-                             "Added new papers: %i.\nAdded new authors: %i.\n" \
-                             "Processed total papers: %i.\n Downloaded PDFs from URL %i.\n Downloaded PDFs from cluster %i.\n" \
-                             " Downloaded PDFs from Sci-Hub %i.\n Unavailable PDFs %i." % result
+                    "Added new papers: %i.\nAdded new authors: %i.\n" \
+                    "Processed total papers: %i.\n Downloaded PDFs from URL %i.\n Downloaded PDFs from cluster %i.\n" \
+                    " Downloaded PDFs from Sci-Hub %i.\n Unavailable PDFs %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 print_to_log_captcha_statistic()
@@ -786,7 +957,8 @@ def dispatch(command):
                 logger.debug("Processing command '%s'." % command)
                 settings.print_message("Processing command '%s'." % command)
                 result = get_PDFs()
-                msg = "Processing was successful.\nDownloads files: %i.\nUnavailable pdf's: %i.\nProcessed total: %i." % result[1:]
+                msg = "Processing was successful.\nDownloads files: %i.\nUnavailable pdf's: %i.\nProcessed total: %i." % result[
+                    1:]
                 logger.debug(msg)
                 settings.print_message(msg)
                 print_to_log_captcha_statistic()
@@ -820,12 +992,12 @@ def dispatch(command):
                 settings.print_message("Processing command '%s'." % command)
                 result = get_DOI_by_title()
                 msg = "Processing was successful.\nProcessing papers: %i.\n" \
-                            "Non-empty DOI: %i\n" \
-                            "Unavailable DOI: %i." % result
+                    "Non-empty DOI: %i\n" \
+                    "Unavailable DOI: %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break
-            if case(): # default
+            if case():  # default
                 logger.warn("Unknown command: %s" % command)
                 settings.print_message("Unknown command: %s" % command)
                 msg = "Unknown command '{}'".format(command)
@@ -834,11 +1006,12 @@ def dispatch(command):
         dbutils.commit()
     except KeyboardInterrupt:
         logger.warn("Caught KeyboardInterrupt, terminating processing")
-        settings.print_message("Caught KeyboardInterrupt, terminating processing")
+        settings.print_message(
+            "Caught KeyboardInterrupt, terminating processing")
         settings.RESULT = "WARNING"
         msg = "User was terminated processing"
         dbutils.rollback()
-    except:
+    except BaseException:
         logger.error(traceback.format_exc())
         settings.print_message("Processing finished with error.")
         settings.print_message("For more details, see the log.")
@@ -848,7 +1021,9 @@ def dispatch(command):
     end_time = datetime.now()
     settings.print_message("Run began on {0}".format(start_time))
     settings.print_message("Run ended on {0}".format(end_time))
-    settings.print_message("Elapsed time was: {0}".format(end_time - start_time))
+    settings.print_message(
+        "Elapsed time was: {0}".format(
+            end_time - start_time))
     logger.debug("Run began on {0}".format(start_time))
     logger.debug("Run ended on {0}".format(end_time))
     logger.debug("Elapsed time was: {0}".format(end_time - start_time))
@@ -860,6 +1035,6 @@ def dispatch(command):
     print_to_log_http_statistic()
     settings.DESCR_TRANSACTION = msg
 
+
 if __name__ == "__main__":
     dispatch(settings.PARAMS["command"])
-

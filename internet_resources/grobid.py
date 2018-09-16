@@ -20,24 +20,32 @@ GROBID_PROCESSED_HEADER_COMMAND = 'processHeaderDocument'
 GROBID_PROCESSED_REFERENCES_COMMAND = 'processReferences'
 GROBID_PROCESSED_FULL_TEXT_COMMAND = 'processFulltextDocument'
 
-class GrobidError(Exception): pass
 
-class ConnectionError(Exception): pass
+class GrobidError(Exception):
+    pass
+
+
+class ConnectionError(Exception):
+    pass
 
 
 def get_data_from_grobid(command, pdf_file):
     """ Send post request to grobid and returned data """
-    return utils.get_request("{}{}".format(GROBID_SERVER, command), POST=True, att_file={'input': pdf_file}, timeout=30, data={"timeout":300})
+    return utils.get_request("{}{}".format(GROBID_SERVER, command), POST=True, att_file={
+                             'input': pdf_file}, timeout=30, data={"timeout": 300})
 
 
 def processHeaderDocument(pdf_file_name):
     """ Get info from header PDF """
     settings.print_message("Send to grobid service.", 2)
-    data = get_data_from_grobid(GROBID_PROCESSED_HEADER_COMMAND, open(pdf_file_name, 'rb'))
+    data = get_data_from_grobid(
+        GROBID_PROCESSED_HEADER_COMMAND, open(
+            pdf_file_name, 'rb'))
     settings.print_message("Check data.", 2)
     logger.debug("Check data.")
-    if not data: 
-        logger.debug("Server returned empty response (File processing failed), skip.")
+    if not data:
+        logger.debug(
+            "Server returned empty response (File processing failed), skip.")
         return None
     settings.print_message("Processing TEI data.", 2)
     logger.debug("Convert tei to dictionary.")
@@ -45,15 +53,15 @@ def processHeaderDocument(pdf_file_name):
     logger.debug("Convert completed: {}".format(json.dumps(dictData)))
     authors = set(dictData["authors"]) if dictData["authors"] else []
     msg = "RESULT: has title:{:^3}has date:{:^3}has DOI:{:^3}has abstract:{:^3}authors:{:^4}has start page:{:^3}has end page:{:^3}has publisher:{:^3}".format(
-        dictData["title"] != None,
-        dictData["pubdate"] != None,
-        dictData["DOI"] != None,
-        dictData["abstract"] != None,
+        dictData["title"] is not None,
+        dictData["pubdate"] is not None,
+        dictData["DOI"] is not None,
+        dictData["abstract"] is not None,
         len(authors),
-        dictData["start_page"] != None,
-        dictData["end_page"] != None,
-        dictData["publisher"] != None
-        )
+        dictData["start_page"] is not None,
+        dictData["end_page"] is not None,
+        dictData["publisher"] is not None
+    )
     dictData["abstract_ru"] = None
     logger.debug(msg)
     return dictData
@@ -62,11 +70,14 @@ def processHeaderDocument(pdf_file_name):
 def processReferencesDocument(pdf_file_name):
     """ Get references from article PDF """
     settings.print_message("Send to grobid service..", 2)
-    data = get_data_from_grobid(GROBID_PROCESSED_REFERENCES_COMMAND, open(pdf_file_name, 'rb'))
+    data = get_data_from_grobid(
+        GROBID_PROCESSED_REFERENCES_COMMAND, open(
+            pdf_file_name, 'rb'))
     settings.print_message("Check data", 2)
     logger.debug("Check data")
-    if not data: 
-        logger.debug("Server returned empty response (File processing failed), skip.")
+    if not data:
+        logger.debug(
+            "Server returned empty response (File processing failed), skip.")
         return None
     settings.print_message("Processing TEI data", 2)
     logger.debug("Convert tei to dictionary")

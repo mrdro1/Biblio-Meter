@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 import argparse
 import collections
-import os, logging, re, traceback, sys
+import os
+import logging
+import re
+import traceback
+import sys
 import json
 from datetime import datetime
 import re
@@ -16,7 +20,8 @@ sys.path.insert(0, os.path.join(MAIN_DIR, 'entities/'))
 sys.path.insert(0, os.path.join(MAIN_DIR, 'internet_resources/'))
 #
 from dbutils import set_program_transaction, close_program_transaction, connect, \
-                    close_connection
+    close_connection
+
 
 def build_version_string():
     """ This function read current version from version.txt and format version string """
@@ -63,7 +68,8 @@ PROXY_FILE = None
 _SUCCESSFUL_START_FLAG = False
 
 DIR_CAPTCHA_IMG = r"captcha/"
-if not os.path.exists(DIR_CAPTCHA_IMG): os.mkdir(DIR_CAPTCHA_IMG)
+if not os.path.exists(DIR_CAPTCHA_IMG):
+    os.mkdir(DIR_CAPTCHA_IMG)
 
 MIN_PROXIES_COUNT = 20
 DEFAULT_TIMEOUT = 10
@@ -78,15 +84,15 @@ DESCR_TRANSACTION = None
 CONTROL_KEYS = [
     "command",
     "query",
-    "date_from", 
-    "date_to", 
-    "authored", 
-    "published", 
-    "exact_phrase", 
-    "one_of_words", 
-    "not_contained_words", 
-    "words_in_body", 
-    "patents", 
+    "date_from",
+    "date_to",
+    "authored",
+    "published",
+    "exact_phrase",
+    "one_of_words",
+    "not_contained_words",
+    "words_in_body",
+    "patents",
     "citations",
     "papers",
     "connection_attempts",
@@ -110,13 +116,14 @@ CONTROL_KEYS = [
     "open_browser_if_captcha",
     "google_get_files_through_proxy",
     "crossref_max_papers",
-    ]
+]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())
 CONTROL_DEFAULT_VALUES = \
     {
 
     }
+
 
 def CloseObjects():
     if _SUCCESSFUL_START_FLAG:
@@ -130,23 +137,39 @@ def CloseObjects():
 
 # logging
 
+
 # CONSOLE LOG
 cfromat = "[{time}] {spaсe_level}{msg}"
+
+
 def print_message(message, level=0, end=None):
     level_indent = " " * level
     try:
-        print(cfromat.format(time=datetime.now(), spaсe_level=level_indent, msg=message), end=end)
-    except:
-        logger.error("Message can not be displayed because the encoding is not supported.")
+        print(
+            cfromat.format(
+                time=datetime.now(),
+                spaсe_level=level_indent,
+                msg=message),
+            end=end)
+    except BaseException:
+        logger.error(
+            "Message can not be displayed because the encoding is not supported.")
         logger.error(traceback.print_exc())
-        print(cfromat.format(time=datetime.now(), spaсe_level=level_indent, msg="Message can not be displayed because the encoding is not supported."))
+        print(
+            cfromat.format(
+                time=datetime.now(),
+                spaсe_level=level_indent,
+                msg="Message can not be displayed because the encoding is not supported."))
 #
 
 # Logging handlers
+
+
 class InMemoryHandler(logging.Handler):
     def emit(self, record):
-        #print(self.format(record))
+        # print(self.format(record))
         IN_MEMORY_LOG.append(self.format(record))
+
 
 _LOG_HANDLER = InMemoryHandler()
 _LOG_FORMAT = "[%(asctime)s %(levelname)s %(name)s] %(message)s"
@@ -169,10 +192,38 @@ logger.info(_header)
 logger.info("Initializing argument parser, version: %s" % argparse.__version__)
 _parser = argparse.ArgumentParser()
 requiredNamed = _parser.add_argument_group('Required arguments')
-requiredNamed.add_argument("-d", "--database", action="store", dest="DB_FILE_NAME", help="Database file", type=str, required=True)
-requiredNamed.add_argument("-l", "--log", action="store", dest="LOG_FILE_NAME", help="Logbook file", type=str, required=True)
-requiredNamed.add_argument("-c", "--control", action="store", dest="CONTROL_FILE_NAME", help="Control file", type=str, required=True)
-requiredNamed.add_argument("-p", "--proxies", action="store", dest="PROXIES_FILE", help="File with proxies", type=str, required=True)
+requiredNamed.add_argument(
+    "-d",
+    "--database",
+    action="store",
+    dest="DB_FILE_NAME",
+    help="Database file",
+    type=str,
+    required=True)
+requiredNamed.add_argument(
+    "-l",
+    "--log",
+    action="store",
+    dest="LOG_FILE_NAME",
+    help="Logbook file",
+    type=str,
+    required=True)
+requiredNamed.add_argument(
+    "-c",
+    "--control",
+    action="store",
+    dest="CONTROL_FILE_NAME",
+    help="Control file",
+    type=str,
+    required=True)
+requiredNamed.add_argument(
+    "-p",
+    "--proxies",
+    action="store",
+    dest="PROXIES_FILE",
+    help="File with proxies",
+    type=str,
+    required=True)
 #_group = _parser.add_mutually_exclusive_group()
 #_group.add_argument("-t", action="store_false", dest="TransactionMode", help="Transaction mode")
 #_group.add_argument("-i", action="store_true", dest="InformationMode", help="Information mode")
@@ -189,7 +240,7 @@ PROXY_FILE = _command_args.PROXIES_FILE
 logger.info("Initializing logbook.")
 
 # Add file handler
-_LOG_F_HANDLER = logging.FileHandler(_LOGBOOK_NAME, encoding = OUTPUT_ENCODING)
+_LOG_F_HANDLER = logging.FileHandler(_LOGBOOK_NAME, encoding=OUTPUT_ENCODING)
 _LOG_F_HANDLER.setLevel(LOG_LEVEL)
 _LOG_F_FORMATTER = logging.Formatter(_LOG_COPY_FORMAT)
 _LOG_F_HANDLER.setFormatter(_LOG_F_FORMATTER)
@@ -207,17 +258,17 @@ _LOG_F_HANDLER.setFormatter(_LOG_F_FORMATTER)
 logger.info("Parsing the control file.")
 PARAMS = None
 try:
-    with open(_CONTROL_FILE) as data_file:    
+    with open(_CONTROL_FILE) as data_file:
         PARAMS = json.load(data_file)
     for key in PARAMS.keys():
         if not key in CONTROL_KEYS:
             raise Exception("Unknown parameter: {0}".format(key))
     # check all params, if null then set default
     for key in CONTROL_DEFAULT_VALUES.keys():
-        PARAMS.setdefault(key, CONTROL_DEFAULT_VALUES[key]) 
+        PARAMS.setdefault(key, CONTROL_DEFAULT_VALUES[key])
     if not [key for key in PARAMS.keys() if key.lower() == "command"]:
         raise Exception("Command is empty!")
-except:
+except BaseException:
     print_message("Invalid file control. Check the syntax.")
     logger.error("Invalid file control. Check the syntax.")
     logger.error(traceback.print_exc())
@@ -234,17 +285,19 @@ for key in PARAMS.keys():
 
 # Database
 try:
-    if PARAMS["command"] != "getPapersByKeyWords" and not os.path.isfile(_DB_FILE):
+    if PARAMS["command"] != "getPapersByKeyWords" and not os.path.isfile(
+            _DB_FILE):
         raise Exception("Database '{}' not found.".format(_DB_FILE))
     connect(_DB_FILE)
-except:
-    print_message("Database '{}' is invalid, for more information see log.".format(_DB_FILE))
+except BaseException:
+    print_message(
+        "Database '{}' is invalid, for more information see log.".format(_DB_FILE))
     logger.error(traceback.format_exc())
     CloseObjects()
     exit()
 else:
     logger.info("DB connection initialized.")
-#if MODE == INFORMATION_MODE:
+# if MODE == INFORMATION_MODE:
 #    INFO_FILE = InfoFile("{0}.{1}".format(os.path.splitext(_DB_FILE)[0], 'txt'))
 
 DB_PATH = MAIN_DIR
@@ -256,9 +309,9 @@ logger.debug("Check catalog for PDFs.")
 PDF_CATALOG = os.path.splitext(os.path.split(_DB_FILE)[-1])[0] + "_PDF/"
 try:
     if not os.path.exists(PDF_CATALOG):
-            logger.debug("Create folder {}.".format(PDF_CATALOG))
-            os.mkdir(PDF_CATALOG)
-except:
+        logger.debug("Create folder {}.".format(PDF_CATALOG))
+        os.mkdir(PDF_CATALOG)
+except BaseException:
     logger.error(traceback.format_exc())
     CloseObjects()
     exit()

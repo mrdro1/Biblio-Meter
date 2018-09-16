@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 from codecs import getdecoder
-import re, time, random
-import sys, traceback, logging
+import re
+import time
+import random
+import sys
+import traceback
+import logging
 import requests
 #
-from endnoteparser import EndNote_parsing # bibtexparser
+from endnoteparser import EndNote_parsing  # bibtexparser
 import settings
 import utils
 
@@ -22,6 +26,7 @@ _SITIES_SEARCH_URL = "/scholar?start={1}&hl=en&cites={0}&as_vis={2}&as_sdt={3}&a
 
 _CITATIONAUTHRE = r'user=([\w-]*)'
 
+
 def get_pdfs_link_from_cluster(cluster_id):
     logger.debug("Process papers from cluster %s." % (cluster_id))
     url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
@@ -31,37 +36,48 @@ def get_pdfs_link_from_cluster(cluster_id):
     # Loop on pages
     MAX_PAGES = 15
     links_count = 0
-    for page in range(1, MAX_PAGES + 1):           
+    for page in range(1, MAX_PAGES + 1):
         result = True
         soup = None
         while result and soup is None:
             soup = utils.get_soup(url)
             if soup is None:
                 result = None
-                #while result is None:
+                # while result is None:
                 #    result = input('Do not load cluster page on scholar. Try again? [Y/N/A]').lower()
                 #    if result == "y": result = True
                 #    elif result == "n": result = False
         if soup is None:
-            logger.debug("Soup for cluster page URL='{0}' is None.".format(url))
+            logger.debug(
+                "Soup for cluster page URL='{0}' is None.".format(url))
             return None
-        # This list contains links to EndNote and cited by count for each paper in cluster
+        # This list contains links to EndNote and cited by count for each paper
+        # in cluster
         logger.debug("Find PDF links on page #{}.".format(page))
         pdf_links.extend([
             _get_url_pdf(paper_block)
-            for paper_block in soup.find_all('div', class_='gs_r gs_or gs_scl')# gs_ggs gs_fl
+            # gs_ggs gs_fl
+            for paper_block in soup.find_all('div', class_='gs_r gs_or gs_scl')
             if _get_url_pdf(paper_block)
-            ])
-        logger.debug("Found {} links on page #{}.".format(len(pdf_links) - links_count, page))
+        ])
+        logger.debug(
+            "Found {} links on page #{}.".format(
+                len(pdf_links) -
+                links_count,
+                page))
         links_count = len(pdf_links)
         # NEXT button on html page
         if soup.find(class_='gs_ico gs_ico_nav_next'):
-            url = _FULLURL.format(_HOST, soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip())
+            url = _FULLURL.format(
+                _HOST, soup.find(
+                    class_='gs_ico gs_ico_nav_next').parent['href'].strip())
             logger.debug("Load next page in resulting query selection.")
             #soup = utils.get_soup(_FULLURL.format(_HOST, url))
         else:
             break
-    logger.debug("Found {} links to PDFs in cluster {}.".format(links_count, cluster_id))
+    logger.debug(
+        "Found {} links to PDFs in cluster {}.".format(
+            links_count, cluster_id))
     logger.debug("URLS: {}".format("\n".join(pdf_links)))
     if links_count == 0:
         return None
@@ -74,7 +90,7 @@ def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1):
     logger.debug("Get cluster page URL='{0}'.".format(url))
     # Loop on pages
     MAX_PAGES = 15
-    for page in range(1, MAX_PAGES + 1):           
+    for page in range(1, MAX_PAGES + 1):
         result = True
         soup = None
         while result and soup is None:
@@ -82,16 +98,22 @@ def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1):
             if soup is None:
                 result = None
         if soup is None:
-            logger.debug("Soup for cluster page URL='{0}' is None.".format(url))
+            logger.debug(
+                "Soup for cluster page URL='{0}' is None.".format(url))
             return None
         paper_blocks = soup.find_all('div', 'gs_r')
-        logger.debug("Find papers {} on page #{} in cluster {}".format(len(paper_blocks), page, cluster_id))
+        logger.debug(
+            "Find papers {} on page #{} in cluster {}".format(
+                len(paper_blocks), page, cluster_id))
         for counter, paper in enumerate(paper_blocks):
-            if counter + 1 != paper_number: continue;
+            if counter + 1 != paper_number:
+                continue
             logger.debug("Process paper #{}".format(counter + 1))
-            return _get_info_from_resulting_selection(paper, print_level=print_level)
+            return _get_info_from_resulting_selection(
+                paper, print_level=print_level)
     # Process failed
     return None
+
 
 def _get_url_pdf(databox):
     """ Функция поиска ссылки на pdf статьи"""
@@ -103,23 +125,27 @@ def _get_url_pdf(databox):
             link_to_pdf = pdf['href']
     return link_to_pdf
 
+
 def get_pdf(url, filename):
     """Load pdf for paper with DOI and save to file filename"""
     settings.print_message("PDF-file found in google scholar.", 2)
-    if url == None: return None
+    if url is None:
+        return None
     try:
         settings.print_message("Download pdf...", 2)
         utils.download_file(url, filename)
         return utils.check_pdf(filename)
     except KeyboardInterrupt:
         raise
-    except:
+    except BaseException:
         logger.warn(traceback.format_exc())
-        #return False
+        # return False
         raise
     return 0
 
-def _get_info_from_resulting_selection(paper_soup, skip_endnote=False, print_level=0):
+
+def _get_info_from_resulting_selection(
+        paper_soup, skip_endnote=False, print_level=0):
     """retrieving data about an article in the resulting selection"""
     # Full info about paper include general and addition information
     # MAYBE no one addition information, because this paper in cluster
@@ -128,9 +154,9 @@ def _get_info_from_resulting_selection(paper_soup, skip_endnote=False, print_lev
     general_information = dict()
     databox = paper_soup.find('div', class_='gs_ri')
     title = databox.find('h3', class_='gs_rt')
-    if title.find('span', class_='gs_ct'): # A citation
+    if title.find('span', class_='gs_ct'):  # A citation
         title.span.extract()
-    elif title.find('span', class_='gs_ctc'): # A book or PDF
+    elif title.find('span', class_='gs_ctc'):  # A book or PDF
         title.span.extract()
     general_information['title'] = title.text.strip()
     if title.find('a'):
@@ -145,30 +171,40 @@ def _get_info_from_resulting_selection(paper_soup, skip_endnote=False, print_lev
         GID = ""
         auth_shortname = auth_shortname.strip(" …\xa0")
         if ref_list_len > ref_index and auth_shortname == author_ref_list[ref_index].text:
-            GID = re.findall(_CITATIONAUTHRE, author_ref_list[ref_index]['href'].strip())[0]
+            GID = re.findall(_CITATIONAUTHRE,
+                             author_ref_list[ref_index]['href'].strip())[0]
             ref_index += 1
-        author_list.append({ "shortname" : auth_shortname, "gid" : GID})
+        author_list.append({"shortname": auth_shortname, "gid": GID})
     general_information['author'] = author_list
     year = re.findall("[0-9]{4}", paperinfo.text)
 
-    if len(year) != 0: general_information['year'] = int(year[0])
+    if len(year) != 0:
+        general_information['year'] = int(year[0])
 
     # Save general info
     full_info["general_information"] = general_information
     if print_level >= 0:
-        settings.print_message("Title: '{}'{}".format(general_information['title'], ", " + str(year[0]) if len(year) != 0 else ""), print_level + 1)
-    # Get addition information (maybe paper in cluster then analysis cluster and get additional info for each unique paper in cluster)
+        settings.print_message(
+            "Title: '{}'{}".format(
+                general_information['title'],
+                ", " + str(
+                    year[0]) if len(year) != 0 else ""),
+            print_level + 1)
+    # Get addition information (maybe paper in cluster then analysis cluster
+    # and get additional info for each unique paper in cluster)
     footer_links = databox.find('div', class_='gs_fl').find_all('a')
     #settings.print_message("Get additional information.", 3)
-  
+
     count_sim_papers = 0
     different_information = dict()
     for link in footer_links:
         if 'versions' in link.text or 'версии статьи' in link.text:
             count_sim_papers = int(re.findall(r'\d+', link.text.strip())[0])
             logger.debug("In cluster %i papers." % count_sim_papers)
-            general_information["cluster"] = int(re.findall(r'\d+', link['href'].strip())[0])
-            different_information["versions"] = int(re.findall(r'\d+',link.text.strip())[0])
+            general_information["cluster"] = int(
+                re.findall(r'\d+', link['href'].strip())[0])
+            different_information["versions"] = int(
+                re.findall(r'\d+', link.text.strip())[0])
             break
 
     # check: have paper link to pdf
@@ -182,7 +218,7 @@ def _get_info_from_resulting_selection(paper_soup, skip_endnote=False, print_lev
             is_end_note = True
             if not skip_endnote:
                 end_note = get_info_from_EndNote(link['href'].strip(), True)
-                if end_note != None:
+                if end_note is not None:
                     different_information.update(end_note)
                 else:
                     full_info["different_information"] = None
@@ -190,20 +226,22 @@ def _get_info_from_resulting_selection(paper_soup, skip_endnote=False, print_lev
             different_information["url_scholarbib"] = link['href'].strip()
         if 'Cited by' in link.text or 'Цитируется' in link.text:
             #utils.get_soup(_HOST + link['href'].strip())
-            different_information["citedby"] = int(re.findall(r'\d+', link.text)[0])
+            different_information["citedby"] = int(
+                re.findall(r'\d+', link.text)[0])
     if not is_end_note:
         settings.print_message('Error getting EndNote files. '
                                'Please change the display settings Google Scholar in English '
                                '(https://scholar.google.com/).')
-        logger.debug('End work programme because did not find link to EndNote file.')
+        logger.debug(
+            'End work programme because did not find link to EndNote file.')
         input('Press enter to continue')
-        
+
         #raise Exception('Did not find EndNote.')
     full_info["different_information"] = different_information
     return full_info
 
 
-def get_info_from_EndNote(file_url, return_source = False):
+def get_info_from_EndNote(file_url, return_source=False):
     """Populate the Publication with information from its profile"""
     result = True
     EndNode_file = None
@@ -211,7 +249,7 @@ def get_info_from_EndNote(file_url, return_source = False):
         EndNode_file = utils.get_text_data(file_url)
         if EndNode_file is None:
             result = None
-            #while result is None:
+            # while result is None:
             #    result = input('Do not load EndNote file from scholar. Try again? [Y/N]').lower()
             #    if result == "y": result = True
             #    elif result == "n": result = False
@@ -221,7 +259,8 @@ def get_info_from_EndNote(file_url, return_source = False):
     EndNode_file = EndNode_file.replace("\r", "")
     logger.debug("EndNote file:\n%s" % EndNode_file)
     EndNote_info = EndNote_parsing(EndNode_file)
-    if not EndNote_info: return None
+    if not EndNote_info:
+        return None
     if "pages" in EndNote_info:
         try:
             pages = EndNote_info["pages"].split("-")
@@ -230,9 +269,13 @@ def get_info_from_EndNote(file_url, return_source = False):
                 end_page = pages[1].strip()
                 re_st_page = re.search("[0-9]+", start_page)
                 re_end_page = re.search("[0-9]+", end_page)
-                if re_st_page: EndNote_info["start_page"] = int(re_st_page.group(0))
-                if re_end_page: EndNote_info["end_page"] = int(re_end_page.group(0))
-                if re_st_page and re_end_page: EndNote_info["pages"] = abs(EndNote_info["end_page"] - EndNote_info["start_page"] + 1)
+                if re_st_page:
+                    EndNote_info["start_page"] = int(re_st_page.group(0))
+                if re_end_page:
+                    EndNote_info["end_page"] = int(re_end_page.group(0))
+                if re_st_page and re_end_page:
+                    EndNote_info["pages"] = abs(
+                        EndNote_info["end_page"] - EndNote_info["start_page"] + 1)
             else:
                 re_st_page = re.search("[0-9]+", EndNote_info["pages"])
                 EndNote_info["pages"] = int(re_st_page.group(0))
@@ -240,31 +283,44 @@ def get_info_from_EndNote(file_url, return_source = False):
             logger.warn("Can't eval count of pages for paper.")
             try:
                 EndNote_info["pages"] = int(EndNote_info["pages"])
-            except:
+            except BaseException:
                 EndNote_info["pages"] = None
-    if return_source: EndNote_info.update({ "EndNote" : EndNode_file })
+    if return_source:
+        EndNote_info.update({"EndNote": EndNode_file})
     return EndNote_info
 
 
-def _search_scholar_soup(soup, max_papers_count, total_papers, start_paper, skip_endnote=False, print_level=0):
+def _search_scholar_soup(soup, max_papers_count, total_papers,
+                         start_paper, skip_endnote=False, print_level=0):
     """Generator that returns pub information dictionaries from the search page"""
     page_num = 1
     counter = 0
     while True:
         paper_blocks = soup.find_all('div', 'gs_r')
         page_total = len(paper_blocks)
-        logger.debug("Find papers on page #{0} (google_max_papers = {1})".format(page_num, max_papers_count))
+        logger.debug(
+            "Find papers on page #{0} (google_max_papers = {1})".format(
+                page_num, max_papers_count))
         logger.debug("Total %i papers on page." % (page_total))
         for page_counter, paper in enumerate(paper_blocks):
-            if counter >= max_papers_count: break;
+            if counter >= max_papers_count:
+                break
             counter += 1
             if print_level >= 0:
-                settings.print_message("Process paper #{} (total {})".format(counter, total_papers), print_level)
-            logger.debug("Process paper #{} (total {})".format(counter, total_papers))
-            logger.debug("Parse html and get info about paper #{0} on searching page (total {1} on page)".format(page_counter + 1, page_total))
+                settings.print_message(
+                    "Process paper #{} (total {})".format(
+                        counter, total_papers), print_level)
+            logger.debug(
+                "Process paper #{} (total {})".format(
+                    counter, total_papers))
+            logger.debug(
+                "Parse html and get info about paper #{0} on searching page (total {1} on page)".format(
+                    page_counter + 1, page_total))
             yield _get_info_from_resulting_selection(paper, skip_endnote, print_level)
-        if soup.find(class_='gs_ico gs_ico_nav_next') and counter < max_papers_count:
-            url = soup.find(class_='gs_ico gs_ico_nav_next').parent['href'].strip()
+        if soup.find(
+                class_='gs_ico gs_ico_nav_next') and counter < max_papers_count:
+            url = soup.find(
+                class_='gs_ico gs_ico_nav_next').parent['href'].strip()
             result = True
             soup = None
             logger.debug("Load next page in resulting query selection.")
@@ -277,7 +333,8 @@ def _search_scholar_soup(soup, max_papers_count, total_papers, start_paper, skip
                 #        if result == "y": result = True
                 #        elif result == "n": result = False
             if soup is None:
-                logger.debug("Soup from google.scholar is None. Break from paper generator loop.")
+                logger.debug(
+                    "Soup from google.scholar is None. Break from paper generator loop.")
                 break
             page_num += 1
         else:
@@ -293,17 +350,23 @@ def get_about_count_results(soup):
             count_papers = title.text
             try:
                 if count_papers:
-                    count_papers = re.search("[0-9]+ resu", count_papers.replace(',', '')).group(0).split()[0]
+                    count_papers = re.search(
+                        "[0-9]+ resu",
+                        count_papers.replace(
+                            ',',
+                            '')).group(0).split()[0]
                 else:
                     count_papers = 1
                 int(count_papers)
-            except:
+            except BaseException:
                 count_papers = title.text.split(' ')[0].replace(',', '')
     else:
         count_papers = 1
     return int(count_papers)
 
-def search_pubs_query_with_control_params(params, skip_endnote=False, print_level=0):
+
+def search_pubs_query_with_control_params(
+        params, skip_endnote=False, print_level=0):
     """Advanced search by scholar query and return a generator of Publication objects"""
     one_of_words = params['one_of_words'] if 'one_of_words' in params else ''
     not_contained_words = params['not_contained_words'] if 'not_contained_words' in params else ''
@@ -312,19 +375,27 @@ def search_pubs_query_with_control_params(params, skip_endnote=False, print_leve
         if "google_max_papers" in params else float("inf") if "google_max_papers" in params else float("inf")
     url = _PUBADVANCEDSEARCH.format(
         requests.utils.quote(params['query'] if 'query' in params else ''),
-        requests.utils.quote(params['exact_phrase'] if 'exact_phrase' in params else ''),
-        requests.utils.quote(one_of_words if one_of_words is str else '+'.join(one_of_words)),
-        requests.utils.quote(not_contained_words if not_contained_words is str else '+'.join(not_contained_words)),
-        'any' if (params['words_in_body'] if 'words_in_body' in params else True) else 'title',
-        requests.utils.quote(params['authored'] if 'authored' in params else ''),
-        requests.utils.quote(params['published'] if 'published' in params else ''),
+        requests.utils.quote(
+            params['exact_phrase'] if 'exact_phrase' in params else ''),
+        requests.utils.quote(
+            one_of_words if one_of_words is str else '+'.join(one_of_words)),
+        requests.utils.quote(
+            not_contained_words if not_contained_words is str else '+'.join(not_contained_words)),
+        'any' if (params['words_in_body']
+                  if 'words_in_body' in params else True) else 'title',
+        requests.utils.quote(
+            params['authored'] if 'authored' in params else ''),
+        requests.utils.quote(
+            params['published'] if 'published' in params else ''),
         params['date_from'] if 'date_from' in params else '',
         params['date_to'] if 'date_to' in params else '',
         '0' if (params['patents'] if 'patents' in params else True) else '1',
-        '0' if (params['citations'] if 'citations' in params else True) else '1',
+        '0' if (params['citations']
+                if 'citations' in params else True) else '1',
         start_paper if start_paper > 1 else ''
     )
-    return search_pubs_custom_url(url, max_iter, start_paper, skip_endnote, print_level)
+    return search_pubs_custom_url(
+        url, max_iter, start_paper, skip_endnote, print_level)
 
 
 def search_cities(cluster_id, params, skip_endnote=False, print_level=0):
@@ -333,29 +404,34 @@ def search_cities(cluster_id, params, skip_endnote=False, print_level=0):
     url = _SITIES_SEARCH_URL.format(
         requests.utils.quote(cluster_id),
         start_paper if start_paper > 1 else '',
-        '0' if (params['citations'] if 'citations' in params else True) else '1',
+        '0' if (params['citations']
+                if 'citations' in params else True) else '1',
         '0' if (params['patents'] if 'patents' in params else True) else '1',
         params['date_from'] if 'date_from' in params else '',
-        params['date_to'] if 'date_to' in params else ''       
+        params['date_to'] if 'date_to' in params else ''
     )
     max_iter = int(params["google_max_papers"]) \
         if "google_max_papers" in params else float("inf") if "google_max_papers" in params else float("inf")
-    return search_pubs_custom_url(url, max_iter, start_paper, skip_endnote, print_level)
+    return search_pubs_custom_url(
+        url, max_iter, start_paper, skip_endnote, print_level)
 
 
-def search_pubs_custom_url(url, max_iter, start_paper, skip_endnote=False, print_level=0):
+def search_pubs_custom_url(url, max_iter, start_paper,
+                           skip_endnote=False, print_level=0):
     """Search by custom URL and return a generator of Publication objects
     URL should be of the form '/scholar?q=...'"""
     logger.debug("Load html from '%s'." % _FULLURL.format(_HOST, url))
     soup = utils.get_soup(_FULLURL.format(_HOST, url))
     if soup is None:
-        logger.debug("Soup for generator publication page URL='{0}' is None.".format(url))
+        logger.debug(
+            "Soup for generator publication page URL='{0}' is None.".format(url))
         return None, None
     about = get_about_count_results(soup)
-    return (_search_scholar_soup(soup, max_iter, about, start_paper, skip_endnote, print_level), about)
+    return (_search_scholar_soup(soup, max_iter, about,
+                                 start_paper, skip_endnote, print_level), about)
 
 
-def get_info_from_author_page(author_id): 
+def get_info_from_author_page(author_id):
     """Populate the Author with information from their profile"""
     PAGESIZE = 100
     url = '{0}&pagesize={1}'.format(_CITATIONAUTH.format(author_id), PAGESIZE)
@@ -370,4 +446,3 @@ def get_info_from_author_page(author_id):
     res["hindex"] = int(index[2].text)
     res["i10index"] = int(index[4].text)
     return res
-

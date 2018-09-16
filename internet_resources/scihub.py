@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import requests
-import sys, traceback, logging, time
+import sys
+import traceback
+import logging
+import time
 import re
 import random
 from urllib.parse import urlparse
@@ -18,34 +21,41 @@ logger.setLevel(settings.LOG_LEVEL)
 
 def get_pdf_url(QUESTION):
     """Get link to a PDF if this available"""
-    logger.debug("Get page from sci-hub for paper with question {0}.".format(QUESTION))
+    logger.debug(
+        "Get page from sci-hub for paper with question {0}.".format(QUESTION))
     url = _FULLURL.format(_HOST, QUESTION)
-    soup = utils.get_soup(url, post=True, data={"request":QUESTION, "sci-hub-plugin-check":None})
-    if not soup: return None
+    soup = utils.get_soup(
+        url,
+        post=True,
+        data={
+            "request": QUESTION,
+            "sci-hub-plugin-check": None})
+    if not soup:
+        return None
     captcha = soup.find('img', id="captcha")
     save_btn = soup.find('div', id='save')
     if not save_btn:
         buttons = soup.find('div', id='buttons')
         if buttons:
-            save_btn = [i for i in buttons.find_all("a") if "хранить" in i.text]
-            if save_btn: save_btn = save_btn[0]
+            save_btn = [i for i in buttons.find_all(
+                "a") if "хранить" in i.text]
+            if save_btn:
+                save_btn = save_btn[0]
     else:
         save_btn = save_btn.find("a")
     user_answer = None
-    if captcha != None:
+    if captcha is not None:
         utils.handle_captcha(url)
         return get_pdf_url(QUESTION)
     '''if save_btn == None or user_answer != None:
         logger.debug("PDF for this paper is unavailable.")
         return None'''
 
-
-    if user_answer != None:
+    if user_answer is not None:
         logger.debug("PDF for this paper is unavailable.")
         return None
-    if save_btn == None:
+    if save_btn is None:
         return url
-
 
     PDF_url = save_btn["onclick"].split("href='")[1][:-1]
     if PDF_url.startswith("//"):
@@ -56,17 +66,20 @@ def get_pdf_url(QUESTION):
 
 def get_pdf(QUESTION, filename):
     """Load pdf for paper with QUESTION and save to file filename"""
-    if not QUESTION: return None
+    if not QUESTION:
+        return None
     url = get_pdf_url(QUESTION)
-    if url == None: return None
+    if url is None:
+        return None
     try:
-        settings.print_message("Download pdf from Sci-Hub by '{}'".format(QUESTION), 2)
-        utils.download_file(url, filename) 
+        settings.print_message(
+            "Download pdf from Sci-Hub by '{}'".format(QUESTION), 2)
+        utils.download_file(url, filename)
         return utils.check_pdf(filename)
     except KeyboardInterrupt:
         raise
-    except:
+    except BaseException:
         logger.warn(traceback.format_exc())
-        #return False
+        # return False
         raise
     return 0

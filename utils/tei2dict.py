@@ -39,16 +39,16 @@ def tei_to_dict(tei):
     tei = tei if not isinstance(tei, text_type) else tei.encode('utf-8')
     root = etree.fromstring(tei, parser)
 
-    result = {'pubdate' : None,
-              'DOI' : None,
-              'publisher' : None,
-              'start_page' : None,
-              'end_page' : None,
-              'abstract' : None,
-              'authors' : None,
-              'keywords' : None,
-              'title' : None,
-              'references' : None
+    result = {'pubdate': None,
+              'DOI': None,
+              'publisher': None,
+              'start_page': None,
+              'end_page': None,
+              'abstract': None,
+              'authors': None,
+              'keywords': None,
+              'title': None,
+              'references': None
               }
 
     year = get_year(root)
@@ -112,7 +112,7 @@ def element_to_author(el):
     if surname and len(surname) == 1:
         name.append(surname[0].text)
 
-    result = ' '.join(name)#['name'] = ' '.join(name)
+    result = ' '.join(name)  # ['name'] = ' '.join(name)
 
     return result
 
@@ -122,9 +122,9 @@ def extract_keywords(el):
 
 
 def element_to_reference(el):
-    result = {'ref_title' : None,
-              'authors' : None,
-              'journal_pubnote' : None
+    result = {'ref_title': None,
+              'authors': None,
+              'journal_pubnote': None
               }
 
     result['ref_title'] = extract_reference_title(el)
@@ -149,20 +149,22 @@ def extract_reference_title(el):
 
 def extract_reference_pubnote(el):
     result = {
-        'journal_title' : None,
-        'doi' : None,
-        'journal_volume' : None,
-        'journal_issue' : None,
-        'year' : None,
-        'start_page' : None,
-        'end_page' : None
-        }
+        'journal_title': None,
+        'doi': None,
+        'journal_volume': None,
+        'journal_issue': None,
+        'year': None,
+        'start_page': None,
+        'end_page': None
+    }
 
     journal_title = el.xpath('./tei:monogr/tei:title', namespaces=NS)
     if journal_title and len(journal_title) == 1:
         result['journal_title'] = journal_title[0].text
 
-    journal_doi = el.xpath('./tei:analytic/tei:idno[@type="doi"]', namespaces=NS)
+    journal_doi = el.xpath(
+        './tei:analytic/tei:idno[@type="doi"]',
+        namespaces=NS)
     if journal_doi and len(journal_doi) == 1:
         result['doi'] = journal_doi[0].text.replace("doi:", "")
 
@@ -186,7 +188,8 @@ def extract_reference_pubnote(el):
     )
     if year and len(year) == 1:
         tmp = re.findall(YEAR_RE, str(year[0]))
-        if tmp: result['year'] = tmp[0]
+        if tmp:
+            result['year'] = tmp[0]
 
     pages = []
 
@@ -227,17 +230,27 @@ def get_references(root):
 def get_title(root):
     return root.xpath('//tei:titleStmt/tei:title', namespaces=NS)
 
+
 def get_year(root):
-    return root.xpath('//tei:publicationStmt/tei:date[@type="published"]/@when', namespaces=NS)
+    return root.xpath(
+        '//tei:publicationStmt/tei:date[@type="published"]/@when', namespaces=NS)
+
 
 def get_doi(root):
-    return root.xpath('//tei:sourceDesc/tei:biblStruct/tei:idno[@type="DOI"]', namespaces=NS)
+    return root.xpath(
+        '//tei:sourceDesc/tei:biblStruct/tei:idno[@type="DOI"]', namespaces=NS)
+
 
 def get_publisher(root):
-    return root.xpath('//tei:sourceDesc/tei:biblStruct/tei:monogr/tei:imprint/tei:publisher', namespaces=NS)
+    return root.xpath(
+        '//tei:sourceDesc/tei:biblStruct/tei:monogr/tei:imprint/tei:publisher', namespaces=NS)
+
 
 def get_page_from(root):
-    return root.xpath('//tei:sourceDesc/tei:biblStruct/tei:monogr/tei:imprint/tei:biblScope[@unit="page"]/@from', namespaces=NS)
+    return root.xpath(
+        '//tei:sourceDesc/tei:biblStruct/tei:monogr/tei:imprint/tei:biblScope[@unit="page"]/@from', namespaces=NS)
+
 
 def get_page_to(root):
-    return root.xpath('//tei:sourceDesc/tei:biblStruct/tei:monogr/tei:imprint/tei:biblScope[@unit="page"]/@to', namespaces=NS)
+    return root.xpath(
+        '//tei:sourceDesc/tei:biblStruct/tei:monogr/tei:imprint/tei:biblScope[@unit="page"]/@to', namespaces=NS)

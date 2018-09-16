@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import requests
-import sys, traceback, logging, time
+import sys
+import traceback
+import logging
+import time
 import re
 import random
 from urllib.parse import urlparse
@@ -24,20 +27,18 @@ def get_pdf_url(DOI):
     captcha = soup.find('img', id="captcha")
     save_btn = soup.find('div', id='save')
     user_answer = None
-    if captcha != None:
+    if captcha is not None:
         utils.handle_captcha(url)
         return get_pdf_url(DOI)
     '''if save_btn == None or user_answer != None:
         logger.debug("PDF for this paper is anavailable.")
         return None'''
 
-
-    if user_answer != None:
+    if user_answer is not None:
         logger.debug("PDF for this paper is anavailable.")
         return None
-    if save_btn == None:
+    if save_btn is None:
         return url
-
 
     PDF_url = save_btn.find("a")["onclick"].split("href='")[1].strip("'")
     if PDF_url.startswith("//"):
@@ -49,13 +50,14 @@ def get_pdf_url(DOI):
 def get_pdf(DOI, filename):
     """Load pdf for paper with DOI and save to file filename"""
     url = get_pdf_url(DOI)
-    if url == None: return False
+    if url is None:
+        return False
     try:
         settings.print_message("Download pdf...", 2)
-        utils.download_file(url, filename) 
+        utils.download_file(url, filename)
         return utils.check_pdf(filename)
-    except:
+    except BaseException:
         logger.warn(traceback.format_exc())
-        #return False
+        # return False
         raise
     return True

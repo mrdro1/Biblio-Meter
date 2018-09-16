@@ -1,7 +1,9 @@
 import os
 import traceback
 import shutil
-import sys, traceback, logging
+import sys
+import traceback
+import logging
 #
 import cv2
 from matplotlib import pyplot as plt
@@ -17,19 +19,20 @@ logger.setLevel(LOG_LEVEL)
 
 # TODO:
 # Причесать код solver'а!!!
-# 
+#
 
 model = cnn.load_pipeline()
 
 
-#def load_class_dict():
+# def load_class_dict():
 #    class_dict = dict()
 #    for i, class_name in enumerate(os.listdir('captcha\\tmp')):
 #        # class_name = fn.split('.')[0]
 #        class_dict[i] = class_name
 #    return class_dict
 
-class_dict = [s for s in "abcdefghiklmnopqrstuvwxyz"]#load_class_dict()
+class_dict = [s for s in "abcdefghiklmnopqrstuvwxyz"]  # load_class_dict()
+
 
 def del_from_temp():
     len_for_del = len(os.listdir(f'{MAIN_DIR}/captcha/tmp'))
@@ -50,8 +53,8 @@ def load_chars():
             #x = cv2.resize(x, (100, 100), interpolation=cv2.INTER_NEAREST)
             x = x.reshape((1,) + x.shape)
             yield x
-        except:
-            #print(traceback.format_exc())
+        except BaseException:
+            # print(traceback.format_exc())
             continue
 
 
@@ -71,7 +74,7 @@ def predict_imgs(fns):
         # for ans, char in zip(ans_list, chars):
         #     i = len(os.listdir('nn_ans'))
         #     cv2.imwrite(f'nn_ans\\{ans}_{i}.jpg', char)
-        #print(f'{kk}/{cc}')
+        # print(f'{kk}/{cc}')
         # img = cv2.imread(fn)
         # plt.imshow(img)
         # plt.show()
@@ -91,8 +94,8 @@ def solve(captcha_file_name):
         ans_list.append(ans)
     answer = ''.join(ans_list)
     logger.debug("CNN answer: {}.".format(answer))
-    #print_message(''.join(ans_list))
+    # print_message(''.join(ans_list))
     #img = cv2.imread(captcha_file_name)
-    #plt.imshow(img)
-    #plt.show()
+    # plt.imshow(img)
+    # plt.show()
     return answer

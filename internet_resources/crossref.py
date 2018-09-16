@@ -63,7 +63,7 @@ def get_DOI_by_title(title):
                 ''))
         logger.debug(f"Results count: {result_count}.")
         if result_count > settings.PARAMS["crossref_max_papers"]:
-            logger.debug(f"Many results: {} > {}.".format(result_count, settings.PARAMS["crossref_max_papers"]))
+            logger.debug("Many results: {} > {}.".format(result_count, settings.PARAMS["crossref_max_papers"]))
             return None
 
         articles_are_equal = False

@@ -814,7 +814,8 @@ def process_GROBID_papers():
             continue
 
         # Check cluster id in DB. If exists, add adge and all.
-        if not dbutils.check_exists_paper_with_cluster_id(google_cluster_id):
+        db_id = dbutils.check_exists_paper_with_cluster_id(google_cluster_id)
+        if not db_id:
             msg = "Get info from Google cluster (cluster id='{}').".format(
                 google_cluster_id)
             logger.debug(msg)
@@ -854,6 +855,7 @@ def process_GROBID_papers():
                 new_papers += 1
                 newpaper.add_to_database()
                 new_authors += add_authors(newpaper.db_id, newpaper.authors, 2)
+            db_id = newpaper.db_id
         else:
             msg = "Paper from cluster (cluster id='{}') already exists.".format(
                 google_cluster_id)
@@ -867,7 +869,7 @@ def process_GROBID_papers():
         # Add adge in paper_paper
         add_adge_to_sitation_graph(
             parent_paper_db_id,
-            newpaper.db_id,
+            db_id,
             serial_number)
 
         if (paper_index + 1) % commit_iterations == 0:

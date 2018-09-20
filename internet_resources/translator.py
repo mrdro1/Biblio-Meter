@@ -4,6 +4,7 @@ import re
 import traceback
 import logging
 #
+import settings
 import utils
 
 logger = logging.getLogger(__name__)

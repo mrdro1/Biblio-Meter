@@ -488,7 +488,9 @@ def get_references():
                         # about one paper).
                         papers_count = len(
                             {paper["general_information"]["title"].lower() for paper in google_papers})
-                        if papers_count == 1:
+                        max_ident_papers = settings.PARAMS.get("google_max_papers_for_identification") \
+                            if settings.PARAMS.get("google_max_papers_for_identification") else 1
+                        if papers_count == max_ident_papers:
                             best_paper = None
                             for google_paper in google_papers:
                                 logger.debug(
@@ -530,7 +532,7 @@ def get_references():
                                 # Success identification, process next
                                 # reference.
                                 continue
-                        elif papers_count > 1:
+                        elif papers_count > max_ident_papers:
                             many_versions += 1
                             msg = "Found different papers on scholar, indentification unavailable. Add this reference to DB as grobid paper."
                     else:

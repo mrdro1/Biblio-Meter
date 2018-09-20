@@ -106,6 +106,7 @@ CONTROL_KEYS = [
     "google_max_papers",
     "google_get_files",
     "google_cluster_files",
+    "google_max_papers_for_identification",
     "sci_hub_files",
     "sci_hub_download_captcha",
     "sci_hub_show_captcha",
@@ -116,6 +117,7 @@ CONTROL_KEYS = [
     "open_browser_if_captcha",
     "google_get_files_through_proxy",
     "crossref_max_papers",
+    
 ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())

@@ -2,8 +2,12 @@
 import sys
 import re
 import traceback
+import logging
 #
 import utils
+
+logger = logging.getLogger(__name__)
+logger.setLevel(settings.LOG_LEVEL)
 
 GOOGLE_TRANSLATE_URL = r"http://translate.google.com/m?hl={}&sl={}&q={}"
 
@@ -19,6 +23,6 @@ def translate(to_translate, to_language="auto", from_language="auto"):
     try:
         result = soup.find(class_='t0').string
     except BaseException:
-        logger.debug("Error translate.")
-        logger.warn(traceback.format_exc())
+        logger.debug("Tanslate error.")
+        logger.error(traceback.format_exc())
     return result

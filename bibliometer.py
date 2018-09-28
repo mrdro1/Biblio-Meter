@@ -272,6 +272,23 @@ def select_papers(col_names, grobid_paper=False):
     return (papers, columns, total_papers)
 
 
+def select_authors(col_names):
+    """ select authors from DB """
+    logger.debug("Select authors from database.")
+    settings.print_message("Select authors from database.")
+    AUTHORS_SQL = settings.PARAMS["authors"]
+    # get conditions and create standart query
+    AUTHORS_SQL = "SELECT {} FROM {} {}".format(col_names,
+                                               "authors", AUTHORS_SQL[AUTHORS_SQL.lower().find("where"):])
+    authors = dbutils.execute_sql(AUTHORS_SQL)
+    total_authors = len(authors)
+    settings.print_message("{0} authors selected.".format(total_authors))
+    logger.debug("{0} authors selected.".format(total_authors))
+    # Get columns from query
+    columns = dict([(word, i) for i, word in enumerate(col_names.split(', '))])
+    return (authors, columns, total_authors)
+
+
 def get_papers_of_authors():
     pass
 
@@ -853,6 +870,7 @@ def process_GROBID_papers():
                 settings.print_message(
                     "This paper already exists, id = {}.".format(
                         newpaper.db_id), 1)
+                dbutils.update_paper({"id": newpaper.db_id, "google_cluster_id": google_cluster_id, })
             else:
                 new_papers += 1
                 newpaper.add_to_database()
@@ -878,6 +896,88 @@ def process_GROBID_papers():
             dbutils.commit(paper_index + 1)
     return (total_db_papers, total_db_papers -
             bad_papers, new_papers, new_authors)
+
+
+def get_papers_by_author():
+    """ This function get papers of authors. """
+    commit_iterations = int(
+        settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
+    # statistic
+    authors_with_empty_papers = 0
+    new_papers = 0
+    new_authors = 0
+    #
+    authors, columns, total_db_authors = select_authors("id, google_id")
+    for author_index, author_info in enumerate(authors):
+        id = author_info[columns["id"]]
+        google_id = author_info[columns["google_id"]]
+        msg = "Get papers of the author #{} whith google id={} (total {}).".format(
+            author_index + 1, google_id, total_db_authors)
+        settings.print_message(msg)
+        logger.info(msg)
+        google_cluster_ids = scholar.get_author_papers_cluster_id(google_id)
+        if not google_cluster_ids:
+            msg = "Author has empty list of papers, skip."
+            logger.debug(msg)
+            settings.print_message(msg, 2)
+            authors_with_empty_papers += 1
+        total_papers = len(google_cluster_ids)
+        for paper_index, google_cluster_id in enumerate(google_cluster_ids):
+            msg = "Get info about paper #{} (total {}) with google cluster id={}.".format(
+                paper_index + 1, total_papers, google_cluster_id)
+            settings.print_message(msg, 2)
+            logger.debug(msg)
+            # Check cluster id in DB.
+            db_id = dbutils.check_exists_paper_with_cluster_id(google_cluster_id)
+            if not db_id:
+                msg = "Get info from Google cluster (cluster id='{}').".format(
+                    google_cluster_id)
+                logger.debug(msg)
+                settings.print_message(msg, 4)
+
+                try:
+                    paper_info = scholar.get_paper_from_cluster(
+                        google_cluster_id, print_level=3)
+                except KeyboardInterrupt:
+                    raise
+                except BaseException:
+                    msg = "Failed get information from cluster, skip."
+                    settings.print_message(msg, 6)
+                    logger.debug(msg)
+                    bad_papers += 1
+                    continue
+
+                # Loop for different versions of paper
+                if not paper_info or not paper_info["different_information"]:
+                    settings.print_message(
+                        "Not found information about paper, skip.", 6)
+                    continue
+                paper_addition_information = paper_info["different_information"]
+                logger.debug("Process content of EndNote file #{}\n{}\n{}".format(
+                    paper_index + 1, json.dumps(paper_info["general_information"]), json.dumps(paper_addition_information)))
+
+                # Create new paper entity
+                newpaper = paper.Paper()
+                # Fill data from google scholar
+                newpaper.get_info_from_sch(paper_info["general_information"],
+                                           paper_addition_information, 1, paper_info['link_to_pdf'])
+                if newpaper.in_database():
+                    settings.print_message(
+                        "This paper already exists, id={}.".format(
+                            newpaper.db_id), 4)
+                    dbutils.update_paper({"id": newpaper.db_id, "google_cluster_id": google_cluster_id, })
+                else:
+                    new_papers += 1
+                    newpaper.add_to_database()
+                    new_authors += add_authors(newpaper.db_id, newpaper.authors, 2)
+                db_id = newpaper.db_id
+            else:
+                msg = "This paper already exists, id={}.".format(db_id)
+                logger.debug(msg)
+                settings.print_message(msg, 4)
+            if (paper_index + 1) % commit_iterations == 0:
+                dbutils.commit(paper_index + 1)
+    return (total_db_authors, authors_with_empty_papers, new_papers, new_authors)
 
 
 def print_to_log_http_statistic():
@@ -998,6 +1098,15 @@ def dispatch(command):
                 msg = "Processing was successful.\nProcessing papers: %i.\n" \
                     "Non-empty DOI: %i\n" \
                     "Unavailable DOI: %i." % result
+                logger.debug(msg)
+                settings.print_message(msg)
+                break
+            if case("getPapersByAuthor"):
+                logger.debug("Processing command '%s'." % command)
+                settings.print_message("Processing command '%s'." % command)
+                result = get_papers_by_author()
+                msg = "Processing was successful.\nProcessed authors: %i.\n" \
+                    "Authors without google papers: %i.\nAdded new papers: %i.\nAdded new authors: %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break

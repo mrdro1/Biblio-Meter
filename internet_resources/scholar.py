@@ -18,12 +18,12 @@ logger.setLevel(settings.LOG_LEVEL)
 
 _HOST = 'https://scholar.google.com'
 _DOMAIN = 'google.com'
-_CITATIONAUTH = '/citations?user={0}&hl=en'
+_CITATIONAUTH = '/citations?user={}&hl=en'
 _PUBADVANCEDSEARCH = '/scholar?start={11}&q={0}&as_epq={1}&as_oq={2}&as_eq={3}&as_occt={4}&as_sauthors={5}&as_publication={6}&as_ylo={7}&as_yhi={8}&btnG=&hl=en&as_sdt={9}%2C5&as_vis={10}'
 _SCHOLARCLUSTER = '/scholar?cluster={0}&hl=en&as_sdt=1,5&as_vis=1'
 _FULLURL = r'{0}{1}'
 _SITIES_SEARCH_URL = "/scholar?start={1}&hl=en&cites={0}&as_vis={2}&as_sdt={3}&as_ylo={4}&as_yhi={5}"
-
+_AUTHOR_PAPERS_PAGE = _CITATIONAUTH + "&cstart={}&pagesize=100"
 _CITATIONAUTHRE = r'user=([\w-]*)'
 
 
@@ -449,3 +449,37 @@ def get_info_from_author_page(author_id):
     res["hindex"] = int(index[2].text)
     res["i10index"] = int(index[4].text)
     return res
+
+
+def get_author_papers_cluster_id(author_google_id):
+    papers_cluster_ids = set()
+    MAX_PAGES = 5
+    for page in range(1, MAX_PAGES + 1):
+        try:
+            logger.debug("Get author page #{} with papers from indexes [{}:{}].".format(
+                page, (page - 1) * 100 + 1, page * 100 + 1))
+            url = _FULLURL.format(_HOST, _AUTHOR_PAPERS_PAGE
+                        .format(author_google_id, (page - 1) * 100 + 1))
+            soup = utils.get_soup(url)
+            if soup is None:
+                logger.debug("Soup for author page URL='{0}' is None.".format(url))
+                return None
+            page_papers_counter = soup.find('span', id='gsc_a_nn')
+            logger.debug("Papers counter on page: {}".format(
+                "not found. It's last page." 
+                if not page_papers_counter 
+                else page_papers_counter.text))
+            for paper_info in soup.find_all("a", "gsc_a_ac gs_ibl"):
+                href = paper_info["href"]
+                if href:
+                    id = re.findall(r'\d+', href.strip())
+                    if id: papers_cluster_ids.add(id[0])
+            if not page_papers_counter or int(
+                page_papers_counter.text.split("–")[1]) < page * 100 + 1:
+                break
+        except KeyboardInterrupt:
+            raise
+        except BaseException:
+            logger.warn(traceback.format_exc())
+        logger.debug("Found paprs with cluster id: {}".format(len(papers_cluster_ids)))
+    return papers_cluster_ids

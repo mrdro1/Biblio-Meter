@@ -228,6 +228,9 @@ def _get_info_from_resulting_selection(
             #utils.get_soup(_HOST + link['href'].strip())
             different_information["citedby"] = int(
                 re.findall(r'\d+', link.text)[0])
+            if not general_information.get("cluster"):
+                general_information["cluster"] = int(
+                    re.findall(r'\d+', link['href'].strip())[0])
     if not is_end_note:
         settings.print_message('Error getting EndNote files. '
                                'Please change the display settings Google Scholar in English '

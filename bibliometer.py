@@ -907,12 +907,13 @@ def get_papers_by_author():
     new_papers = 0
     new_authors = 0
     #
-    authors, columns, total_db_authors = select_authors("id, google_id")
+    authors, columns, total_db_authors = select_authors("id, google_id, name")
     for author_index, author_info in enumerate(authors):
         id = author_info[columns["id"]]
         google_id = author_info[columns["google_id"]]
-        msg = "Get papers of the author #{} whith google id={} (total {}).".format(
-            author_index + 1, google_id, total_db_authors)
+        name = author_info[columns["name"]]
+        msg = "Get papers of the author #{} whith google id={} - {} (total {}).".format(
+            author_index + 1, google_id, name, total_db_authors)
         settings.print_message(msg)
         logger.info(msg)
         google_cluster_ids = scholar.get_author_papers_cluster_id(google_id)

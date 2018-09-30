@@ -507,7 +507,7 @@ def get_references():
                             {paper["general_information"]["title"].lower() for paper in google_papers})
                         max_ident_papers = settings.PARAMS.get("google_max_papers_for_identification") \
                             if settings.PARAMS.get("google_max_papers_for_identification") else 1
-                        if papers_count == max_ident_papers:
+                        if papers_count <= max_ident_papers:
                             best_paper = None
                             for google_paper in google_papers:
                                 logger.debug(
@@ -549,7 +549,7 @@ def get_references():
                                 # Success identification, process next
                                 # reference.
                                 continue
-                        elif papers_count > max_ident_papers:
+                        else:
                             many_versions += 1
                             msg = "Found different papers on scholar, indentification unavailable. Add this reference to DB as grobid paper."
                     else:
@@ -904,8 +904,10 @@ def get_papers_by_author():
         settings.PARAMS["commit_iterations"]) if "commit_iterations" in settings.PARAMS else inf
     # statistic
     authors_with_empty_papers = 0
+    bad_papers = 0
     new_papers = 0
     new_authors = 0
+    processed_papers = 0
     #
     authors, columns, total_db_authors = select_authors("id, google_id, name")
     for author_index, author_info in enumerate(authors):
@@ -924,6 +926,7 @@ def get_papers_by_author():
             authors_with_empty_papers += 1
         total_papers = len(google_cluster_ids)
         for paper_index, google_cluster_id in enumerate(google_cluster_ids):
+            processed_papers += 1
             msg = "Get info about paper #{} (total {}) with google cluster id={}.".format(
                 paper_index + 1, total_papers, google_cluster_id)
             settings.print_message(msg, 2)
@@ -938,10 +941,11 @@ def get_papers_by_author():
 
                 try:
                     paper_info = scholar.get_paper_from_cluster(
-                        google_cluster_id, print_level=3)
+                        google_cluster_id, print_level=3, max_endnote=True)
                 except KeyboardInterrupt:
                     raise
                 except BaseException:
+                    logger.error(traceback.format_exc())
                     msg = "Failed get information from cluster, skip."
                     settings.print_message(msg, 6)
                     logger.debug(msg)
@@ -978,7 +982,8 @@ def get_papers_by_author():
                 settings.print_message(msg, 4)
             if (paper_index + 1) % commit_iterations == 0:
                 dbutils.commit(paper_index + 1)
-    return (total_db_authors, authors_with_empty_papers, new_papers, new_authors)
+    return (total_db_authors, authors_with_empty_papers, processed_papers, 
+            processed_papers - bad_papers, new_papers, new_authors)
 
 
 def print_to_log_http_statistic():
@@ -1107,7 +1112,8 @@ def dispatch(command):
                 settings.print_message("Processing command '%s'." % command)
                 result = get_papers_by_author()
                 msg = "Processing was successful.\nProcessed authors: %i.\n" \
-                    "Authors without google papers: %i.\nAdded new papers: %i.\nAdded new authors: %i." % result
+                    "Authors without google papers: %i.\nTotal processed papers: %i.\n" \
+                    "Successful processed papers: %i.\nAdded new papers: %i.\nAdded new authors: %i." % result
                 logger.debug(msg)
                 settings.print_message(msg)
                 break

@@ -7,6 +7,7 @@ import sys
 import traceback
 import logging
 import requests
+import json
 #
 from endnoteparser import EndNote_parsing  # bibtexparser
 import settings
@@ -84,12 +85,13 @@ def get_pdfs_link_from_cluster(cluster_id):
     return tuple(pdf_links)
 
 
-def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1):
+def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1, max_endnote=False):
     logger.debug("Process papers from cluster {}.".format(cluster_id))
     url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
     logger.debug("Get cluster page URL='{0}'.".format(url))
     # Loop on pages
     MAX_PAGES = 15
+    best_paper = None
     for page in range(1, MAX_PAGES + 1):
         result = True
         soup = None
@@ -103,16 +105,30 @@ def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1):
             return None
         paper_blocks = soup.find_all('div', 'gs_r')
         logger.debug(
-            "Find papers {} on page #{} in cluster {}".format(
+            "Found papers {} on page #{} in cluster {}".format(
                 len(paper_blocks), page, cluster_id))
+
         for counter, paper in enumerate(paper_blocks):
             if counter + 1 != paper_number:
                 continue
-            logger.debug("Process paper #{}".format(counter + 1))
-            return _get_info_from_resulting_selection(
-                paper, print_level=print_level)
-    # Process failed
-    return None
+            logger.debug("Process paper #{} on page #{}".format(counter + 1, page))
+            if max_endnote:
+                paper_info = _get_info_from_resulting_selection(
+                    paper, print_level=-1)
+                logger.debug(
+                    "G paper\n{}\nBest paper\n{}".format(
+                        json.dumps(paper_info),
+                        json.dumps(best_paper)))
+                if not paper_info["different_information"]["EndNote"]:
+                    continue
+                if not best_paper or len(best_paper["different_information"]["EndNote"]) < len(
+                        paper_info["different_information"]["EndNote"]):
+                    best_paper = paper_info
+            else:
+                best_paper = _get_info_from_resulting_selection(
+                    paper, print_level=print_level)
+        if best_paper: break
+    return best_paper
 
 
 def _get_url_pdf(databox):

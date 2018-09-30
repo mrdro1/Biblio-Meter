@@ -89,27 +89,28 @@ class Paper(object):
         # Matching authors from the header and from EndNote, adding information
         # in case of coincidence
         self.authors = list()
-        for auth_index, additional_author in enumerate(
-                additional_information["author"]):
-            splited_author_name = additional_author.split(", ")
-            # if string with name has not ',' (for example: chinese name), than
-            # name_initials is empty string
-            if len(splited_author_name) == 1:
-                sirname = splited_author_name[0]
-                name_initials = str()
-            else:
-                sirname = additional_author.split(", ")[0]
-                name_initials = additional_author.split(", ")[1][0]
-            intersect_lst = [(index, author) for index, author in enumerate(general_information["author"])
-                             if not "name" in author and sirname in author["shortname"] and name_initials == author["shortname"][0]]
-            author_dict = {"name": additional_author}
-            if intersect_lst != []:
-                author_dict.update(intersect_lst[0][1])
-            self.authors.append(author_dict)
-        # Delete unmatched authors
-        for auth_index, author in enumerate(self.authors):
-            if not "name" in author:
-                del self.authors[auth_index]
+        if additional_information.get("author"):
+            for auth_index, additional_author in enumerate(
+                    additional_information["author"]):
+                splited_author_name = additional_author.split(", ")
+                # if string with name has not ',' (for example: chinese name), than
+                # name_initials is empty string
+                if len(splited_author_name) == 1:
+                    sirname = splited_author_name[0]
+                    name_initials = str()
+                else:
+                    sirname = additional_author.split(", ")[0]
+                    name_initials = additional_author.split(", ")[1][0]
+                intersect_lst = [(index, author) for index, author in enumerate(general_information["author"])
+                                 if not "name" in author and sirname in author["shortname"] and name_initials == author["shortname"][0]]
+                author_dict = {"name": additional_author}
+                if intersect_lst != []:
+                    author_dict.update(intersect_lst[0][1])
+                self.authors.append(author_dict)
+            # Delete unmatched authors
+            for auth_index, author in enumerate(self.authors):
+                if not "name" in author:
+                    del self.authors[auth_index]
 
     def get_data_from_grobid(self, pdf_filename):
         try:

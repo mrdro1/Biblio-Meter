@@ -109,7 +109,7 @@ def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1, max_endno
                 len(paper_blocks), page, cluster_id))
 
         for counter, paper in enumerate(paper_blocks):
-            if counter + 1 != paper_number:
+            if counter + 1 < paper_number:
                 continue
             logger.debug("Process paper #{} on page #{}".format(counter + 1, page))
             if max_endnote:

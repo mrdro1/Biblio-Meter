@@ -941,7 +941,9 @@ def get_papers_by_author():
 
                 try:
                     paper_info = scholar.get_paper_from_cluster(
-                        google_cluster_id, print_level=3, max_endnote=True)
+                        google_cluster_id, print_level=3, process_endnodes= \
+                        settings.PARAMS["google_count_endnotes_for_best"] if \
+                        settings.PARAMS.get("google_count_endnotes_for_best") else 1)
                 except KeyboardInterrupt:
                     raise
                 except BaseException:

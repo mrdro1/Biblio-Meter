@@ -118,6 +118,7 @@ CONTROL_KEYS = [
     "google_get_files_through_proxy",
     "crossref_max_papers",
     "authors",
+    "google_count_endnotes_for_best",
 ]
 
 CONTROL_DEFAULT_VALUES = collections.defaultdict(lambda: str())

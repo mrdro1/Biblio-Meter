@@ -85,13 +85,14 @@ def get_pdfs_link_from_cluster(cluster_id):
     return tuple(pdf_links)
 
 
-def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1, max_endnote=False):
+def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1, process_endnodes=1):
     logger.debug("Process papers from cluster {}.".format(cluster_id))
     url = _FULLURL.format(_HOST, _SCHOLARCLUSTER.format(cluster_id))
     logger.debug("Get cluster page URL='{0}'.".format(url))
     # Loop on pages
     MAX_PAGES = 15
     best_paper = None
+    endnode_counter = process_endnodes
     for page in range(1, MAX_PAGES + 1):
         result = True
         soup = None
@@ -111,8 +112,9 @@ def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1, max_endno
         for counter, paper in enumerate(paper_blocks):
             if counter + 1 < paper_number:
                 continue
+            endnode_counter -= 1
             logger.debug("Process paper #{} on page #{}".format(counter + 1, page))
-            if max_endnote:
+            if process_endnodes > 1:
                 paper_info = _get_info_from_resulting_selection(
                     paper, print_level=-1)
                 logger.debug(
@@ -124,9 +126,12 @@ def get_paper_from_cluster(cluster_id, paper_number=1, print_level=-1, max_endno
                 if not best_paper or len(best_paper["different_information"]["EndNote"]) < len(
                         paper_info["different_information"]["EndNote"]):
                     best_paper = paper_info
+                if endnode_counter == 0:
+                    break                    
             else:
                 best_paper = _get_info_from_resulting_selection(
                     paper, print_level=print_level)
+                break
         if best_paper: break
     return best_paper
 

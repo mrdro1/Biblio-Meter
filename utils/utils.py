@@ -339,7 +339,7 @@ def handle_captcha(response):
                     tmp_fname = settings.DIR_CAPTCHA_IMG + \
                         'tmp_' + href.split('/')[-1]
                     logger.debug("Download captcha image.")
-                    download_file(href, tmp_fname)
+                    download_file(href, tmp_fname, False)
                     if settings.PARAMS.get('sci_hub_download_captcha'):
                         fname = settings.DIR_CAPTCHA_IMG + href.split('/')[-1]
                         logger.debug(
@@ -654,7 +654,7 @@ def get_json_data(url):
     return json_data
 
 
-def download_file(url, output_filename):
+def download_file(url, output_filename, check_PDF=True):
     """Download file from url"""
     logger.warn(
         "Download file (url='%s') and save (filename='%s')" %
@@ -669,7 +669,7 @@ def download_file(url, output_filename):
         content_length = int(response.headers['content-length'])
         logger.debug('Content-length={}'.format(content_length))
     else:
-        if not (
+        if check_PDF and not (
                 'application/pdf' in response.headers['content-type']) and not 'refresh' in response.headers:
             logger.debug('Server do not give PDF.')
             return False

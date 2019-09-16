@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 import utils
 import settings
 
-SCIHUB_HOST_NAME = 'sci-hub.tw'
+SCIHUB_HOST_NAME = 'sci-hub.se'
 _HOST = r"http://{0}/".format(SCIHUB_HOST_NAME)
 _FULLURL = r"{0}{1}"
 

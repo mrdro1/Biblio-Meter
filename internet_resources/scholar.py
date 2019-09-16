@@ -320,7 +320,8 @@ def _search_scholar_soup(soup, max_papers_count, total_papers,
     page_num = 1
     counter = 0
     while True:
-        paper_blocks = soup.find_all('div', 'gs_r')
+        paper_blocks = soup.find_all('div', class_=lambda css_class: \
+            ("gs_r" in css_class and "gs_or" in css_class) if css_class else False)
         page_total = len(paper_blocks)
         logger.debug(
             "Find papers on page #{0} (google_max_papers = {1})".format(

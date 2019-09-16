@@ -105,7 +105,7 @@ def create_tables_if_not_exists():
          foreign key (r_paper) references papers(id)
         );
         ''',
-                         '''
+         '''
         create table if not exists paper_paper
         (r_paper1 integer not null,
          r_paper2 integer not null,

@@ -70,6 +70,10 @@ _SUCCESSFUL_START_FLAG = False
 DIR_CAPTCHA_IMG = r"captcha/"
 if not os.path.exists(DIR_CAPTCHA_IMG):
     os.mkdir(DIR_CAPTCHA_IMG)
+if not os.path.exists(DIR_CAPTCHA_IMG + "tmp/"):
+    os.mkdir(DIR_CAPTCHA_IMG + "tmp/")
+if not os.path.exists(DIR_CAPTCHA_IMG + "symbols/"):
+    os.mkdir(DIR_CAPTCHA_IMG + "symbols/")
 
 MIN_PROXIES_COUNT = 20
 DEFAULT_TIMEOUT = 10

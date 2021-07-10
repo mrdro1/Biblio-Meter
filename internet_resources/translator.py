@@ -22,7 +22,7 @@ def translate(to_translate, to_language="auto", from_language="auto"):
             to_translate))
     result = None
     try:
-        result = soup.find(class_='t0').string
+        result = soup.find(class_='result-container').string
     except BaseException:
         logger.debug("Tanslate error.")
         logger.error(traceback.format_exc())

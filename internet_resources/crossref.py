@@ -41,7 +41,7 @@ def get_DOI_by_title(title):
     vector_title = title_to_vector(title.lower())
 
     query_title = '%2B' + '+%2B'.join(title.split())
-    url = f'https://{CROSSREF_HOST_NAME}/?q={query_title}'
+    url = f'https://{CROSSREF_HOST_NAME}/?q={query_title}&from_ui=yes'
     logger.debug(f"Send query {query_title} to crossref.org.")
     try:
         soup = utils.get_soup(url)

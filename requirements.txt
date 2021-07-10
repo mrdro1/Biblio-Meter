@@ -1,0 +1,13 @@
+browser-cookie3==0.12.1
+browser-cookie
+arrow
+PyPDF2
+docx2txt
+bs4
+Pillow
+opencv-python
+tensorflow
+keras
+h5py==2.8.0
+pycryptodome==3.4.3
+matplotlib

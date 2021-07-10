@@ -15,7 +15,7 @@ import traceback
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-GROBID_SERVER = 'http://cloud.science-miner.com/grobid/api/'
+GROBID_SERVER = 'https://cloud.science-miner.com/grobid/api/'
 GROBID_PROCESSED_HEADER_COMMAND = 'processHeaderDocument'
 GROBID_PROCESSED_REFERENCES_COMMAND = 'processReferences'
 GROBID_PROCESSED_FULL_TEXT_COMMAND = 'processFulltextDocument'
@@ -65,6 +65,22 @@ def processHeaderDocument(pdf_file_name):
     dictData["abstract_ru"] = None
     logger.debug(msg)
     return dictData
+
+
+def processFullDocument(pdf_file_name):
+    """ Get info from header PDF """
+    settings.print_message("Send to grobid service.", 2)
+    data = get_data_from_grobid(
+        GROBID_PROCESSED_FULL_TEXT_COMMAND, open(
+            pdf_file_name, 'rb'))
+    settings.print_message("Check data.", 2)
+    logger.debug("Check data.")
+    if not data:
+        logger.debug(
+            "Server returned empty response (File processing failed), skip.")
+        return None
+    logger.debug("Convert completed!")
+    return data
 
 
 def processReferencesDocument(pdf_file_name):

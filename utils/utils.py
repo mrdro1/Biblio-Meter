@@ -298,10 +298,10 @@ def _get_cookies(domain=""):
 
 
 SESSIONS = {}
-SESSIONS["localhost"] = requests.Session()
-SESSIONS["localhost"].headers = _DEFAULT_HEADER
-SESSIONS["localhost"].cookies = _get_cookies()
-SESSIONS["localhost"].HTTP_requests = 0
+SESSIONS["localhost"] = create_new_session()#requests.Session()
+#SESSIONS["localhost"].headers = _DEFAULT_HEADER
+#SESSIONS["localhost"].cookies = _get_cookies()
+#SESSIONS["localhost"].HTTP_requests = 0
 
 
 def _check_captcha(soup):

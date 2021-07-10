@@ -9,5 +9,5 @@ opencv-python
 tensorflow
 keras
 h5py==2.8.0
-pycryptodome==3.4.3
+pycryptodome==3.6.6
 matplotlib
